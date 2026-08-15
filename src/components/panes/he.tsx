@@ -172,6 +172,18 @@ const Val = styled.span`
   font-variant-numeric: tabular-nums;
 `;
 
+/*
+ * 드롭다운 폭.
+ *
+ * AccentSelect 안쪽 컨테이너가 flex:1 이라 부모 폭을 그대로 따른다. 부모(Detail)는
+ * 내용에 맞춰 줄어들어서 제품 이름이 "GEON Raw HE 3.4..." 로 잘렸다. 여기서 폭을
+ * 잡아 준다.
+ */
+const SelectBox = styled.div`
+  display: flex;
+  width: 260px;
+`;
+
 /* 프리셋 한 줄이 담는 값들 — 두 줄로 접어 폭을 아낀다 */
 const PresetVals = styled.div`
   display: flex;
@@ -587,15 +599,17 @@ export const HePane: React.FC = () => {
           <ControlRow>
             <Label>{t('Type')}</Label>
             <Detail>
-              <AccentSelect
-                value={SWITCH_OPTIONS[cfg?.switchType ?? 0]}
-                options={SWITCH_OPTIONS}
-                onChange={(o: any) => {
-                  const v = o?.value ?? 0;
-                  setCfg((c) => (c ? {...c, switchType: v} : c));
-                  heSetSwitch(send, v).catch(() => {});
-                }}
-              />
+              <SelectBox>
+                <AccentSelect
+                  value={SWITCH_OPTIONS[cfg?.switchType ?? 0]}
+                  options={SWITCH_OPTIONS}
+                  onChange={(o: any) => {
+                    const v = o?.value ?? 0;
+                    setCfg((c) => (c ? {...c, switchType: v} : c));
+                    heSetSwitch(send, v).catch(() => {});
+                  }}
+                />
+              </SelectBox>
             </Detail>
           </ControlRow>
           <Note>
