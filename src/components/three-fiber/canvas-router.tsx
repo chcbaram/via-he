@@ -36,6 +36,7 @@ import {useLocation} from 'wouter';
 import {AccentButtonLarge} from '../inputs/accent-button';
 import {ConfigureKeyboard} from '../n-links/keyboard/configure';
 import {Design} from '../n-links/keyboard/design';
+import {HeKeyboard} from '../n-links/keyboard/he';
 import {Test} from '../n-links/keyboard/test';
 import {Camera} from './camera';
 import {LoaderCubey} from './loader-cubey';
@@ -247,10 +248,14 @@ const getRouteX = (route: string) => {
   const testPosition = -spaceMultiplier * 1;
   const designPosition = -spaceMultiplier * 2;
   const debugPosition = -spaceMultiplier * 3;
+  const hePosition = -spaceMultiplier * 4;
   const otherPosition = -spaceMultiplier * 3;
   switch (route) {
     case '/debug': {
       return debugPosition;
+    }
+    case '/he': {
+      return hePosition;
     }
     case '/design': {
       return designPosition;
@@ -292,6 +297,7 @@ const Keyboards = React.memo((props: any) => {
   const testPosition = -getRouteX('/test');
   const designPosition = -getRouteX('/design');
   const debugPosition = -getRouteX('/debug');
+  const hePosition = -getRouteX('/he');
 
   return (
     <>
@@ -309,6 +315,9 @@ const Keyboards = React.memo((props: any) => {
         <Design dimensions={dimensions} nDimension={'3D'} />
       </group>
       <group position-x={debugPosition}></group>
+      <group position-x={hePosition}>
+        <HeKeyboard dimensions={dimensions} nDimension={'3D'} />
+      </group>
     </>
   );
 }, shallowEqual);

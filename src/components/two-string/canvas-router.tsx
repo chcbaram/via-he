@@ -24,6 +24,7 @@ import styled from 'styled-components';
 import {useLocation} from 'wouter';
 import {ConfigureKeyboard} from '../n-links/keyboard/configure';
 import {Design} from '../n-links/keyboard/design';
+import {HeKeyboard} from '../n-links/keyboard/he';
 import {Test} from '../n-links/keyboard/test';
 
 const KeyboardBG = styled.div<{
@@ -150,10 +151,14 @@ const getRouteX = (route: string) => {
   const testPosition = -spaceMultiplier * 1;
   const designPosition = -spaceMultiplier * 2;
   const debugPosition = -spaceMultiplier * 3;
+  const hePosition = -spaceMultiplier * 4;
   const otherPosition = -spaceMultiplier * 3;
   switch (route) {
     case '/debug': {
       return debugPosition;
+    }
+    case '/he': {
+      return hePosition;
     }
     case '/design': {
       return designPosition;
@@ -250,6 +255,9 @@ const Keyboards = React.memo((props: any) => {
         <Design dimensions={dimensions} nDimension={'2D'} />
       </KeyboardRouteGroup>
       <KeyboardRouteGroup $position={3}></KeyboardRouteGroup>
+      <KeyboardRouteGroup $position={4}>
+        <HeKeyboard dimensions={dimensions} nDimension={'2D'} />
+      </KeyboardRouteGroup>
     </>
   );
 }, shallowEqual);
