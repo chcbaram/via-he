@@ -5,6 +5,17 @@ See https://stackoverflow.com/questions/40822458/styled-unicode-arrows-not-showi
 @import url('https://fonts.googleapis.com/css?family=Fira+Sans');
 @import url('https://fonts.googleapis.com/css?family=Fira+Sans&text=%E2%86%90|%E2%86%92');
 
+/*
+ * 한글 폰트.
+ *
+ * Fira Sans 에는 한글 글자가 없어서 그대로 두면 OS 기본 폰트로 떨어진다. Pretendard
+ * 는 무료(OFL)이고 획 굵기가 Fira Sans 와 비슷해 섞어 써도 어색하지 않다.
+ *
+ * dynamic-subset 은 쓰는 글자만 내려받는다. 한글 폰트는 통짜로 받으면 수 MB 라
+ * 첫 화면이 느려지는데, 이 방식이면 수십 KB 로 끝난다.
+ */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
 html,
 body {
   height: 100%;
@@ -17,7 +28,8 @@ body {
   position: relative;
   color: white;
   background-color: #232c39;
-  font-family: 'Fira Sans', Helvetica, Helvetica Neue, Arial, serif;
+  font-family: 'Fira Sans', 'Pretendard Variable', Helvetica,
+    Helvetica Neue, Arial, serif;
   font-weight: 300;
   overflow: hidden;
   margin: 0;
@@ -25,7 +37,8 @@ body {
   user-select: none;
 }
 button {
-  font-family: 'Fira Sans', Helvetica, Helvetica Neue, Arial, serif;
+  font-family: 'Fira Sans', 'Pretendard Variable', Helvetica,
+    Helvetica Neue, Arial, serif;
   font-weight: 300;
 }
 h2 {

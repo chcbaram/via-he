@@ -92,6 +92,19 @@ command" 로 걸렸다. 맞춰두면 VIA 의 명령 큐·타임아웃·에러 �
 - [ ] 래피드 트리거 / 데드존 (펌웨어 로직 뒤)
 - [ ] 보정 마법사
 
+## 한글 폰트
+
+VIA 는 Fira Sans 를 쓰는데 한글 글자가 없어서 그대로 두면 OS 기본 폰트로 떨어진다.
+`src/app.global.css` 에서 **Pretendard** 를 뒤에 붙였다 — 라틴은 Fira Sans,
+한글은 Pretendard 가 맡는다.
+
+`dynamic-subset` 판을 쓴다. 한글 폰트는 통짜로 받으면 수 MB 라 첫 화면이 느려지는데
+이 방식이면 쓰는 글자만 내려받아 수십 KB 로 끝난다.
+
+> 지금은 jsDelivr CDN 에서 받는다 (기존 Google Fonts 와 같은 방식). 오프라인이나
+> 폐쇄망에서 써야 하면 `public/fonts/` 에 받아 자체 호스팅하면 된다 — 그 폴더는
+> 이미 있다.
+
 ## GitHub Pages
 
 정적 SPA 라 Pages 로 배포된다. WebHID 는 보안 컨텍스트만 요구하고 Pages 는 HTTPS 다.
