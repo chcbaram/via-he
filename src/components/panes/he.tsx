@@ -93,7 +93,7 @@ const U = 62;
  */
 const SECTIONS = [
   {key: 'tracking', label: 'LIVE TRACKING', icon: faWaveSquare},
-  {key: 'actuation', label: 'ACTUATION', icon: faArrowDownUpAcrossLine},
+  {key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
   {key: 'switch', label: 'SWITCH', icon: faToggleOn},
   {key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
   {key: 'deadzone', label: 'DEAD ZONE', icon: faCircleHalfStroke},
@@ -432,7 +432,7 @@ export const HePane: React.FC = () => {
               </Label>
               <Detail>
                 <PresetVals>
-                  {t('Actuation')} {(p.press / 100).toFixed(2)}
+                  {t('Press')} {(p.press / 100).toFixed(2)}
                   {'  ·  '}
                   {t('Release')} {(p.release / 100).toFixed(2)}
                   {'  ·  '}
@@ -458,7 +458,7 @@ export const HePane: React.FC = () => {
             * 바로 안다 — 숫자로는 알 수 없는 것이다.
             */}
           <ControlRow>
-            <Label>{t('Actuation Point')}</Label>
+            <Label>{t('Press Point')}</Label>
             <Detail>
               <DepthSlider
                 value={cfg?.pressUm ?? 100}

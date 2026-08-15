@@ -316,7 +316,7 @@
   "Off": "Apagado",
   "CW": "CW",
   "CCW": "CCW",
-  "Press": "Pulsar",
+  "Press": "Press",
   "Rotate Counterclockwise": "Girar en sentido antihorario",
   "Rotate Clockwise": "Girar en sentido horario",
   "Press Encoder": "Pulsar encoder",
@@ -368,7 +368,6 @@
   "Add device": "Añadir dispositivo",
   "Hall Effect": "Hall Effect",
   "LIVE TRACKING": "LIVE TRACKING",
-  "ACTUATION": "ACTUATION",
   "SWITCH": "SWITCH",
   "RAPID TRIGGER": "RAPID TRIGGER",
   "DEAD ZONE": "DEAD ZONE",
@@ -405,5 +404,7 @@
   "he.bottom.note": "Near the bottom the release side is turned off. Holding a key fully pressed, a finger still eases off by 0.1-0.3mm, and that alone would release the key. This only happens with rapid trigger.",
   "he.deadzone.note": "Movement within this distance of the rest position is ignored, so vibration or tolerance cannot produce an accidental press. Leave it at zero unless the board sees vibration.",
   "Release": "Release",
-  "Re-press": "Re-press"
+  "Re-press": "Re-press",
+  "PRESS POINT": "PRESS POINT",
+  "Press Point": "Press Point"
 }
