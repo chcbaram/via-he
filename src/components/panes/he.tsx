@@ -191,6 +191,57 @@ const Val = styled.span`
 const fmtMm = (v: number | null) =>
   v === null ? '—' : `${(v / 100).toFixed(2)} mm`;
 
+/*
+ * 설명 말풍선.
+ *
+ * 기존 MenuTooltip 은 nowrap 에 대문자라 메뉴 라벨용이다. 여기 필요한 것은 두세 줄
+ * 짜리 설명이라 따로 만든다.
+ *
+ * 설명은 Note 로도 아래에 적어 두지만, 항목이 여럿이면 어느 설명이 어느 항목의
+ * 것인지 짚기 어렵다. 이름 위에서 바로 뜨는 쪽이 확실하다.
+ */
+const HintBubble = styled.span`
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 6px;
+  width: 340px;
+  max-width: 60vw;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border_color_cell);
+  background: var(--bg_menu);
+  color: var(--color_label);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: normal;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 20;
+`;
+
+const HintWrap = styled.span`
+  position: relative;
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+
+  &:hover ${HintBubble} {
+    opacity: 1;
+  }
+`;
+
+const Hint: React.FC<{tip: string; children: React.ReactNode}> = ({
+  tip,
+  children,
+}) => (
+  <HintWrap>
+    {children}
+    <HintBubble>{tip}</HintBubble>
+  </HintWrap>
+);
+
 const SelBtn = styled(AccentButton)`
   margin-left: 8px;
   min-width: 92px;
@@ -589,7 +640,9 @@ export const HePane: React.FC = () => {
             </ControlRow>
           ))}
           <ControlRow>
-            <Label>{t('Live Depth')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.live')}>{t('Live Depth')}</Hint>
+            </Label>
             <Detail>
               <AccentSlider
                 isChecked={tracking}
@@ -605,7 +658,9 @@ export const HePane: React.FC = () => {
             * 바로 안다 — 숫자로는 알 수 없는 것이다.
             */}
           <ControlRow>
-            <Label>{t('Press Point')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.press')}>{t('Press Point')}</Hint>
+            </Label>
             <Detail>
               <DepthSlider
                 value={num('pressUm', cfg?.pressUm ?? 100) ?? 100}
@@ -623,7 +678,9 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>{t('Release Point')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.release')}>{t('Release Point')}</Hint>
+            </Label>
             <Detail>
               <AccentRange
                 min={10}
@@ -639,9 +696,6 @@ export const HePane: React.FC = () => {
               </Val>
             </Detail>
           </ControlRow>
-          <Note>
-            {t('he.actuation.note')}
-          </Note>
         </>
       );
     }
@@ -657,7 +711,9 @@ export const HePane: React.FC = () => {
       return (
         <>
           <ControlRow>
-            <Label>{t('Rapid Trigger')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.rt')}>{t('Rapid Trigger')}</Hint>
+            </Label>
             <Detail>
               <AccentSlider
                 isChecked={(flags & HE_RT_ON) !== 0}
@@ -666,7 +722,9 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>{t('Continuous')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.cont')}>{t('Continuous')}</Hint>
+            </Label>
             <Detail>
               <AccentSlider
                 isChecked={(flags & HE_RT_CONT) !== 0}
@@ -675,7 +733,9 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>{t('Release Distance')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.rtRelease')}>{t('Release Distance')}</Hint>
+            </Label>
             <Detail>
               <AccentRange
                 min={10}
@@ -692,7 +752,9 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>{t('Re-press Distance')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.rtPress')}>{t('Re-press Distance')}</Hint>
+            </Label>
             <Detail>
               <AccentRange
                 min={10}
@@ -709,7 +771,9 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>{t('Bottom Protection')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.bottom')}>{t('Bottom Protection')}</Hint>
+            </Label>
             <Detail>
               <AccentSlider
                 isChecked={(flags & HE_RT_BOTTOM) !== 0}
@@ -718,7 +782,9 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>{t('Bottom Zone')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.bottomZone')}>{t('Bottom Zone')}</Hint>
+            </Label>
             <Detail>
               <AccentRange
                 min={0}
@@ -734,8 +800,6 @@ export const HePane: React.FC = () => {
               </Val>
             </Detail>
           </ControlRow>
-          <Note>{t('he.rapid.note')}</Note>
-          <Note>{t('he.bottom.note')}</Note>
         </>
       );
     }
@@ -744,7 +808,9 @@ export const HePane: React.FC = () => {
       return (
         <>
           <ControlRow>
-            <Label>{t('Dead Zone')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.dead')}>{t('Dead Zone')}</Hint>
+            </Label>
             <Detail>
               <AccentRange
                 min={0}
@@ -760,7 +826,6 @@ export const HePane: React.FC = () => {
               </Val>
             </Detail>
           </ControlRow>
-          <Note>{t('he.deadzone.note')}</Note>
         </>
       );
     }
@@ -769,7 +834,9 @@ export const HePane: React.FC = () => {
       return (
         <>
           <ControlRow>
-            <Label>{t('Type')}</Label>
+            <Label>
+              <Hint tip={t('he.tip.switch')}>{t('Type')}</Hint>
+            </Label>
             <Detail>
               {/*
                 * ★ width 는 감싸는 상자가 아니라 이 prop 이 정한다.
@@ -789,9 +856,6 @@ export const HePane: React.FC = () => {
               />
             </Detail>
           </ControlRow>
-          <Note>
-            {t('he.switch.note')}
-          </Note>
         </>
       );
     }
@@ -844,9 +908,11 @@ export const HePane: React.FC = () => {
               */}
             <ControlRow>
               <Label>
-                {selectedKeys.length === 0
-                  ? t('All keys')
-                  : `${selectedKeys.length} ${t('keys selected')}`}
+                <Hint tip={t('he.tip.selection')}>
+                  {selectedKeys.length === 0
+                    ? t('All keys')
+                    : `${selectedKeys.length} ${t('keys selected')}`}
+                </Hint>
               </Label>
               <Detail>
                 <SelBtn onClick={() => dispatch(setKeys(allKeyIndexes))}>
