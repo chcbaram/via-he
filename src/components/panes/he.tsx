@@ -325,26 +325,65 @@ export const HePane: React.FC = () => {
     return typeof v === 'number' ? v : null;
   };
 
-  /* 값 하나를 고른 키(또는 전 키)에 쓴다 */
-  const put = useCallback(
-    async (k: keyof HeKeyCfg, v: number) => {
-      const targets =
-        selectedKeys.length === 0 ? [HE_KEY_ALL] : selectedKeys;
+  /* 배치에 있는 키의 매트릭스 인덱스 — "모두 선택"과 "반전"의 모집단 */
+  const allKeyIndexes = useMemo(
+    () => layout.map((g) => g.row * 8 + g.col),
+    [layout],
+  );
+
+  /*
+   * 값을 고른 키(또는 전 키)에 쓴다.
+   *
+   * ★ 항목을 하나씩 따로 쓰면 안 된다.
+   *
+   *   처음에는 put(항목, 값) 하나만 두고 프리셋에서 네 번 불렀다. 그런데 네 번 다
+   *   같은 keyCfgs 스냅샷을 쓴다 — 리액트 상태는 다음 렌더까지 안 바뀐다. 그래서
+   *   두 번째 호출이 첫 번째 결과를 덮어써 **마지막 항목만 남았다.** 프리셋을 눌러도
+   *   일부만 바뀌는 것으로 나타났다.
+   *
+   *   바꿀 항목을 한꺼번에 받아 키마다 한 번씩만 쓴다.
+   *
+   * ★ 전 키를 고르면 브로드캐스트로 보낸다.
+   *
+   *   63키를 하나씩 쓰면 슬라이더를 끌 때마다 63 왕복이다. 펌웨어가 범위를 넘는
+   *   인덱스를 "전 키"로 받으므로 한 번이면 된다.
+   */
+  const putMany = useCallback(
+    async (patch: Partial<HeKeyCfg>) => {
+      const all =
+        selectedKeys.length === 0 ||
+        (allKeyIndexes.length > 0 &&
+          allKeyIndexes.every((i) => selectedKeys.includes(i)));
+      const targets = all ? [HE_KEY_ALL] : selectedKeys;
+      const done: Record<number, HeKeyCfg> = {};
 
       for (const i of targets) {
         const base =
           keyCfgs[i] ?? (await heReadKeyCfg(send, i === HE_KEY_ALL ? 0 : i));
-        const next = {...base, [k]: v} as HeKeyCfg;
+        const next = {...base, ...patch} as HeKeyCfg;
 
         /* 해제가 입력보다 깊으면 펌웨어가 잘라내지만, 화면 값도 맞춰 둔다 */
         if (next.releaseUm >= next.pressUm && next.pressUm > 0) {
           next.releaseUm = next.pressUm - 1;
         }
         await heWriteKeyCfg(send, i, next);
-        if (i !== HE_KEY_ALL) setKeyCfgs((m) => ({...m, [i]: next}));
+        if (i !== HE_KEY_ALL) done[i] = next;
       }
+
+      /* 브로드캐스트였으면 고른 키들의 표시값도 같이 맞춰 둔다 */
+      if (all) {
+        for (const i of selectedKeys) {
+          if (keyCfgs[i]) done[i] = {...keyCfgs[i], ...patch} as HeKeyCfg;
+        }
+      }
+      if (Object.keys(done).length) setKeyCfgs((m) => ({...m, ...done}));
     },
-    [selectedKeys, keyCfgs, send],
+    [selectedKeys, allKeyIndexes, keyCfgs, send],
+  );
+
+  const put = useCallback(
+    (k: keyof HeKeyCfg, v: number) => putMany({[k]: v} as Partial<HeKeyCfg>),
+    [putMany],
   );
 
 
@@ -454,11 +493,6 @@ export const HePane: React.FC = () => {
     return () => cancelAnimationFrame(raf);
   }, [tracking]);
 
-  /* 배치에 있는 키의 매트릭스 인덱스 — "모두 선택"과 "반전"의 모집단 */
-  const allKeyIndexes = useMemo(
-    () => layout.map((g) => g.row * 8 + g.col),
-    [layout],
-  );
 
   const travel = info?.travel ?? 400;
 
@@ -503,12 +537,12 @@ export const HePane: React.FC = () => {
          * 프리셋도 선택을 따른다 — 고른 키가 있으면 그 키들만 바뀐다.
          * 해제가 입력보다 얕아야 하므로 해제를 먼저 내린다.
          */
-        (async () => {
-          await put('releaseUm', p.release);
-          await put('pressUm', p.press);
-          await put('rtPressUm', p.rt);
-          await put('rtReleaseUm', p.rt);
-        })().catch(() => {});
+        putMany({
+          pressUm: p.press,
+          releaseUm: p.release,
+          rtPressUm: p.rt,
+          rtReleaseUm: p.rt,
+        }).catch(() => {});
       };
 
       return (
