@@ -403,12 +403,17 @@ export const HePane: React.FC = () => {
     if (section === 'tracking') {
       return (
         <>
+          {/*
+            * 켜고 끄는 상태라 토글이 맞다. 버튼이면 글자를 읽어야 지금 켜졌는지
+            * 알 수 있고, 입력지점 탭의 같은 항목과도 모양이 달랐다.
+            */}
           <ControlRow>
             <Label>{t('Live Depth')}</Label>
             <Detail>
-              <AccentButton onClick={tracking ? stop : start}>
-                {tracking ? t('Stop') : t('Start')}
-              </AccentButton>
+              <AccentSlider
+                isChecked={tracking}
+                onChange={(v: boolean) => (v ? start() : stop())}
+              />
             </Detail>
           </ControlRow>
           {info && (
