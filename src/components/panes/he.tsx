@@ -227,6 +227,22 @@ const BarTrack = styled.div`
   overflow: hidden;
 `;
 
+/*
+ * 임계값 눈금.
+ *
+ * "지금 눌렸나" 만 알려주는 표시보다 낫다 — 임계값에서 얼마나 떨어져 있는지가
+ * 보여야 액추에이션을 어디로 옮길지 판단할 수 있다. 튜닝할 때 실제로 필요한 건
+ * 그쪽이다.
+ */
+const Mark = styled.div<{$at: number; $color: string}>`
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: ${(p) => Math.min(100, p.$at * 100)}%;
+  height: 2px;
+  background: ${(p) => p.$color};
+`;
+
 const Bar = styled.div<{$ratio: number}>`
   width: 100%;
   height: ${(p) => Math.min(100, p.$ratio * 100)}%;
@@ -242,11 +258,6 @@ const Name = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-`;
-
-const Check = styled.span`
-  margin-left: 5px;
-  color: #56e05a;
 `;
 
 const Val = styled.div`
@@ -446,11 +457,17 @@ export const HePane: React.FC = () => {
             >
               <BarTrack>
                 <Bar $ratio={s ? s.depth / travel : 0} />
+                {cfg && (
+                  <>
+                    <Mark
+                      $at={cfg.releaseUm / travel}
+                      $color="rgba(255,255,255,0.35)"
+                    />
+                    <Mark $at={cfg.pressUm / travel} $color="#ffd166" />
+                  </>
+                )}
               </BarTrack>
-              <Name>
-                {label(i)}
-                {s?.pressed ? <Check>✓</Check> : null}
-              </Name>
+              <Name>{label(i)}</Name>
               <Val>{s ? (s.depth / 100).toFixed(2) : '—'}</Val>
               <Dim>{s ? s.raw : ''}</Dim>
             </KeyBox>
