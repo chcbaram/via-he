@@ -92,11 +92,7 @@ export const CanvasRouter = () => {
   const showAuthorizeButton = 'hid' in navigator || OVERRIDE_HID_CHECK;
   const hideCanvasScene =
     !showAuthorizeButton ||
-    /*
-     * HE 탭도 캔버스를 숨긴다. 이 탭은 깊이 막대가 붙은 자체 배치를 그리므로
-     * 공유 키보드 그림이 위에 있으면 두 개가 쌓이고, 그만큼 내용이 아래로 밀린다.
-     */
-    ['/settings', '/errors', '/console', '/he'].includes(path) ||
+    ['/settings', '/errors', '/console'].includes(path) ||
     hideDesignScene ||
     hideConfigureScene;
   const configureKeyboardIsSelectable = useAppSelector(

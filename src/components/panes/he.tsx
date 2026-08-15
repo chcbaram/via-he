@@ -9,32 +9,30 @@
  * 커스텀 메뉴는 [채널, 값ID] 두 바이트뿐이라 키 인덱스를 넣을 자리가 없다. 그래서
  * 전역 값만 다룰 수 있고, 키별 설정과 라이브 트래킹은 이쪽 몫이다.
  *
- * ★ 화면 구조는 Test 탭을 따른다.
+ * ★ 화면 구조는 Configure 탭 그대로다.
  *
- *   Configure 탭 위의 키보드 그림은 그 탭 안에 있는 게 아니라 전역 렌더 레이어다
- *   (그래서 ConfigureBasePane 이 투명하고 pointer-events 가 none 이다). 여기로
- *   끌어오려면 렌더 레이어의 라우트 게이팅을 건드려야 하고, 끌어와도 우리가 그리는
- *   깊이 배치와 겹친다. 그래서 전체 높이 그리드인 Test 탭 구조를 쓴다.
+ *   키보드는 공유 캔버스가 그린다. 한동안 깊이 막대가 붙은 자체 배치를 그렸는데,
+ *   케이스·배경·키캡을 아무리 맞춰도 다른 탭과 인상이 달라졌다. 판을 투명하게 두고
+ *   그 위에 그리드만 얹으면 같은 화면이 된다.
  *
- *   3단이다 — 아이콘 레일 / 하위 메뉴 / 내용. 지금은 트래킹·액추에이션·스위치뿐이지만
- *   래피드 트리거·데드존·보정이 뒤따르므로 SECTIONS 에 한 줄 더하면 늘어난다.
+ *   깊이 시각화는 공유 렌더에 얹는 쪽으로 다시 본다 — keycap 이 이미 키별 상태를
+ *   받는 통로(pressedKeys)가 있어서 거기에 실을 수 있다.
+ *
+ *   그리드는 3단이다 — 아이콘 레일 / 하위 메뉴 / 내용. 래피드 트리거·데드존·보정이
+ *   뒤따르므로 SECTIONS 에 한 줄 더하면 메뉴가 늘어난다.
  */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import styled from 'styled-components';
 import {useAppSelector} from 'src/store/hooks';
 import {getSelectedRawLayer} from 'src/store/keymapSlice';
-import {getSelectedKeyDefinitions} from 'src/store/definitionsSlice';
 import {getBasicKeyToByte} from 'src/store/definitionsSlice';
 import {getLabelForByte} from 'src/utils/key';
 import {useTranslation} from 'react-i18next';
-import {getSelectedTheme} from 'src/store/settingsSlice';
-import {getDarkenedColor} from 'src/utils/color-math';
-import {KeyColorType} from '@the-via/reader';
 import {
   getSelectedConnectedDevice,
   getSelectedKeyboardAPI,
 } from 'src/store/devicesSlice';
-import {Pane} from './pane';
+import {ConfigureBasePane} from './pane';
 import {
   Grid,
   MenuCell,
@@ -57,7 +55,6 @@ import {
   faWaveSquare,
 } from '@fortawesome/free-solid-svg-icons';
 import {AccentButton} from '../inputs/accent-button';
-import {AccentSlider} from '../inputs/accent-slider';
 import {MenuTooltip} from '../inputs/tooltip';
 import {AccentRange} from '../inputs/accent-range';
 import {AccentSelect} from '../inputs/accent-select';
@@ -131,48 +128,11 @@ const PRESETS = [
 ] as const;
 
 /*
- * Test 탭과 같은 전체 높이 판.
+ * Configure 탭과 같은 판.
  *
- * 키보드 이름 뱃지는 두지 않는다. Configure 의 뱃지는 공유 캔버스 위에 떠 있는데,
- * 그건 ConfigureBasePane 이 캔버스 영역까지 덮고 있어서 가능하다. 우리 판은 그
- * 아래에서 시작하므로 같은 뱃지를 넣으면 화면 한가운데에 떠서 어색하다.
+ * 키보드는 공유 캔버스가 그린다 — 자체 렌더를 두면 아무리 맞춰도 다른 탭과 인상이
+ * 달라진다. 판을 투명하게 두고 그 위에 그리드만 얹는다.
  */
-const HeBasePane = styled(Pane)`
-  position: relative;
-  flex-direction: column;
-`;
-
-/*
- * 배치 영역의 배경.
- *
- * 다른 탭은 공유 캔버스가 그리는 그라데이션 위에 키보드를 얹는다. HE 탭은 그
- * 캔버스를 숨기므로(우리 배치와 겹친다) 같은 그라데이션을 여기서 직접 그린다.
- *
- * 한때 이걸 뺐는데, 겹쳐 보였던 원인은 그라데이션이 아니라 케이스였다 — 스플릿
- * 백스페이스 소켓까지 다 그리느라 케이스 오른쪽에 빈 공간이 크게 남았다. 레이아웃
- * 옵션을 반영하면서 케이스가 키에 딱 맞게 되어 겹쳐 보이지 않는다.
- */
-const BoardArea = styled.div<{$accent: string}>`
-  align-self: stretch;
-  margin: -18px -24px 4px;
-  padding: 24px;
-  display: flex;
-  justify-content: center;
-  overflow-x: auto;
-  background: ${(p) =>
-    `linear-gradient(30deg, rgba(150,150,150,1) 10%, ${getDarkenedColor(
-      p.$accent,
-    )} 50%, rgba(150,150,150,1) 90%)`};
-`;
-
-/* 키보드 케이스 */
-const Case = styled.div<{$accent: string}>`
-  display: inline-block;
-  border-radius: 8px;
-  padding: 9px;
-  background: ${(p) => p.$accent};
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-`;
 
 /*
  * 내용은 가운데로 모은다. ControlRow 가 max-width 960px 이라 좁은 창에서는 꽉 차고
@@ -183,92 +143,6 @@ const Content = styled.div`
   align-items: center;
   flex-direction: column;
   padding: 18px 24px 24px;
-`;
-
-const Board = styled.div`
-  position: relative;
-  margin: 20px auto;
-`;
-
-const KeyBox = styled.div<{$pressed: boolean; $bg: string}>`
-  position: absolute;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border-radius: 5px;
-  background: ${(p) => p.$bg};
-  overflow: hidden;
-  padding: 4px 6px;
-  color: var(--color_label);
-  /*
-   * 눌림은 테두리로 알린다.
-   *
-   * 처음에는 막대와 같은 강조색이라 둘이 겹쳐 보였다. 막대를 초록으로 바꾸면서
-   * 색이 갈렸고, 그래서 테두리는 "눌렸다", 막대는 "얼마나 눌렸다" 로 역할이
-   * 나뉜다.
-   */
-  outline: ${(p) => (p.$pressed ? '2px solid var(--color_accent)' : 'none')};
-  outline-offset: -2px;
-`;
-
-/*
- * 키캡 채움. 위에서 아래로 차오른다 — 키가 내려가는 방향과 같다.
- */
-const Fill = styled.div<{$ratio: number}>`
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: ${(p) => Math.min(100, p.$ratio * 100)}%;
-  background: rgba(86, 224, 90, 0.55);
-`;
-
-/*
- * 입력지점 눈금.
- *
- * 기본으로 끈다 — 64키에 전부 선이 그어지면 배치가 지저분해진다. 액추에이션을
- * 맞출 때만 켜서 본다.
- */
-const Tick = styled.div<{$at: number}>`
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: ${(p) => Math.min(100, p.$at * 100)}%;
-  height: 1px;
-  background: rgba(255, 209, 102, 0.9);
-`;
-
-/* 글자는 채움 위에 얹는다 */
-const KeyText = styled.div`
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-`;
-
-/* 이름은 좌상단, 값은 우하단 — 상용 웹툴과 같은 배치다 */
-const Name = styled.div`
-  font-size: 13px;
-  line-height: 1.1;
-  color: var(--color_label-highlighted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const Val = styled.div`
-  align-self: flex-end;
-  font-size: 13px;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-  color: var(--color_label-highlighted);
-`;
-
-const Dim = styled(Val)`
-  font-size: 10px;
-  opacity: 0.4;
 `;
 
 const Note = styled.div`
@@ -299,13 +173,6 @@ export const HePane: React.FC = () => {
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
 
-  /*
-   * 임계값 눈금은 기본으로 끈다.
-   *
-   * 64키에 전부 선이 그어지면 배치가 지저분해진다. 액추에이션을 실제로 맞출 때만
-   * 켜서 보면 되는 정보다.
-   */
-  const [showTick, setShowTick] = useState(false);
 
   /*
    * 키 이름은 키맵에서 온다 — 숫자만 있으면 어느 키인지 세어봐야 한다.
@@ -316,20 +183,6 @@ export const HePane: React.FC = () => {
    */
   const rawLayer = useAppSelector(getSelectedRawLayer);
 
-  /*
-   * ★ 배치는 VIA 의 키 정의를 쓴다.
-   *
-   *   펌웨어에서도 읽을 수 있지만(0xC2), 그건 소켓을 전부 담고 있어 스플릿
-   *   백스페이스처럼 "둘 중 하나만 끼우는" 자리가 다 보인다. VIA 의 정의는 선택한
-   *   레이아웃 옵션에 맞는 키만 주고 위치도 제자리로 옮겨준다.
-   *
-   *   펌웨어 읽기는 정의가 없을 때의 대비책으로 남겨둔다.
-   */
-  const viaKeys = useAppSelector(getSelectedKeyDefinitions);
-
-  /* 배경·케이스 색을 다른 탭과 같은 테마에서 가져온다 */
-  const theme = useAppSelector(getSelectedTheme);
-  const accentColor = (theme as any)[KeyColorType.Accent].c;
   const {basicKeyToByte, byteToKey} = useAppSelector(getBasicKeyToByte);
 
   const chan = useRef<HeTrackChannel | null>(null);
@@ -443,76 +296,6 @@ export const HePane: React.FC = () => {
     return getLabelForByte(byte, 300, basicKeyToByte, byteToKey) ?? '';
   };
 
-  const renderBoard = () => {
-    /*
-     * VIA 정의가 있으면 그걸 쓰고, 없으면 펌웨어에서 읽은 배치로 돌아간다.
-     * VIA 쪽은 레이아웃 옵션(스플릿 백스페이스 등)을 이미 반영한 좌표를 준다.
-     */
-    const keys = viaKeys.length
-      ? viaKeys.map((k: any) => ({
-          x: k.x,
-          y: k.y,
-          w: k.w,
-          h: k.h,
-          row: k.row,
-          col: k.col,
-        }))
-      : layout.map((k) => ({
-          x: k.x / 4,
-          y: k.y / 4,
-          w: k.w / 4,
-          h: k.h / 4,
-          row: k.row,
-          col: k.col,
-        }));
-
-    if (!keys.length) return <Note>{t('he.layout.error')}</Note>;
-
-    const width = Math.max(...keys.map((k) => k.x + k.w)) * U;
-    const height = Math.max(...keys.map((k) => k.y + k.h)) * U;
-
-    return (
-      <BoardArea $accent={accentColor}>
-        <Case $accent={accentColor}>
-          <Board style={{width, height}}>
-          {keys.map((k) => {
-            const i = k.row * 8 + k.col;
-            const s = state[i];
-            return (
-              <KeyBox
-                key={`${k.row},${k.col}`}
-                $pressed={!!s?.pressed}
-                $bg={(theme as any)[KeyColorType.Alpha].c}
-                style={{
-                  left: k.x * U,
-                  top: k.y * U,
-                  width: k.w * U - 4,
-                  height: k.h * U - 4,
-                }}
-              >
-                {/*
-                  * 키캡 전체가 게이지다.
-                  *
-                  * 옆에 가는 막대를 두면 64키를 한눈에 훑을 때 잘 안 보인다.
-                  * 키캡이 통째로 차오르면 멀리서도 어느 키가 얼마나 눌렸는지
-                  * 바로 읽힌다.
-                  */}
-                <Fill $ratio={s ? s.depth / travel : 0} />
-                {showTick && cfg && <Tick $at={cfg.pressUm / travel} />}
-                <KeyText>
-                  <Name>{label(i)}</Name>
-                  <Val>{s ? (s.depth / 100).toFixed(2) : '—'}</Val>
-                  <Dim>{s ? s.raw : ''}</Dim>
-                </KeyText>
-              </KeyBox>
-            );
-            })}
-          </Board>
-        </Case>
-      </BoardArea>
-    );
-  };
-
   const renderSection = () => {
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
@@ -540,15 +323,6 @@ export const HePane: React.FC = () => {
               </Detail>
             </ControlRow>
           )}
-          <ControlRow>
-            <Label>{t('Show Actuation Line')}</Label>
-            <Detail>
-              <AccentSlider
-                isChecked={showTick}
-                onChange={setShowTick}
-              />
-            </Detail>
-          </ControlRow>
           {err && <Err>{err}</Err>}
           <Note>
             {t('he.tracking.note')}
@@ -659,8 +433,8 @@ export const HePane: React.FC = () => {
   }
 
   return (
-    <HeBasePane>
-      <Grid style={{minHeight: 0}}>
+    <ConfigureBasePane>
+      <Grid style={{pointerEvents: 'none'}}>
         <MenuCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
             {RAILS.map((r) => (
@@ -673,7 +447,7 @@ export const HePane: React.FC = () => {
             ))}
           </MenuContainer>
         </MenuCell>
-        <SubmenuOverflowCell>
+        <SubmenuOverflowCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
             {SECTIONS.map((s) => (
               <SubmenuRow
@@ -687,20 +461,12 @@ export const HePane: React.FC = () => {
             ))}
           </MenuContainer>
         </SubmenuOverflowCell>
-        <OverflowCell>
+        <OverflowCell style={{pointerEvents: 'all'}}>
           <Content>
-            {/*
-              * 배치는 어느 하위 메뉴를 보든 위에 있다. 액추에이션을 조정하면서
-              * 결과를 바로 봐야 하기 때문이다.
-              *
-              * ★ 그리드 밖으로 빼지 않는다. 밖에 두면 좌우 메뉴가 그만큼 짧아져
-              *   다른 탭과 높이가 어긋난다.
-              */}
-            {renderBoard()}
             {renderSection()}
           </Content>
         </OverflowCell>
       </Grid>
-    </HeBasePane>
+    </ConfigureBasePane>
   );
 };
