@@ -85,6 +85,10 @@ import {
   heSetBottom,
   heSetDead,
   heSetRtFlags,
+  heReadKeyCfg,
+  heWriteKeyCfg,
+  HeKeyCfg,
+  HE_KEY_ALL,
   HE_RT_ON,
   HE_RT_BOTTOM,
   HE_RT_CONT,
@@ -177,6 +181,10 @@ const Val = styled.span`
   font-variant-numeric: tabular-nums;
 `;
 
+/* 고른 키들의 값이 서로 다르면 숫자 대신 이걸 보여준다 */
+const fmtMm = (v: number | null) =>
+  v === null ? '—' : `${(v / 100).toFixed(2)} mm`;
+
 const SelBtn = styled(AccentButton)`
   margin-left: 8px;
   min-width: 92px;
@@ -261,6 +269,78 @@ export const HePane: React.FC = () => {
     },
     [api],
   );
+
+  /*
+   * 고른 키들의 값.
+   *
+   * ★ 아무것도 안 고르면 전역이다.
+   *
+   *   "전역"과 "키별"을 따로 두면 어느 쪽이 이기는지가 계속 문제가 된다. 그래서
+   *   선택이 비면 전 키(HE_KEY_ALL)에 쓰고, 표시는 이미 읽어 둔 전역 값을 쓴다.
+   */
+  const [keyCfgs, setKeyCfgs] = useState<Record<number, HeKeyCfg>>({});
+
+  useEffect(() => {
+    if (!api || selectedKeys.length === 0) return;
+    let alive = true;
+    (async () => {
+      const out: Record<number, HeKeyCfg> = {};
+      for (const i of selectedKeys) {
+        try {
+          out[i] = await heReadKeyCfg(send, i);
+        } catch {
+          /* 한 키가 실패해도 나머지는 읽는다 */
+        }
+      }
+      if (alive) setKeyCfgs(out);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, send, selectedKeys]);
+
+  /*
+   * 고른 키들이 같은 값을 가지면 그 값, 다르면 null.
+   *
+   * 아무 값이나 대표로 보여주면, 만지지도 않은 키가 조용히 그 값으로 바뀐 것처럼
+   * 보인다. 다를 때는 다르다고 하는 편이 낫다.
+   */
+  const pick = <K extends keyof HeKeyCfg>(k: K): HeKeyCfg[K] | null => {
+    if (selectedKeys.length === 0) return null;
+    const vals = selectedKeys.map((i) => keyCfgs[i]?.[k]);
+    if (vals.some((v) => v === undefined)) return null;
+    return vals.every((v) => v === vals[0]) ? (vals[0] as HeKeyCfg[K]) : null;
+  };
+
+  /* 고른 키가 있으면 그 값, 없으면 전역 값 */
+  const num = (k: keyof HeKeyCfg, global: number) => {
+    if (selectedKeys.length === 0) return global;
+    const v = pick(k);
+    return typeof v === 'number' ? v : null;
+  };
+
+  /* 값 하나를 고른 키(또는 전 키)에 쓴다 */
+  const put = useCallback(
+    async (k: keyof HeKeyCfg, v: number) => {
+      const targets =
+        selectedKeys.length === 0 ? [HE_KEY_ALL] : selectedKeys;
+
+      for (const i of targets) {
+        const base =
+          keyCfgs[i] ?? (await heReadKeyCfg(send, i === HE_KEY_ALL ? 0 : i));
+        const next = {...base, [k]: v} as HeKeyCfg;
+
+        /* 해제가 입력보다 깊으면 펌웨어가 잘라내지만, 화면 값도 맞춰 둔다 */
+        if (next.releaseUm >= next.pressUm && next.pressUm > 0) {
+          next.releaseUm = next.pressUm - 1;
+        }
+        await heWriteKeyCfg(send, i, next);
+        if (i !== HE_KEY_ALL) setKeyCfgs((m) => ({...m, [i]: next}));
+      }
+    },
+    [selectedKeys, keyCfgs, send],
+  );
+
 
   /* 배치도 설정도 장치에서 읽는다 — 정의 파일이 없거나 낡아도 맞는다 */
   useEffect(() => {
@@ -503,17 +583,17 @@ export const HePane: React.FC = () => {
             <Label>{t('Press Point')}</Label>
             <Detail>
               <DepthSlider
-                value={cfg?.pressUm ?? 100}
+                value={num('pressUm', cfg?.pressUm ?? 100) ?? 100}
                 travelUm={travel}
                 depthUm={tracking ? deepest.um : null}
                 pressed={deepest.pressed}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, pressUm: v} : c));
-                  heSetPress(send, v).catch(() => {});
+                  put('pressUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {((cfg?.pressUm ?? 100) / 100).toFixed(2)} mm
+                {fmtMm(num('pressUm', cfg?.pressUm ?? 100))}
               </Val>
             </Detail>
           </ControlRow>
@@ -523,14 +603,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={10}
                 max={travel}
-                value={cfg?.releaseUm ?? 50}
+                value={num('releaseUm', cfg?.releaseUm ?? 50) ?? 50}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, releaseUm: v} : c));
-                  heSetRelease(send, v).catch(() => {});
+                  put('releaseUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {((cfg?.releaseUm ?? 50) / 100).toFixed(2)} mm
+                {fmtMm(num('releaseUm', cfg?.releaseUm ?? 50))}
               </Val>
             </Detail>
           </ControlRow>
@@ -542,11 +622,11 @@ export const HePane: React.FC = () => {
     }
 
     if (section === 'rapid') {
-      const flags = cfg?.rtFlags ?? 0;
+      const flags = num('rtFlags', cfg?.rtFlags ?? 0) ?? 0;
       const setFlag = (bit: number, on: boolean) => {
         const next = on ? flags | bit : flags & ~bit;
         setCfg((c) => (c ? {...c, rtFlags: next} : c));
-        heSetRtFlags(send, next).catch(() => {});
+        put('rtFlags', next).catch(() => {});
       };
 
       return (
@@ -575,14 +655,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={10}
                 max={100}
-                value={cfg?.rtPressUm ?? 50}
+                value={num('rtPressUm', cfg?.rtPressUm ?? 50) ?? 50}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, rtPressUm: v} : c));
-                  heSetRtPress(send, v).catch(() => {});
+                  put('rtPressUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {((cfg?.rtPressUm ?? 50) / 100).toFixed(2)} mm
+                {fmtMm(num('rtPressUm', cfg?.rtPressUm ?? 50))}
               </Val>
             </Detail>
           </ControlRow>
@@ -592,14 +672,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={10}
                 max={100}
-                value={cfg?.rtReleaseUm ?? 50}
+                value={num('rtReleaseUm', cfg?.rtReleaseUm ?? 50) ?? 50}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, rtReleaseUm: v} : c));
-                  heSetRtRelease(send, v).catch(() => {});
+                  put('rtReleaseUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {((cfg?.rtReleaseUm ?? 50) / 100).toFixed(2)} mm
+                {fmtMm(num('rtReleaseUm', cfg?.rtReleaseUm ?? 50))}
               </Val>
             </Detail>
           </ControlRow>
@@ -618,14 +698,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={0}
                 max={50}
-                value={cfg?.bottomUm ?? 10}
+                value={num('bottomUm', cfg?.bottomUm ?? 10) ?? 10}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, bottomUm: v} : c));
-                  heSetBottom(send, v).catch(() => {});
+                  put('bottomUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {((cfg?.bottomUm ?? 10) / 100).toFixed(2)} mm
+                {fmtMm(num('bottomUm', cfg?.bottomUm ?? 10))}
               </Val>
             </Detail>
           </ControlRow>
@@ -644,14 +724,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={0}
                 max={50}
-                value={cfg?.deadUm ?? 0}
+                value={num('deadUm', cfg?.deadUm ?? 0) ?? 0}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, deadUm: v} : c));
-                  heSetDead(send, v).catch(() => {});
+                  put('deadUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {((cfg?.deadUm ?? 0) / 100).toFixed(2)} mm
+                {fmtMm(num('deadUm', cfg?.deadUm ?? 0))}
               </Val>
             </Detail>
           </ControlRow>

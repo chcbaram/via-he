@@ -315,3 +315,79 @@ export const HE_SWITCHES = [
 ];
 
 export const HE_SWITCH_NAMES = HE_SWITCHES.map((s) => s.name);
+
+
+/*
+ * 키별 설정 — HID 0xC5.
+ *
+ * VIA 커스텀 채널은 [채널, 값 ID] 두 바이트뿐이라 키 인덱스를 실을 자리가 없다.
+ * 그래서 전역은 그쪽으로, 키별은 이쪽으로 나눠 쓴다.
+ *
+ *   읽기  [C5] [00] [idx]            -> 머리 3바이트 + 값 19바이트
+ *   쓰기  [C5] [01] [idx] [값 14바이트]
+ *
+ * idx 가 키 수를 넘으면 전 키에 적용된다 — "모두 선택"이 왕복 한 번이다.
+ */
+export const HE_CMD_KEYCFG = 0xc5;
+export const HE_KEYCFG_GET = 0x00;
+export const HE_KEYCFG_SET = 0x01;
+export const HE_KEY_ALL = 0xff;
+
+const KC_OFF = 3;
+
+export type HeKeyCfg = {
+  pressUm: number;
+  releaseUm: number;
+  rtPressUm: number;
+  rtReleaseUm: number;
+  bottomUm: number;
+  deadUm: number;
+  rtFlags: number;
+  switchType: number;
+  /* 읽기 전용 — 이 키의 mm 환산 기준 */
+  strokeCnt: number;
+  travelUm: number;
+  calibrated: boolean;
+};
+
+const le16 = (r: number[], o: number) => r[o] | (r[o + 1] << 8);
+
+export async function heReadKeyCfg(
+  send: HidSender,
+  idx: number,
+): Promise<HeKeyCfg> {
+  const r = await send(HE_CMD_KEYCFG, [HE_KEYCFG_GET, idx]);
+  return {
+    pressUm: le16(r, KC_OFF + 0),
+    releaseUm: le16(r, KC_OFF + 2),
+    rtPressUm: le16(r, KC_OFF + 4),
+    rtReleaseUm: le16(r, KC_OFF + 6),
+    bottomUm: le16(r, KC_OFF + 8),
+    deadUm: le16(r, KC_OFF + 10),
+    rtFlags: r[KC_OFF + 12],
+    switchType: r[KC_OFF + 13],
+    strokeCnt: le16(r, KC_OFF + 14),
+    travelUm: le16(r, KC_OFF + 16),
+    calibrated: (r[KC_OFF + 18] & 1) !== 0,
+  };
+}
+
+export async function heWriteKeyCfg(
+  send: HidSender,
+  idx: number,
+  c: HeKeyCfg,
+): Promise<void> {
+  const w = (v: number) => [v & 0xff, (v >> 8) & 0xff];
+  await send(HE_CMD_KEYCFG, [
+    HE_KEYCFG_SET,
+    idx,
+    ...w(c.pressUm),
+    ...w(c.releaseUm),
+    ...w(c.rtPressUm),
+    ...w(c.rtReleaseUm),
+    ...w(c.bottomUm),
+    ...w(c.deadUm),
+    c.rtFlags,
+    c.switchType,
+  ]);
+}
