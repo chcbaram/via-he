@@ -77,7 +77,14 @@ export const HeKeyboard = (props: {
     <KeyboardCanvas
       matrixKeycodes={matrixKeycodes}
       keys={shownKeys}
-      selectable={false}
+      /*
+       * ★ 켜야 한다. key-group 이 disabled: !selectable 로 넘기고, 키캡은 disabled 면
+       *   핸들러를 전부 noop 으로 바꾼다. 끄면 클릭도 호버 눌림 효과도 같이 죽는다.
+       *
+       *   호버 눌림은 Configure 모드에서만 붙는다 (ConfigureColors 는 hover(true) 를
+       *   부르지 않는다). 어느 키를 가리키는지 보이려면 이 모드여야 한다.
+       */
+      selectable={true}
       definition={definition}
       containerDimensions={props.dimensions}
       mode={DisplayMode.Configure}
