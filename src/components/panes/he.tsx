@@ -102,11 +102,11 @@ const U = 62;
  * 앞으로 무엇이 오는지 알 수 있고, 로직이 생기면 플래그만 내리면 된다.
  */
 const SECTIONS = [
-  {key: 'tracking', label: 'LIVE TRACKING', icon: faWaveSquare},
+  /* 자주 만지는 것부터. 스위치는 한 번 정하면 끝이라 뒤에 둔다. */
   {key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
-  {key: 'switch', label: 'SWITCH', icon: faToggleOn},
   {key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
   {key: 'deadzone', label: 'DEAD ZONE', icon: faCircleHalfStroke},
+  {key: 'switch', label: 'SWITCH', icon: faToggleOn},
   {
     key: 'calibrate',
     label: 'CALIBRATION',
@@ -232,7 +232,7 @@ export const HePane: React.FC = () => {
   const device = useAppSelector(getSelectedConnectedDevice);
   const api = useAppSelector(getSelectedKeyboardAPI);
 
-  const [section, setSection] = useState<SectionKey>('tracking');
+  const [section, setSection] = useState<SectionKey>('actuation');
   const [layout, setLayout] = useState<HeKeyGeo[]>([]);
   const [info, setInfo] = useState<HeTrackInfo | null>(null);
   const [state, setState] = useState<HeKeyState[]>([]);
@@ -478,40 +478,6 @@ export const HePane: React.FC = () => {
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
       return <Note>{t('Not yet')} — {t(todo.todo)}</Note>;
-    }
-
-    if (section === 'tracking') {
-      return (
-        <>
-          {/*
-            * 켜고 끄는 상태라 토글이 맞다. 버튼이면 글자를 읽어야 지금 켜졌는지
-            * 알 수 있고, 입력지점 탭의 같은 항목과도 모양이 달랐다.
-            */}
-          <ControlRow>
-            <Label>{t('Live Depth')}</Label>
-            <Detail>
-              <AccentSlider
-                isChecked={tracking}
-                onChange={(v: boolean) => (v ? start() : stop())}
-              />
-            </Detail>
-          </ControlRow>
-          {info && (
-            <ControlRow>
-              <Label>{t('Status')}</Label>
-              <Detail>
-                {info.keyCount} {t('keys')} · {(travel / 100).toFixed(2)} mm{' '}
-                {t('travel')}
-                {tracking && ` · ${fps} ${t('snapshots/s')}`}
-              </Detail>
-            </ControlRow>
-          )}
-          {err && <Err>{err}</Err>}
-          <Note>
-            {t('he.tracking.note')}
-          </Note>
-        </>
-      );
     }
 
     if (section === 'actuation') {
