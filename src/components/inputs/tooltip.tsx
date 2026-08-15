@@ -20,7 +20,7 @@ export const Keycap2DTooltip: React.FC<PropsWithChildren> = (props) => {
         background: 'var(--color_accent)',
         color: 'var(--color_inside-accent)',
         fontFamily:
-          "'Fira Sans Condensed', Helvetica, Helvetica Neue, Arial, serif",
+          "'Fira Sans Condensed', 'Pretendard Variable', Helvetica, Helvetica Neue, Arial, serif",
         fontSize: 16,
         fontWeight: 500,
         whiteSpace: 'nowrap',
@@ -117,7 +117,7 @@ export const CategoryMenuTooltip: React.FC<any> = (props) => {
         background: 'var(--color_accent)',
         color: 'var(--color_inside-accent)',
         fontFamily:
-          "'Fira Sans Condensed', Helvetica, Helvetica Neue, Arial, serif",
+          "'Fira Sans Condensed', 'Pretendard Variable', Helvetica, Helvetica Neue, Arial, serif",
         fontSize: 18,
         fontWeight: 500,
         whiteSpace: 'nowrap',
@@ -171,7 +171,7 @@ export const ProgressBarTooltip: React.FC<any> = (props) => {
         background: 'var(--color_inside-accent)',
         color: 'var(--color_accent)',
         fontFamily:
-          "'Fira Sans Condensed', Helvetica, Helvetica Neue, Arial, serif",
+          "'Fira Sans Condensed', 'Pretendard Variable', Helvetica, Helvetica Neue, Arial, serif",
         fontSize: 18,
         fontWeight: 500,
         whiteSpace: 'nowrap',
@@ -223,7 +223,7 @@ export const IconButtonTooltip: React.FC<any> = (props) => {
         background: 'var(--color_inside-accent)',
         color: 'var(--color_accent)',
         fontFamily:
-          "'Fira Sans Condensed', Helvetica, Helvetica Neue, Arial, serif",
+          "'Fira Sans Condensed', 'Pretendard Variable', Helvetica, Helvetica Neue, Arial, serif",
         fontSize: 18,
         fontWeight: 500,
         whiteSpace: 'nowrap',
@@ -278,7 +278,7 @@ export const MenuTooltip: React.FC<any> = (props) => {
         color: 'var(--color_accent)',
         borderRadius: 10,
         fontFamily:
-          "'Fira Sans Condensed', Helvetica, Helvetica Neue, Arial, serif",
+          "'Fira Sans Condensed', 'Pretendard Variable', Helvetica, Helvetica Neue, Arial, serif",
         fontWeight: 400,
         whiteSpace: 'nowrap',
         display: 'flex',

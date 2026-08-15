@@ -140,7 +140,7 @@ const paintKeycapLabel = (
     return;
   }
   const fontFamily =
-    'Fira Sans, Arial Rounded MT, Arial Rounded MT Bold, Arial';
+    'Fira Sans, Pretendard Variable, Arial Rounded MT, Arial Rounded MT Bold, Arial';
   // Margins from face edge to where text is drawn
   const margin = {x: 0.015, y: 0.02};
   const centerLabelMargin = {x: 0.01, y: -0.01};
