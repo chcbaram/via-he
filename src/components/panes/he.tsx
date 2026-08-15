@@ -60,9 +60,9 @@ import {AccentRange} from '../inputs/accent-range';
 import {AccentSelect} from '../inputs/accent-select';
 import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
+import {DepthSlider} from './he-depth';
 import {
   HE_SWITCHES,
-  HE_SWITCH_GENERIC_CNT,
   HeKeyGeo,
   HeKeyState,
   HeSettings,
@@ -114,12 +114,11 @@ const RAILS = [{key: 'he', title: 'Hall Effect', icon: faWaveSquare}] as const;
 type SectionKey = (typeof SECTIONS)[number]['key'];
 
 /*
- * 일반형과 제품을 갈라 보여준다. 자기 스위치를 아는 사람은 제품을 골라야 mm 가 맞는다.
+ * 이름 뒤에 전 행정을 같이 찍는다. 자기 스위치를 아는 사람은 제품을 골라야 mm 가
+ * 맞는다 — 일반형 4.0mm 로 두고 실제가 3.4mm 였을 때 모든 mm 가 18% 어긋났다.
  */
 const SWITCH_OPTIONS = HE_SWITCHES.map((s, value) => ({
-  label:
-    (value < HE_SWITCH_GENERIC_CNT ? '' : '\u2605 ') +
-    `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
+  label: `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
   value,
 }));
 
@@ -330,6 +329,18 @@ export const HePane: React.FC = () => {
 
   const travel = info?.travel ?? 400;
 
+  /*
+   * 어느 키의 깊이를 보여줄 것인가.
+   *
+   * 키를 골라 설정하는 UI 가 아직 없으므로 **가장 깊이 눌린 키**를 쓴다. 아무 키나
+   * 눌러도 막대가 서므로 눈금을 맞추는 데는 충분하다. 키 선택이 들어오면 고른 키로
+   * 바꾼다.
+   */
+  const deepest = state.reduce(
+    (best, k) => (k && k.depth > best.um ? {um: k.depth, pressed: k.pressed} : best),
+    {um: 0, pressed: false},
+  );
+
   const label = (i: number) => {
     const byte = rawLayer?.keymap?.[i];
     if (byte === undefined) return '';
@@ -420,13 +431,21 @@ export const HePane: React.FC = () => {
               </Detail>
             </ControlRow>
           ))}
+          {/*
+            * 입력지점만 세로 자로 잡는다.
+            *
+            * 키가 위에서 아래로 내려가므로 눈금도 그 방향이어야 읽힌다. 그리고 옆에
+            * 실제 깊이를 세워 두면 "1.00mm 가 내 손가락으로 어느 정도인가"를 눌러서
+            * 바로 안다 — 숫자로는 알 수 없는 것이다.
+            */}
           <ControlRow>
             <Label>{t('Actuation Point')}</Label>
             <Detail>
-              <AccentRange
-                min={10}
-                max={travel}
+              <DepthSlider
                 value={cfg?.pressUm ?? 100}
+                travelUm={travel}
+                depthUm={tracking ? deepest.um : null}
+                pressed={deepest.pressed}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, pressUm: v} : c));
                   heSetPress(send, v).catch(() => {});
@@ -435,6 +454,15 @@ export const HePane: React.FC = () => {
               <Val>
                 {((cfg?.pressUm ?? 100) / 100).toFixed(2)} mm
               </Val>
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Live Depth')}</Label>
+            <Detail>
+              <AccentSlider
+                isChecked={tracking}
+                onChange={(v: boolean) => (v ? start() : stop())}
+              />
             </Detail>
           </ControlRow>
           <ControlRow>

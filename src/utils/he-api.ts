@@ -311,7 +311,7 @@ export const HE_SWITCHES = [
   {name: 'generic 4.0mm', travelUm: 400},
   {name: 'generic 3.5mm', travelUm: 350},
   {name: 'generic 3.0mm', travelUm: 300},
-  {name: 'GEON Raw HE', travelUm: 340},
+  {name: 'GEON RAW HE', travelUm: 340},
 ];
 
 export const HE_SWITCH_NAMES = HE_SWITCHES.map((s) => s.name);

@@ -388,7 +388,7 @@
   "firmware logic comes first": "需要先实现固件逻辑",
   "porting the CLI keys cal flow": "将移植 CLI 的 keys cal",
   "he.tracking.note": "上方数字为按下深度(mm)，下方为原始 ADC 值。左侧竖条表示相对总行程的比例，边框变亮表示固件判定该键已按下。",
-  "he.actuation.note": "Release must be shallower than actuation — the firmware clamps it. Presets also set the rapid trigger distances on the next tab. Values apply to every key; selecting individual keys comes later.",
+  "he.actuation.note": "Drag the ruler to set where the key registers. Turn on live depth and press a key — the bar shows how deep it actually goes, and the line marks your setting. Presets also set the rapid trigger distances on the next tab. Values apply to every key.",
   "he.switch.note": "用于把未校准的键换算成 mm 的标称行程。校准后以每键实测值为准。",
   "he.layout.error": "无法读取布局。此界面使用固件内的布局，而不是定义文件 (命令 0xC2)。",
   "he.noDevice": "连接键盘后将显示霍尔效应设置。",

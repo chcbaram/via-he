@@ -388,7 +388,7 @@
   "firmware logic comes first": "ファームウェアの実装が先です",
   "porting the CLI keys cal flow": "CLI の keys cal を移植します",
   "he.tracking.note": "上の数値は押下深度(mm)、下は生の ADC 値です。左のバーは全ストロークに対する比率で、枠が明るくなるとファームウェアが押下と判定した状態です。",
-  "he.actuation.note": "Release must be shallower than actuation — the firmware clamps it. Presets also set the rapid trigger distances on the next tab. Values apply to every key; selecting individual keys comes later.",
+  "he.actuation.note": "Drag the ruler to set where the key registers. Turn on live depth and press a key — the bar shows how deep it actually goes, and the line marks your setting. Presets also set the rapid trigger distances on the next tab. Values apply to every key.",
   "he.switch.note": "未キャリブレーションのキーを mm に換算するための公称ストロークです。キャリブレーション後はキー別の実測値が優先されます。",
   "he.layout.error": "レイアウトを読み取れませんでした。この画面は定義ファイルではなくファームウェアが保持するレイアウトを使います (コマンド 0xC2)。",
   "he.noDevice": "キーボードを接続するとホール効果の設定が表示されます。",
