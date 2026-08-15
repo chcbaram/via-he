@@ -115,14 +115,20 @@ const HeBasePane = styled(Pane)`
   position: relative;
 `;
 
-const Content = styled(Pane)`
-  padding: 18px 24px;
-  overflow: auto;
+/*
+ * 내용은 가운데로 모은다. ControlRow 가 max-width 960px 이라 좁은 창에서는 꽉 차고
+ * 넓은 창에서는 가운데 정렬된다 — Test 탭과 같은 모양이다.
+ */
+const Content = styled.div`
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 12px 12px 24px;
 `;
 
 const Board = styled.div`
   position: relative;
-  margin: 18px 0;
+  margin: 20px auto;
 `;
 
 const KeyBox = styled.div<{$pressed: boolean}>`
@@ -162,9 +168,11 @@ const Dim = styled(Val)`
 `;
 
 const Note = styled.div`
+  width: 100%;
+  max-width: 960px;
   opacity: 0.6;
   font-size: 13px;
-  margin-top: 10px;
+  margin-top: 12px;
   line-height: 1.6;
 `;
 
