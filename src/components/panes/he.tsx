@@ -61,7 +61,8 @@ import {AccentSelect} from '../inputs/accent-select';
 import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {
-  HE_SWITCH_NAMES,
+  HE_SWITCHES,
+  HE_SWITCH_GENERIC_CNT,
   HeKeyGeo,
   HeKeyState,
   HeSettings,
@@ -112,7 +113,15 @@ const RAILS = [{key: 'he', title: 'Hall Effect', icon: faWaveSquare}] as const;
 
 type SectionKey = (typeof SECTIONS)[number]['key'];
 
-const SWITCH_OPTIONS = HE_SWITCH_NAMES.map((label, value) => ({label, value}));
+/*
+ * 일반형과 제품을 갈라 보여준다. 자기 스위치를 아는 사람은 제품을 골라야 mm 가 맞는다.
+ */
+const SWITCH_OPTIONS = HE_SWITCHES.map((s, value) => ({
+  label:
+    (value < HE_SWITCH_GENERIC_CNT ? '' : '\u2605 ') +
+    `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
+  value,
+}));
 
 /*
  * 프리셋. 슬라이더 세 개를 모르는 사람도 바로 쓸 수 있게 한다.

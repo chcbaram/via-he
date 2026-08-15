@@ -295,4 +295,23 @@ export async function heSetSwitch(send: HidSender, type: number) {
   await send(VIA_CUSTOM_SET, [HE_CHANNEL, HE_VAL_SWITCH, type]);
 }
 
-export const HE_SWITCH_NAMES = ['generic 4.0mm', 'generic 3.5mm', 'generic 3.0mm'];
+/*
+ * 스위치 종류표 — keys.c 의 keys_switch[] 와 순서가 같아야 한다.
+ *
+ * 앞의 GENERIC_CNT 개가 일반형이고 그 뒤가 제원을 아는 제품이다. 자기 스위치를
+ * 알면 제품을 고르는 쪽이 언제나 낫다 — 전 행정이 정확해야 mm 표시가 맞는다.
+ * 일반형 4.0mm 로 두고 실제가 3.4mm 였을 때 모든 mm 가 18% 어긋났다.
+ *
+ * ★ 장치에서 읽어오는 쪽이 옳다. 지금은 양쪽에 같은 표가 있어 어긋날 수 있다 —
+ *   배치(heReadLayout)처럼 HID 로 받아오는 것을 다음에 넣는다.
+ */
+export const HE_SWITCH_GENERIC_CNT = 3;
+
+export const HE_SWITCHES = [
+  {name: 'generic 4.0mm', travelUm: 400},
+  {name: 'generic 3.5mm', travelUm: 350},
+  {name: 'generic 3.0mm', travelUm: 300},
+  {name: 'GEON Raw HE 3.4mm', travelUm: 340},
+];
+
+export const HE_SWITCH_NAMES = HE_SWITCHES.map((s) => s.name);
