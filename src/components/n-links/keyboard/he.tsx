@@ -5,14 +5,24 @@
  *
  * ★ 공유 렌더를 고치지 않았다.
  *
- *   KeyboardCanvas 에 ConfigureColors 모드가 이미 있다. 키 페인터가 쓰려고 만든
- *   것인데, 키마다 색을 주고 클릭·드래그를 받는 통로가 그대로 있다. 선택 표시가
- *   정확히 그 모양이라 새로 만들 필요가 없었다.
+ *   key-group 이 색을 이렇게 고른다.
  *
- *   keyColors 는 [색상(0~360), 채도(0~1)] 쌍이다. 고른 키만 강조색을 주고 나머지는
- *   채도 0(회색)으로 둔다.
+ *     const paletteKey = props.keyColors ? i : k.color;
+ *
+ *   처음에는 keyColors 로 직접 칠했는데, 그러면 팔레트가 통째로 바뀌어 키보드가
+ *   조명 편집기처럼 알록달록해졌다. 기본 어두운 키캡도, 사용자가 고른 키캡 테마도
+ *   전부 무시된다.
+ *
+ *   대신 **고른 키의 color 만 테마의 강조색으로 바꾼다.** 색칠은 테마가 하므로
+ *   테마를 바꾸면 강조색도 따라간다. 모디파이어 키가 이미 그렇게 구분되고 있으니
+ *   보는 사람에게도 익숙한 표시다.
+ *
+ * ★ 호버만으로 선택되지 않게 한다.
+ *
+ *   onPointerOver 는 그냥 지나가도 불린다. 버튼이 눌린 동안만 받는다 — 키 페인터도
+ *   같은 방식으로 막는다 (evt.buttons === 1).
  */
-import {VIAKey} from '@the-via/reader';
+import {KeyColorType, VIAKey} from '@the-via/reader';
 import {useMemo} from 'react';
 import {
   getSelectedDefinition,
@@ -25,10 +35,6 @@ import {DisplayMode, NDimension} from 'src/types/keyboard-rendering';
 import {getKeyboardCanvas} from './configure';
 
 const EMPTY_KEYMAP: number[] = [];
-
-/* 고른 키 / 안 고른 키의 [색상, 채도] */
-const ON: [number, number] = [8, 0.62];
-const OFF: [number, number] = [0, 0];
 
 export const HeKeyboard = (props: {
   dimensions?: DOMRect;
@@ -53,8 +59,12 @@ export const HeKeyboard = (props: {
   const cols = definition && typeof definition !== 'string' ? definition.matrix.cols : 8;
   const idxOf = (k: {row: number; col: number}) => k.row * cols + k.col;
 
-  const keyColors = useMemo(
-    () => keys.map((k) => (selected.includes(idxOf(k)) ? ON : OFF)),
+  /* 고른 키만 테마의 강조색으로 — 색칠은 테마가 한다 */
+  const shownKeys = useMemo(
+    () =>
+      keys.map((k) =>
+        selected.includes(idxOf(k)) ? {...k, color: KeyColorType.Accent} : k,
+      ),
     [keys, selected, cols],
   );
 
@@ -66,19 +76,18 @@ export const HeKeyboard = (props: {
   return (
     <KeyboardCanvas
       matrixKeycodes={matrixKeycodes}
-      keys={keys}
-      selectable={true}
+      keys={shownKeys}
+      selectable={false}
       definition={definition}
       containerDimensions={props.dimensions}
-      mode={DisplayMode.ConfigureColors}
-      keyColors={keyColors}
-      onKeycapPointerDown={(_: any, i: number) =>
-        dispatch(toggleKey(idxOf(keys[i])))
-      }
+      mode={DisplayMode.Configure}
+      onKeycapPointerDown={(evt: any, i: number) => {
+        if (evt?.buttons === 1) dispatch(toggleKey(idxOf(keys[i])));
+      }}
       /* 끌면 지나간 키를 켜기만 한다 — 토글하면 왕복할 때 꺼진다 */
-      onKeycapPointerOver={(_: any, i: number) =>
-        dispatch(addKey(idxOf(keys[i])))
-      }
+      onKeycapPointerOver={(evt: any, i: number) => {
+        if (evt?.buttons === 1) dispatch(addKey(idxOf(keys[i])));
+      }}
     />
   );
 };
