@@ -441,6 +441,15 @@ export const HePane: React.FC = () => {
               </Detail>
             </ControlRow>
           ))}
+          <ControlRow>
+            <Label>{t('Live Depth')}</Label>
+            <Detail>
+              <AccentSlider
+                isChecked={tracking}
+                onChange={(v: boolean) => (v ? start() : stop())}
+              />
+            </Detail>
+          </ControlRow>
           {/*
             * 입력지점만 세로 자로 잡는다.
             *
@@ -464,15 +473,6 @@ export const HePane: React.FC = () => {
               <Val>
                 {((cfg?.pressUm ?? 100) / 100).toFixed(2)} mm
               </Val>
-            </Detail>
-          </ControlRow>
-          <ControlRow>
-            <Label>{t('Live Depth')}</Label>
-            <Detail>
-              <AccentSlider
-                isChecked={tracking}
-                onChange={(v: boolean) => (v ? start() : stop())}
-              />
             </Detail>
           </ControlRow>
           <ControlRow>
