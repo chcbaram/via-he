@@ -144,6 +144,25 @@ const Content = styled.div`
   padding: 18px 24px 24px;
 `;
 
+/*
+ * 슬라이더 옆의 mm 값.
+ *
+ * ★ 폭을 고정한다.
+ *
+ *   본문 폰트가 비례폭이라 숫자마다 글자 폭이 다르다 (1 이 0 보다 좁다). 값이
+ *   바뀔 때마다 이 칸의 폭이 변하고, 같은 줄의 슬라이더가 그만큼 늘었다 줄었다
+ *   했다. 슬라이더를 잡고 끄는 내내 눈금이 흔들리는 셈이다.
+ *
+ *   tabular-nums 로 숫자 폭을 맞추고, 그래도 남는 흔들림은 min-width 로 막는다.
+ */
+const Val = styled.span`
+  margin-left: 12px;
+  min-width: 68px;
+  flex: 0 0 auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+`;
+
 const Note = styled.div`
   width: 100%;
   max-width: 960px;
@@ -379,9 +398,9 @@ export const HePane: React.FC = () => {
                   heSetPress(send, v).catch(() => {});
                 }}
               />
-              <span style={{marginLeft: 12}}>
+              <Val>
                 {((cfg?.pressUm ?? 100) / 100).toFixed(2)} mm
-              </span>
+              </Val>
             </Detail>
           </ControlRow>
           <ControlRow>
@@ -396,9 +415,9 @@ export const HePane: React.FC = () => {
                   heSetRelease(send, v).catch(() => {});
                 }}
               />
-              <span style={{marginLeft: 12}}>
+              <Val>
                 {((cfg?.releaseUm ?? 50) / 100).toFixed(2)} mm
-              </span>
+              </Val>
             </Detail>
           </ControlRow>
           <Note>
@@ -448,9 +467,9 @@ export const HePane: React.FC = () => {
                   heSetRtPress(send, v).catch(() => {});
                 }}
               />
-              <span style={{marginLeft: 12}}>
+              <Val>
                 {((cfg?.rtPressUm ?? 50) / 100).toFixed(2)} mm
-              </span>
+              </Val>
             </Detail>
           </ControlRow>
           <ControlRow>
@@ -465,9 +484,9 @@ export const HePane: React.FC = () => {
                   heSetRtRelease(send, v).catch(() => {});
                 }}
               />
-              <span style={{marginLeft: 12}}>
+              <Val>
                 {((cfg?.rtReleaseUm ?? 50) / 100).toFixed(2)} mm
-              </span>
+              </Val>
             </Detail>
           </ControlRow>
           <ControlRow>
@@ -491,9 +510,9 @@ export const HePane: React.FC = () => {
                   heSetBottom(send, v).catch(() => {});
                 }}
               />
-              <span style={{marginLeft: 12}}>
+              <Val>
                 {((cfg?.bottomUm ?? 10) / 100).toFixed(2)} mm
-              </span>
+              </Val>
             </Detail>
           </ControlRow>
           <Note>{t('he.rapid.note')}</Note>
@@ -517,9 +536,9 @@ export const HePane: React.FC = () => {
                   heSetDead(send, v).catch(() => {});
                 }}
               />
-              <span style={{marginLeft: 12}}>
+              <Val>
                 {((cfg?.deadUm ?? 0) / 100).toFixed(2)} mm
-              </span>
+              </Val>
             </Detail>
           </ControlRow>
           <Note>{t('he.deadzone.note')}</Note>
