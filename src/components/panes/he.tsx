@@ -675,23 +675,6 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>{t('Re-press Distance')}</Label>
-            <Detail>
-              <AccentRange
-                min={10}
-                max={100}
-                value={num('rtPressUm', cfg?.rtPressUm ?? 50) ?? 50}
-                onChange={(v: number) => {
-                  setCfg((c) => (c ? {...c, rtPressUm: v} : c));
-                  put('rtPressUm', v).catch(() => {});
-                }}
-              />
-              <Val>
-                {fmtMm(num('rtPressUm', cfg?.rtPressUm ?? 50))}
-              </Val>
-            </Detail>
-          </ControlRow>
-          <ControlRow>
             <Label>{t('Release Distance')}</Label>
             <Detail>
               <AccentRange
@@ -705,6 +688,23 @@ export const HePane: React.FC = () => {
               />
               <Val>
                 {fmtMm(num('rtReleaseUm', cfg?.rtReleaseUm ?? 50))}
+              </Val>
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Re-press Distance')}</Label>
+            <Detail>
+              <AccentRange
+                min={10}
+                max={100}
+                value={num('rtPressUm', cfg?.rtPressUm ?? 50) ?? 50}
+                onChange={(v: number) => {
+                  setCfg((c) => (c ? {...c, rtPressUm: v} : c));
+                  put('rtPressUm', v).catch(() => {});
+                }}
+              />
+              <Val>
+                {fmtMm(num('rtPressUm', cfg?.rtPressUm ?? 50))}
               </Val>
             </Detail>
           </ControlRow>
