@@ -85,6 +85,17 @@ export const HeKeyboard = (props: {
        *   부르지 않는다). 어느 키를 가리키는지 보이려면 이 모드여야 한다.
        */
       selectable={true}
+      /*
+       * ★ VIA 의 단일 선택은 쓰지 않는다.
+       *
+       *   키캡은 hovered || selected 일 때 눌린 모양이 된다. selectable 을 켜면
+       *   클릭이 updateSelectedKey 도 부르므로, 마지막에 누른 키가 손을 떼도 계속
+       *   눌린 채로 남았다.
+       *
+       *   -1 을 넘겨 "선택된 키 없음"으로 고정한다. 우리 선택은 키 색으로 따로
+       *   나타내므로 이 표시는 쓸 자리가 없다.
+       */
+      selectedKey={-1}
       definition={definition}
       containerDimensions={props.dimensions}
       mode={DisplayMode.Configure}
