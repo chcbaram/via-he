@@ -53,6 +53,16 @@ const settingsSlice = createSlice({
       state.ShowSliderValuesMode = action.payload;
       setSettings(state);
     },
+    /*
+     * 키보드 그림 영역 높이.
+     *
+     * 여기 두면 저장(localStorage)과 탭 동기화가 한꺼번에 해결된다 — 모든 탭이
+     * 같은 store 를 보므로 한 곳에서 끌면 전부 따라온다.
+     */
+    updateKeyboardHeight: (state, action: PayloadAction<number>) => {
+      state.keyboardHeight = Math.min(900, Math.max(240, action.payload));
+      setSettings(state);
+    },
     toggleCreatorMode: (state) => {
       toggleBool(state, 'showDesignTab');
     },
@@ -126,10 +136,14 @@ const settingsSlice = createSlice({
   },
 });
 
+export const getKeyboardHeight = (state: RootState) =>
+  state.settings.keyboardHeight ?? 500;
+
 export const {
   toggleFastRemap,
   updateShowSliderValuesMode,
   toggleCreatorMode,
+  updateKeyboardHeight,
   toggleConsoleTab,
   setShowDesignTab,
   setTestMatrixEnabled,

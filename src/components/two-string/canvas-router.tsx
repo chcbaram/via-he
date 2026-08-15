@@ -16,12 +16,14 @@ import {
 import {
   getDesignDefinitionVersion,
   getSelectedTheme,
+  getKeyboardHeight,
 } from 'src/store/settingsSlice';
 import {getDarkenedColor} from 'src/utils/color-math';
 import {OVERRIDE_HID_CHECK} from 'src/utils/override';
 import {useSize} from 'src/utils/use-size';
 import styled from 'styled-components';
 import {useLocation} from 'wouter';
+import {KeyboardResizer} from '../keyboard-resizer';
 import {ConfigureKeyboard} from '../n-links/keyboard/configure';
 import {Design} from '../n-links/keyboard/design';
 import {HeKeyboard} from '../n-links/keyboard/he';
@@ -99,13 +101,14 @@ export const CanvasRouter = () => {
   const configureKeyboardIsSelectable = useAppSelector(
     getConfigureKeyboardIsSelectable,
   );
+  const kbHeight = useAppSelector(getKeyboardHeight);
   const hideTerrainBG = showLoader;
 
   return (
     <>
       <div
         style={{
-          height: 500,
+          height: kbHeight,
           width: '100%',
           top: 0,
           transform: hideCanvasScene
@@ -141,6 +144,7 @@ export const CanvasRouter = () => {
           </>
         )}
       </div>
+      {hideCanvasScene ? null : <KeyboardResizer />}
     </>
   );
 };

@@ -172,6 +172,16 @@ const Val = styled.span`
 `;
 
 /*
+ * 프리셋 버튼은 폭을 맞춘다.
+ *
+ * 글자 길이가 달라 버튼 크기가 제각각이면 목록으로 안 읽히고 그냥 흩어진 버튼이
+ * 된다. 가장 긴 이름에 맞춰 고정한다.
+ */
+const PresetButton = styled(AccentButton)`
+  min-width: 130px;
+`;
+
+/*
  * 프리셋 한 줄이 담는 값들.
  *
  * 항목 이름을 짧게 줄여(Actuation Point -> Actuation) 한 줄에 넣는다. 두 줄로
@@ -416,9 +426,9 @@ export const HePane: React.FC = () => {
           {PRESETS.map((p) => (
             <ControlRow key={p.label}>
               <Label>
-                <AccentButton onClick={() => applyPreset(p)}>
+                <PresetButton onClick={() => applyPreset(p)}>
                   {t(p.label)}
-                </AccentButton>
+                </PresetButton>
               </Label>
               <Detail>
                 <PresetVals>

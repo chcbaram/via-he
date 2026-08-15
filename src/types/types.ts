@@ -93,6 +93,8 @@ export type Settings = {
   testKeyboardSoundsSettings: TestKeyboardSoundsSettings;
   designDefinitionVersion: DefinitionVersion;
   hostKeyboardLayout: string;
+  /* 키보드 그림 영역 높이(px). 손잡이를 끌어 바꾸고 모든 탭이 같이 쓴다. */
+  keyboardHeight: number;
 };
 
 export type CommonMenusMap = {

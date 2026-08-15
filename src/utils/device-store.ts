@@ -33,6 +33,7 @@ const defaultStoreData = {
     disableFastRemap: false,
     ShowSliderValuesMode: 'Slider Only' as const,
     renderMode: '2D' as const,
+    keyboardHeight: 500,
     themeMode: 'dark' as const,
     designDefinitionVersion: 'v3' as const,
     themeName: 'OLIVIA_DARK',

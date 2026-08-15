@@ -28,11 +28,13 @@ import {
 import {
   getDesignDefinitionVersion,
   getSelectedTheme,
+  getKeyboardHeight,
 } from 'src/store/settingsSlice';
 import {OVERRIDE_HID_CHECK} from 'src/utils/override';
 import {useSize} from 'src/utils/use-size';
 import {Object3D, SpotLight as ThreeSpotLight} from 'three';
 import {useLocation} from 'wouter';
+import {KeyboardResizer} from '../keyboard-resizer';
 import {AccentButtonLarge} from '../inputs/accent-button';
 import {ConfigureKeyboard} from '../n-links/keyboard/configure';
 import {Design} from '../n-links/keyboard/design';
@@ -120,12 +122,13 @@ export const NonSuspenseCanvasRouter = () => {
     getConfigureKeyboardIsSelectable,
   );
 
+  const kbHeight = useAppSelector(getKeyboardHeight);
   const hideTerrainBG = showLoader;
   return (
     <>
       <div
         style={{
-          height: 500,
+          height: kbHeight,
           width: '100%',
           top: 0,
           transform: hideCanvasScene
@@ -198,6 +201,7 @@ export const NonSuspenseCanvasRouter = () => {
           />
         </Canvas>
       </div>
+      {hideCanvasScene ? null : <KeyboardResizer />}
     </>
   );
 };
