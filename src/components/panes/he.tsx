@@ -22,7 +22,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import styled from 'styled-components';
 import {useAppSelector} from 'src/store/hooks';
-import {getSelectedKeymap} from 'src/store/keymapSlice';
+import {getSelectedRawLayer} from 'src/store/keymapSlice';
 import {getBasicKeyToByte} from 'src/store/definitionsSlice';
 import {getLabelForByte} from 'src/utils/key';
 import {useTranslation} from 'react-i18next';
@@ -73,7 +73,7 @@ import {
 } from 'src/utils/he-api';
 
 /* 1 키유닛을 픽셀로. geo 는 1/4 유닛이라 4로 나눈다. */
-const U = 52;
+const U = 62;
 
 /*
  * 하위 메뉴. 아직 펌웨어 로직이 없는 것은 disabled 로 두되 **보이게** 한다 —
@@ -134,6 +134,16 @@ const PRESETS = [
  */
 const HeBasePane = styled(Pane)`
   position: relative;
+  flex-direction: column;
+`;
+
+/* 위쪽 배치 영역. 내용이 길어지면 아래 그리드만 스크롤된다. */
+const BoardArea = styled.div`
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: 18px 12px 6px;
+  overflow-x: auto;
 `;
 
 /*
@@ -155,15 +165,16 @@ const Board = styled.div`
 const KeyBox = styled.div<{$pressed: boolean}>`
   position: absolute;
   box-sizing: border-box;
-  border-radius: 6px;
-  border: 1px solid var(--border_color_cell);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: 5px;
   background: var(--bg_control);
   overflow: hidden;
-  font-size: 11px;
-  line-height: 1.2;
+  padding: 5px 7px;
   color: var(--color_label);
-  padding: 3px 5px 3px 9px;
   outline: ${(p) => (p.$pressed ? '2px solid var(--color_accent)' : 'none')};
+  outline-offset: -2px;
 `;
 
 /*
@@ -174,25 +185,32 @@ const Bar = styled.div<{$ratio: number}>`
   position: absolute;
   left: 0;
   bottom: 0;
-  width: 5px;
+  width: 4px;
   height: ${(p) => Math.min(100, p.$ratio * 100)}%;
   background: var(--color_accent);
 `;
 
+/* 이름은 좌상단, 값은 우하단 — 상용 웹툴과 같은 배치다 */
 const Name = styled.div`
-  opacity: 0.85;
+  font-size: 13px;
+  line-height: 1.1;
+  color: var(--color_label-highlighted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
 
 const Val = styled.div`
-  text-align: right;
+  align-self: flex-end;
+  font-size: 13px;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
+  color: var(--color_label-highlighted);
 `;
 
 const Dim = styled(Val)`
-  opacity: 0.45;
+  font-size: 10px;
+  opacity: 0.4;
 `;
 
 const Note = styled.div`
@@ -223,8 +241,14 @@ export const HePane: React.FC = () => {
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
 
-  /* 키 이름은 키맵에서 온다 — 숫자만 있으면 어느 키인지 세어봐야 한다 */
-  const keymap = useAppSelector(getSelectedKeymap);
+  /*
+   * 키 이름은 키맵에서 온다 — 숫자만 있으면 어느 키인지 세어봐야 한다.
+   *
+   * ★ getSelectedKeymap 이 아니라 원본 레이어를 쓴다.
+   *   그쪽은 **키 정의 순서**로 늘어놓은 배열이라 (row, col) 로 못 찾는다.
+   *   원본 레이어는 EEPROM 배치 그대로라 row * cols + col 이 통한다.
+   */
+  const rawLayer = useAppSelector(getSelectedRawLayer);
   const {basicKeyToByte, byteToKey} = useAppSelector(getBasicKeyToByte);
 
   const chan = useRef<HeTrackChannel | null>(null);
@@ -333,9 +357,9 @@ export const HePane: React.FC = () => {
   const travel = info?.travel ?? 400;
 
   const label = (i: number) => {
-    const byte = keymap?.[i];
+    const byte = rawLayer?.keymap?.[i];
     if (byte === undefined) return '';
-    return getLabelForByte(byte, 100, basicKeyToByte, byteToKey) ?? '';
+    return getLabelForByte(byte, 300, basicKeyToByte, byteToKey) ?? '';
   };
 
   const renderBoard = () => {
@@ -362,8 +386,8 @@ export const HePane: React.FC = () => {
               style={{
                 left: (k.x * U) / 4,
                 top: (k.y * U) / 4,
-                width: (k.w * U) / 4 - 3,
-                height: (k.h * U) / 4 - 3,
+                width: (k.w * U) / 4 - 4,
+                height: (k.h * U) / 4 - 4,
               }}
             >
               <Bar $ratio={s ? s.depth / travel : 0} />
@@ -405,7 +429,6 @@ export const HePane: React.FC = () => {
             </ControlRow>
           )}
           {err && <Err>{err}</Err>}
-          {renderBoard()}
           <Note>
             {t('he.tracking.note')}
           </Note>
@@ -516,7 +539,12 @@ export const HePane: React.FC = () => {
 
   return (
     <HeBasePane>
-      <Grid>
+      {/*
+        * 배치는 어느 하위 메뉴를 보든 항상 위에 있다. 액추에이션을 조정하면서
+        * 그 결과를 바로 볼 수 있어야 하기 때문이다 — 상용 웹툴도 같은 구조다.
+        */}
+      <BoardArea>{renderBoard()}</BoardArea>
+      <Grid style={{minHeight: 0}}>
         <MenuCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
             {RAILS.map((r) => (
