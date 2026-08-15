@@ -26,6 +26,9 @@ import {getSelectedRawLayer} from 'src/store/keymapSlice';
 import {getBasicKeyToByte} from 'src/store/definitionsSlice';
 import {getLabelForByte} from 'src/utils/key';
 import {useTranslation} from 'react-i18next';
+import {getSelectedTheme} from 'src/store/settingsSlice';
+import {KeyColorType} from '@the-via/reader';
+import {getDarkenedColor} from 'src/utils/color-math';
 import {
   getSelectedConnectedDevice,
   getSelectedKeyboardAPI,
@@ -137,13 +140,32 @@ const HeBasePane = styled(Pane)`
   flex-direction: column;
 `;
 
-/* 위쪽 배치 영역. 내용이 길어지면 아래 그리드만 스크롤된다. */
-const BoardArea = styled.div`
+/*
+ * 위쪽 배치 영역.
+ *
+ * 다른 탭은 공유 캔버스가 그리는 그라데이션 위에 키보드를 얹는다. HE 탭은 그
+ * 캔버스를 숨기므로(우리 배치와 겹친다) 같은 그라데이션을 여기서 직접 그린다 —
+ * 배경까지 달라지면 아예 다른 앱처럼 보인다.
+ */
+const BoardArea = styled.div<{$accent: string}>`
   flex: 0 0 auto;
   display: flex;
   justify-content: center;
-  padding: 18px 12px 6px;
+  align-items: center;
+  padding: 28px 12px;
   overflow-x: auto;
+  background: ${(p) =>
+    `linear-gradient(30deg, rgba(150,150,150,1) 10%, ${getDarkenedColor(
+      p.$accent,
+    )} 50%, rgba(150,150,150,1) 90%)`};
+`;
+
+/* 키보드 케이스. 다른 탭의 렌더와 같은 인상이 되도록 테두리를 두른다. */
+const Case = styled.div<{$accent: string}>`
+  border-radius: 8px;
+  padding: 10px;
+  background: ${(p) => p.$accent};
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
 `;
 
 /*
@@ -162,32 +184,54 @@ const Board = styled.div`
   margin: 20px auto;
 `;
 
-const KeyBox = styled.div<{$pressed: boolean}>`
+const KeyBox = styled.div<{$pressed: boolean; $bg: string}>`
   position: absolute;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   border-radius: 5px;
-  background: var(--bg_control);
+  background: ${(p) => p.$bg};
   overflow: hidden;
-  padding: 5px 7px;
+  padding: 5px 7px 5px 17px;
   color: var(--color_label);
-  outline: ${(p) => (p.$pressed ? '2px solid var(--color_accent)' : 'none')};
-  outline-offset: -2px;
+  /*
+   * 눌림은 초록 막대와 체크로 알린다. 테두리까지 같은 색으로 두르면 정보가 겹치고,
+   * 정작 깊이를 읽어야 할 막대가 묻힌다. 대신 키캡을 살짝 밝혀 활성 상태만 준다.
+   */
+  filter: ${(p) => (p.$pressed ? 'brightness(1.35)' : 'none')};
+  transition: filter 60ms linear;
 `;
 
 /*
  * 깊이 막대. 상용 디버깅 화면이 키 왼쪽에 세로 막대를 두는 것과 같은 모양인데,
  * 칸을 더 쓰지 않으려고 값 위에 겹쳐 그린다.
  */
-const Bar = styled.div<{$ratio: number}>`
+/*
+ * 깊이 막대.
+ *
+ * 위에서 아래로 자란다 — 키가 내려가는 방향과 같아야 직관적이다. 아래에서 위로
+ * 차오르면 눈이 반대로 읽는다.
+ *
+ * 키캡 색과 대비되도록 초록을 쓴다. 강조색(--color_accent)은 테마에 따라 키캡과
+ * 비슷해질 수 있어 값이 안 보이는 경우가 생긴다.
+ */
+const BarTrack = styled.div`
   position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 4px;
+  left: 4px;
+  top: 4px;
+  bottom: 4px;
+  width: 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+`;
+
+const Bar = styled.div<{$ratio: number}>`
+  width: 100%;
   height: ${(p) => Math.min(100, p.$ratio * 100)}%;
-  background: var(--color_accent);
+  border-radius: 4px;
+  background: #56e05a;
 `;
 
 /* 이름은 좌상단, 값은 우하단 — 상용 웹툴과 같은 배치다 */
@@ -198,6 +242,11 @@ const Name = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+`;
+
+const Check = styled.span`
+  margin-left: 5px;
+  color: #56e05a;
 `;
 
 const Val = styled.div`
@@ -249,6 +298,10 @@ export const HePane: React.FC = () => {
    *   원본 레이어는 EEPROM 배치 그대로라 row * cols + col 이 통한다.
    */
   const rawLayer = useAppSelector(getSelectedRawLayer);
+
+  /* 배경·케이스 색을 다른 탭과 같은 테마에서 가져온다 */
+  const theme = useAppSelector(getSelectedTheme);
+  const accentColor = (theme as any)[KeyColorType.Accent].c;
   const {basicKeyToByte, byteToKey} = useAppSelector(getBasicKeyToByte);
 
   const chan = useRef<HeTrackChannel | null>(null);
@@ -383,6 +436,7 @@ export const HePane: React.FC = () => {
             <KeyBox
               key={`${k.row},${k.col}`}
               $pressed={!!s?.pressed}
+              $bg={(theme as any)[KeyColorType.Alpha].c}
               style={{
                 left: (k.x * U) / 4,
                 top: (k.y * U) / 4,
@@ -390,8 +444,13 @@ export const HePane: React.FC = () => {
                 height: (k.h * U) / 4 - 4,
               }}
             >
-              <Bar $ratio={s ? s.depth / travel : 0} />
-              <Name>{label(i)}</Name>
+              <BarTrack>
+                <Bar $ratio={s ? s.depth / travel : 0} />
+              </BarTrack>
+              <Name>
+                {label(i)}
+                {s?.pressed ? <Check>✓</Check> : null}
+              </Name>
               <Val>{s ? (s.depth / 100).toFixed(2) : '—'}</Val>
               <Dim>{s ? s.raw : ''}</Dim>
             </KeyBox>
@@ -543,7 +602,9 @@ export const HePane: React.FC = () => {
         * 배치는 어느 하위 메뉴를 보든 항상 위에 있다. 액추에이션을 조정하면서
         * 그 결과를 바로 볼 수 있어야 하기 때문이다 — 상용 웹툴도 같은 구조다.
         */}
-      <BoardArea>{renderBoard()}</BoardArea>
+      <BoardArea $accent={accentColor}>
+        <Case $accent={accentColor}>{renderBoard()}</Case>
+      </BoardArea>
       <Grid style={{minHeight: 0}}>
         <MenuCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
