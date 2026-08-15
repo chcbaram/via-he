@@ -175,8 +175,14 @@ const Content = styled.div`
  */
 const Val = styled.span`
   margin-left: 12px;
-  min-width: 68px;
-  flex: 0 0 auto;
+  /*
+   * ★ min-width 가 아니라 고정폭이다.
+   *
+   *   하한만 두었더니 "1.00 mm" 가 그 하한보다 넓어서 내용에 따라 폭이 그대로
+   *   변했다. 값이 없을 때 찍는 "—" 와 폭이 달라 슬라이더가 왔다 갔다 했다.
+   */
+  flex: 0 0 96px;
+  width: 96px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 `;
