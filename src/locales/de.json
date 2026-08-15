@@ -388,7 +388,7 @@
   "firmware logic comes first": "firmware logic comes first",
   "porting the CLI keys cal flow": "porting the CLI keys cal flow",
   "he.tracking.note": "Top number is press depth in mm, bottom is the raw ADC value. The left bar shows depth against full travel, and a highlighted border means the firmware has decided the key is pressed.",
-  "he.actuation.note": "Release must be shallower than actuation — the firmware clamps it. These are global for now; per-key values come with rapid trigger.",
+  "he.actuation.note": "Release must be shallower than actuation — the firmware clamps it. Presets also set the rapid trigger distances on the next tab. Values apply to every key; selecting individual keys comes later.",
   "he.switch.note": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over.",
   "he.layout.error": "Could not read the layout. This view uses the layout the firmware holds, not the definition file (command 0xC2).",
   "he.noDevice": "Connect a keyboard to see hall effect controls.",

@@ -172,6 +172,17 @@ const Val = styled.span`
   font-variant-numeric: tabular-nums;
 `;
 
+/* 프리셋 한 줄이 담는 값들 — 두 줄로 접어 폭을 아낀다 */
+const PresetVals = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 13px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+`;
+
 const Note = styled.div`
   width: 100%;
   max-width: 960px;
@@ -381,20 +392,35 @@ export const HePane: React.FC = () => {
 
       return (
         <>
-          <ControlRow>
-            <Label>{t('Preset')}</Label>
-            <Detail>
-              {PRESETS.map((p) => (
-                <AccentButton
-                  key={p.label}
-                  style={{marginLeft: 8}}
-                  onClick={() => applyPreset(p)}
-                >
+          {/*
+            * 프리셋이 무엇을 바꾸는지 보여준다.
+            *
+            * ★ 버튼만 늘어놓았더니 재입력 값이 안 보였다.
+            *   프리셋은 입력지점·해제지점만이 아니라 RT 재입력까지 바꾸는데, 그 값은
+            *   다른 탭에 있어서 여기서는 아무 표시 없이 조용히 바뀌었다. 무엇이
+            *   바뀌는지 모르는 버튼은 누르기 어렵다.
+            */}
+          {PRESETS.map((p) => (
+            <ControlRow key={p.label}>
+              <Label>
+                <AccentButton onClick={() => applyPreset(p)}>
                   {t(p.label)}
                 </AccentButton>
-              ))}
-            </Detail>
-          </ControlRow>
+              </Label>
+              <Detail>
+                <PresetVals>
+                  <span>
+                    {t('Actuation Point')} {(p.press / 100).toFixed(2)} mm
+                  </span>
+                  <span>
+                    {t('Release Point')} {(p.release / 100).toFixed(2)} mm
+                    {'   ·   '}
+                    {t('Re-press Distance')} {(p.rt / 100).toFixed(2)} mm
+                  </span>
+                </PresetVals>
+              </Detail>
+            </ControlRow>
+          ))}
           <ControlRow>
             <Label>{t('Actuation Point')}</Label>
             <Detail>
