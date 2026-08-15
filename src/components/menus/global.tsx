@@ -22,6 +22,9 @@ const Container = styled.div`
   justify-content: center;
 `;
 
+import {getSelectedDefinition} from 'src/store/definitionsSlice';
+import {HE_BOARDS} from 'src/utils/he-boards';
+
 const {DEBUG_PROD, MODE, DEV} = import.meta.env;
 const showDebugPane = MODE === 'development' || DEBUG_PROD === 'true' || DEV;
 
@@ -35,6 +38,17 @@ export const UnconnectedGlobalMenu = () => {
   const showDesignTab = useAppSelector(getShowDesignTab);
   const showConsoleTab = useAppSelector(getShowConsoleTab);
 
+  /*
+   * HE 탭은 홀이펙트 보드에서만 보인다.
+   *
+   * 장치에 명령을 던져 알아낼 수도 있지만, 아닌 보드에서는 그 명령이 실패로
+   * 기록돼 로그가 지저분해진다. 목록은 local-kbs/ 에서 빌드 때 뽑는다
+   * (scripts/add-local-kbs.ts -> src/utils/he-boards.ts).
+   */
+  const selectedDefinition = useAppSelector(getSelectedDefinition);
+  const showHeTab =
+    !!selectedDefinition && HE_BOARDS.has(selectedDefinition.vendorProductId);
+
   const [location] = useLocation();
 
   const Panes = useMemo(() => {
@@ -43,6 +57,7 @@ export const UnconnectedGlobalMenu = () => {
         if (pane.key === 'design' && !showDesignTab) return null;
         if (pane.key === 'console' && !showConsoleTab) return null;
         if (pane.key === 'debug' && !showDebugPane) return null;
+        if (pane.key === 'he' && !showHeTab) return null;
         return (
           <Link key={pane.key} to={pane.path}>
             <CategoryIconContainer $selected={pane.path === location}>
@@ -53,7 +68,7 @@ export const UnconnectedGlobalMenu = () => {
         );
       },
     );
-  }, [location, showConsoleTab, showDesignTab]);
+  }, [location, showConsoleTab, showDesignTab, showHeTab]);
 
   return (
     <React.Fragment>

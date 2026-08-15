@@ -62,6 +62,24 @@ function main() {
     console.log(`넣음 : ${via.name}  vpid ${vpid}  (${f})`);
   }
 
+  /*
+   * HE 보드 목록을 소스로 뽑는다.
+   *
+   * HE 탭은 우리 보드에서만 보여야 한다. 장치에 명령을 던져 확인할 수도 있지만,
+   * 아닌 보드에서는 그 명령이 실패로 기록돼 로그가 지저분해진다. local-kbs/ 에
+   * 있는 것은 전부 HE 보드이므로 여기서 목록을 만드는 편이 정확하고 공짜다.
+   */
+  const vpids = files.map((f) => {
+    const src = JSON.parse(fs.readFileSync(path.join(SRC, f), 'utf8'));
+    return keyboardDefinitionV3ToVIADefinitionV3(src).vendorProductId;
+  });
+  fs.writeFileSync(
+    'src/utils/he-boards.ts',
+    '/* 자동 생성 — scripts/add-local-kbs.ts. 직접 고치지 말 것. */\n' +
+      `export const HE_BOARDS = new Set<number>([${vpids.join(', ')}]);\n`,
+  );
+  console.log(`he-boards.ts : ${vpids.length}개`);
+
   fs.writeFileSync(
     path.join(OUT, 'supported_kbs.json'),
     JSON.stringify(supported),

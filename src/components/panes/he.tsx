@@ -8,6 +8,12 @@
  *
  * 커스텀 메뉴는 [채널, 값ID] 두 바이트뿐이라 키 인덱스를 넣을 자리가 없다. 그래서
  * 전역 값만 다룰 수 있고, 키별 설정과 라이브 트래킹은 이쪽 몫이다.
+ *
+ * ★ 하위 메뉴로 나눠 둔다.
+ *
+ *   지금은 트래킹과 액추에이션 둘뿐이지만 래피드 트리거·데드존·보정이 뒤따른다.
+ *   한 화면에 쌓으면 금방 못 쓰게 되므로 Configure 탭과 같은 구조를 쓴다 —
+ *   여기 SECTIONS 에 한 줄 더하면 메뉴가 늘어난다.
  */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import styled from 'styled-components';
@@ -17,7 +23,20 @@ import {
   getSelectedKeyboardAPI,
 } from 'src/store/devicesSlice';
 import {Pane} from './pane';
+import {
+  Grid,
+  MenuCell,
+  OverflowCell,
+  SubmenuOverflowCell,
+  SubmenuRow,
+  ControlRow,
+  Label,
+  Detail,
+} from './grid';
 import {AccentButton} from '../inputs/accent-button';
+import {AccentRange} from '../inputs/accent-range';
+import {AccentSelect} from '../inputs/accent-select';
+import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {
   HE_SWITCH_NAMES,
   HeKeyGeo,
@@ -34,35 +53,52 @@ import {
 } from 'src/utils/he-api';
 
 /* 1 키유닛을 픽셀로. geo 는 1/4 유닛이라 4로 나눈다. */
-const U = 54;
+const U = 52;
 
-const Container = styled(Pane)`
-  padding: 16px 24px;
+/*
+ * 하위 메뉴. 아직 펌웨어 로직이 없는 것은 disabled 로 두되 **보이게** 한다 —
+ * 앞으로 무엇이 오는지 알 수 있고, 로직이 생기면 플래그만 내리면 된다.
+ */
+const SECTIONS = [
+  {key: 'tracking', label: 'LIVE TRACKING'},
+  {key: 'actuation', label: 'ACTUATION'},
+  {key: 'switch', label: 'SWITCH'},
+  {key: 'rapid', label: 'RAPID TRIGGER', todo: 'firmware logic comes first'},
+  {key: 'deadzone', label: 'DEAD ZONE', todo: 'firmware logic comes first'},
+  {key: 'calibrate', label: 'CALIBRATION', todo: 'porting the CLI keys cal flow'},
+] as const;
+
+type SectionKey = (typeof SECTIONS)[number]['key'];
+
+const SWITCH_OPTIONS = HE_SWITCH_NAMES.map((label, value) => ({label, value}));
+
+const Content = styled(Pane)`
+  padding: 18px 24px;
   overflow: auto;
 `;
 
 const Board = styled.div`
   position: relative;
-  margin: 24px auto;
+  margin: 18px 0;
 `;
 
 const KeyBox = styled.div<{$pressed: boolean}>`
   position: absolute;
   box-sizing: border-box;
   border-radius: 6px;
-  border: 1px solid var(--color_dark-grey);
+  border: 1px solid var(--border_color_cell);
   background: var(--bg_control);
   overflow: hidden;
   font-size: 11px;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--color_label);
-  padding: 3px 5px;
+  padding: 3px 5px 3px 9px;
   outline: ${(p) => (p.$pressed ? '2px solid var(--color_accent)' : 'none')};
 `;
 
 /*
- * 깊이 막대. 상용 디버깅 화면이 키 왼쪽에 세로 막대를 두는 것과 같은 모양이다.
- * 값 두 줄(mm / 원시값)은 오른쪽 정렬로 겹치지 않게 둔다.
+ * 깊이 막대. 상용 디버깅 화면이 키 왼쪽에 세로 막대를 두는 것과 같은 모양인데,
+ * 칸을 더 쓰지 않으려고 값 위에 겹쳐 그린다.
  */
 const Bar = styled.div<{$ratio: number}>`
   position: absolute;
@@ -71,7 +107,6 @@ const Bar = styled.div<{$ratio: number}>`
   width: 5px;
   height: ${(p) => Math.min(100, p.$ratio * 100)}%;
   background: var(--color_accent);
-  transition: height 40ms linear;
 `;
 
 const Val = styled.div`
@@ -80,59 +115,26 @@ const Val = styled.div`
 `;
 
 const Dim = styled(Val)`
-  opacity: 0.5;
-`;
-
-const Bar2 = styled.div`
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-`;
-
-const Section = styled.div`
-  border-top: 1px solid var(--color_dark-grey);
-  margin-top: 20px;
-  padding-top: 14px;
-`;
-
-const Title = styled.div`
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  opacity: 0.7;
-  margin-bottom: 10px;
-`;
-
-const Field = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-  font-size: 14px;
-
-  > span:first-child {
-    width: 120px;
-    opacity: 0.8;
-  }
-  > input[type='range'] {
-    width: 260px;
-  }
-  > b {
-    font-variant-numeric: tabular-nums;
-    width: 70px;
-  }
+  opacity: 0.45;
 `;
 
 const Note = styled.div`
   opacity: 0.6;
   font-size: 13px;
-  margin-top: 8px;
+  margin-top: 10px;
+  line-height: 1.6;
+`;
+
+const Err = styled(Note)`
+  color: var(--color_error);
+  opacity: 1;
 `;
 
 export const HePane: React.FC = () => {
   const device = useAppSelector(getSelectedConnectedDevice);
   const api = useAppSelector(getSelectedKeyboardAPI);
 
+  const [section, setSection] = useState<SectionKey>('tracking');
   const [layout, setLayout] = useState<HeKeyGeo[]>([]);
   const [info, setInfo] = useState<HeTrackInfo | null>(null);
   const [state, setState] = useState<HeKeyState[]>([]);
@@ -146,13 +148,13 @@ export const HePane: React.FC = () => {
 
   const send = useCallback(
     async (cmd: number, bytes: number[]) => {
-      if (!api) throw new Error('장치가 없다');
+      if (!api) throw new Error('no device');
       return api.hidCommand(cmd, bytes);
     },
     [api],
   );
 
-  /* 배치는 장치에서 읽는다 — 정의 파일이 없어도 그려진다 */
+  /* 배치도 설정도 장치에서 읽는다 — 정의 파일이 없거나 낡아도 맞는다 */
   useEffect(() => {
     if (!api) return;
     let alive = true;
@@ -178,7 +180,6 @@ export const HePane: React.FC = () => {
   const start = async () => {
     if (!device || !api) return;
     setErr(null);
-
     try {
       let hid = await HeTrackChannel.find(device.vendorId, device.productId);
       if (!hid) {
@@ -186,7 +187,7 @@ export const HePane: React.FC = () => {
         hid = await HeTrackChannel.request(device.vendorId, device.productId);
       }
       if (!hid) {
-        setErr('스트리밍 채널 접근이 거부됐다 (usage page 0xFF61)');
+        setErr('Streaming channel access denied (usage page 0xFF61)');
         return;
       }
 
@@ -245,96 +246,26 @@ export const HePane: React.FC = () => {
     return () => cancelAnimationFrame(raf);
   }, [tracking]);
 
-  if (!device || !api) {
-    return (
-      <Container>
-        <Note>키보드를 연결하면 여기에 홀이펙트 화면이 나온다.</Note>
-      </Container>
-    );
-  }
-
   const travel = info?.travel ?? 400;
-  const width = Math.max(...layout.map((k) => k.x + k.w), 0) * (U / 4);
-  const height = Math.max(...layout.map((k) => k.y + k.h), 0) * (U / 4);
 
-  return (
-    <Container>
-      <Bar2>
-        {tracking ? (
-          <AccentButton onClick={stop}>트래킹 정지</AccentButton>
-        ) : (
-          <AccentButton onClick={start}>라이브 트래킹</AccentButton>
-        )}
-        {info && (
-          <Note>
-            키 {info.keyCount}개 · 전 행정 {(travel / 100).toFixed(2)}mm
-            {tracking && ` · ${fps} 스냅샷/s`}
-          </Note>
-        )}
-      </Bar2>
+  const renderBoard = () => {
+    const width = Math.max(...layout.map((k) => k.x + k.w), 0) * (U / 4);
+    const height = Math.max(...layout.map((k) => k.y + k.h), 0) * (U / 4);
 
-      {err && <Note style={{color: 'var(--color_error)'}}>{err}</Note>}
-
-      <Section>
-        <Title>액추에이션</Title>
-        <Field>
-          <span>입력지점</span>
-          <input
-            type="range"
-            min={10}
-            max={travel}
-            value={cfg?.pressUm ?? 100}
-            onChange={(e) => {
-              const v = +e.target.value;
-              setCfg((c) => (c ? {...c, pressUm: v} : c));
-              heSetPress(send, v).catch(() => {});
-            }}
-          />
-          <b>{((cfg?.pressUm ?? 100) / 100).toFixed(2)} mm</b>
-        </Field>
-        <Field>
-          <span>해제지점</span>
-          <input
-            type="range"
-            min={10}
-            max={travel}
-            value={cfg?.releaseUm ?? 50}
-            onChange={(e) => {
-              const v = +e.target.value;
-              setCfg((c) => (c ? {...c, releaseUm: v} : c));
-              heSetRelease(send, v).catch(() => {});
-            }}
-          />
-          <b>{((cfg?.releaseUm ?? 50) / 100).toFixed(2)} mm</b>
-        </Field>
-        <Field>
-          <span>스위치</span>
-          <select
-            value={cfg?.switchType ?? 0}
-            onChange={(e) => {
-              const v = +e.target.value;
-              setCfg((c) => (c ? {...c, switchType: v} : c));
-              heSetSwitch(send, v).catch(() => {});
-            }}
-          >
-            {HE_SWITCH_NAMES.map((n, i) => (
-              <option key={n} value={i}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </Field>
+    if (!layout.length) {
+      return (
         <Note>
-          해제지점은 입력지점보다 얕아야 한다 — 펌웨어가 그렇게 되도록 잘라낸다.
-          지금은 전 키 공통이고, 키별 조정은 13편에서 붙인다.
+          Could not read the layout. This view uses the layout the firmware
+          holds, not the definition file (command 0xC2).
         </Note>
-      </Section>
+      );
+    }
 
+    return (
       <Board style={{width, height}}>
         {layout.map((k) => {
           const i = k.row * 8 + k.col;
           const s = state[i];
-          const ratio = s ? s.depth / travel : 0;
           return (
             <KeyBox
               key={`${k.row},${k.col}`}
@@ -346,20 +277,154 @@ export const HePane: React.FC = () => {
                 height: (k.h * U) / 4 - 3,
               }}
             >
-              <Bar $ratio={ratio} />
+              <Bar $ratio={s ? s.depth / travel : 0} />
               <Val>{s ? (s.depth / 100).toFixed(2) : '—'}</Val>
               <Dim>{s ? s.raw : ''}</Dim>
             </KeyBox>
           );
         })}
       </Board>
+    );
+  };
 
-      {!layout.length && (
-        <Note>
-          배치를 읽지 못했다. 이 화면은 펌웨어가 들고 있는 배치를 그대로 쓴다
-          (명령 0xC2).
-        </Note>
-      )}
-    </Container>
+  const renderSection = () => {
+    const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
+    if (todo?.todo) {
+      return <Note>Not yet — {todo.todo}</Note>;
+    }
+
+    if (section === 'tracking') {
+      return (
+        <>
+          <ControlRow>
+            <Label>Live Depth</Label>
+            <Detail>
+              <AccentButton onClick={tracking ? stop : start}>
+                {tracking ? 'Stop' : 'Start'}
+              </AccentButton>
+            </Detail>
+          </ControlRow>
+          {info && (
+            <ControlRow>
+              <Label>Status</Label>
+              <Detail>
+                {info.keyCount} keys · {(travel / 100).toFixed(2)} mm travel
+                {tracking && ` · ${fps} snapshots/s`}
+              </Detail>
+            </ControlRow>
+          )}
+          {err && <Err>{err}</Err>}
+          {renderBoard()}
+          <Note>
+            Top number is press depth in mm, bottom is the raw ADC value. The
+            left bar shows depth against full travel, and a highlighted border
+            means the firmware has decided the key is pressed.
+          </Note>
+        </>
+      );
+    }
+
+    if (section === 'actuation') {
+      return (
+        <>
+          <ControlRow>
+            <Label>Actuation Point</Label>
+            <Detail>
+              <AccentRange
+                min={10}
+                max={travel}
+                value={cfg?.pressUm ?? 100}
+                onChange={(v: number) => {
+                  setCfg((c) => (c ? {...c, pressUm: v} : c));
+                  heSetPress(send, v).catch(() => {});
+                }}
+              />
+              <span style={{marginLeft: 12}}>
+                {((cfg?.pressUm ?? 100) / 100).toFixed(2)} mm
+              </span>
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>Release Point</Label>
+            <Detail>
+              <AccentRange
+                min={10}
+                max={travel}
+                value={cfg?.releaseUm ?? 50}
+                onChange={(v: number) => {
+                  setCfg((c) => (c ? {...c, releaseUm: v} : c));
+                  heSetRelease(send, v).catch(() => {});
+                }}
+              />
+              <span style={{marginLeft: 12}}>
+                {((cfg?.releaseUm ?? 50) / 100).toFixed(2)} mm
+              </span>
+            </Detail>
+          </ControlRow>
+          <Note>
+            Release must be shallower than actuation — the firmware clamps it.
+            These are global for now; per-key values come with rapid trigger.
+          </Note>
+        </>
+      );
+    }
+
+    if (section === 'switch') {
+      return (
+        <>
+          <ControlRow>
+            <Label>Type</Label>
+            <Detail>
+              <AccentSelect
+                value={SWITCH_OPTIONS[cfg?.switchType ?? 0]}
+                options={SWITCH_OPTIONS}
+                onChange={(o: any) => {
+                  const v = o?.value ?? 0;
+                  setCfg((c) => (c ? {...c, switchType: v} : c));
+                  heSetSwitch(send, v).catch(() => {});
+                }}
+              />
+            </Detail>
+          </ControlRow>
+          <Note>
+            Nominal travel used to convert uncalibrated keys to mm. Once
+            calibrated, the per-key measurement takes over.
+          </Note>
+        </>
+      );
+    }
+
+    return null;
+  };
+
+  if (!device || !api) {
+    return (
+      <Content>
+        <Note>Connect a keyboard to see hall effect controls.</Note>
+      </Content>
+    );
+  }
+
+  return (
+    <Grid>
+      <MenuCell />
+      <SubmenuOverflowCell>
+        <MenuContainer>
+          {SECTIONS.map((s) => (
+            <SubmenuRow
+              key={s.key}
+              $selected={section === s.key}
+              onClick={() => setSection(s.key)}
+              style={{opacity: (s as {todo?: string}).todo ? 0.5 : 1}}
+            >
+              {s.label}
+            </SubmenuRow>
+          ))}
+        </MenuContainer>
+      </SubmenuOverflowCell>
+      <OverflowCell>
+        <Content>{renderSection()}</Content>
+      </OverflowCell>
+    </Grid>
   );
 };
