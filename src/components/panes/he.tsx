@@ -184,12 +184,14 @@ const SelectBox = styled.div`
   width: 260px;
 `;
 
-/* 프리셋 한 줄이 담는 값들 — 두 줄로 접어 폭을 아낀다 */
+/*
+ * 프리셋 한 줄이 담는 값들.
+ *
+ * 항목 이름을 짧게 줄여(Actuation Point -> Actuation) 한 줄에 넣는다. 두 줄로
+ * 접으면 버튼과 값이 세로로 어긋나 어느 버튼의 값인지 읽기 어렵다.
+ */
 const PresetVals = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  white-space: nowrap;
   font-size: 13px;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
@@ -421,14 +423,11 @@ export const HePane: React.FC = () => {
               </Label>
               <Detail>
                 <PresetVals>
-                  <span>
-                    {t('Actuation Point')} {(p.press / 100).toFixed(2)} mm
-                  </span>
-                  <span>
-                    {t('Release Point')} {(p.release / 100).toFixed(2)} mm
-                    {'   ·   '}
-                    {t('Re-press Distance')} {(p.rt / 100).toFixed(2)} mm
-                  </span>
+                  {t('Actuation')} {(p.press / 100).toFixed(2)}
+                  {'  ·  '}
+                  {t('Release')} {(p.release / 100).toFixed(2)}
+                  {'  ·  '}
+                  {t('Re-press')} {(p.rt / 100).toFixed(2)} mm
                 </PresetVals>
               </Detail>
             </ControlRow>
