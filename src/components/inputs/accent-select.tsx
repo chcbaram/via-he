@@ -88,6 +88,13 @@ const customStyles = {
   },
 };
 
-export const AccentSelect: React.FC<Props> = (props) => (
+/*
+ * control 스타일이 state.selectProps.width 를 읽는데 타입에는 없었다. 넘겨도
+ * 컴파일이 막혀 감싸는 상자로 폭을 주려 했지만, 안쪽 width 가 이겨서 소용이 없었다.
+ * 쓰고 있는 prop 이니 타입에 적는다.
+ */
+type AccentSelectProps = Props & {width?: number};
+
+export const AccentSelect: React.FC<AccentSelectProps> = (props) => (
   <Select {...props} styles={customStyles} />
 );

@@ -173,18 +173,6 @@ const Val = styled.span`
 `;
 
 /*
- * 드롭다운 폭.
- *
- * AccentSelect 안쪽 컨테이너가 flex:1 이라 부모 폭을 그대로 따른다. 부모(Detail)는
- * 내용에 맞춰 줄어들어서 제품 이름이 "GEON Raw HE 3.4..." 로 잘렸다. 여기서 폭을
- * 잡아 준다.
- */
-const SelectBox = styled.div`
-  display: flex;
-  width: 260px;
-`;
-
-/*
  * 프리셋 한 줄이 담는 값들.
  *
  * 항목 이름을 짧게 줄여(Actuation Point -> Actuation) 한 줄에 넣는다. 두 줄로
@@ -598,17 +586,22 @@ export const HePane: React.FC = () => {
           <ControlRow>
             <Label>{t('Type')}</Label>
             <Detail>
-              <SelectBox>
-                <AccentSelect
-                  value={SWITCH_OPTIONS[cfg?.switchType ?? 0]}
-                  options={SWITCH_OPTIONS}
-                  onChange={(o: any) => {
-                    const v = o?.value ?? 0;
-                    setCfg((c) => (c ? {...c, switchType: v} : c));
-                    heSetSwitch(send, v).catch(() => {});
-                  }}
-                />
-              </SelectBox>
+              {/*
+                * ★ width 는 감싸는 상자가 아니라 이 prop 이 정한다.
+                *   AccentSelect 안쪽 control 스타일이
+                *   width: state.selectProps.width || 250 이라 부모 폭을 무시한다.
+                *   상자로 감싸도 250px 로 잘리던 이유다.
+                */}
+              <AccentSelect
+                width={330}
+                value={SWITCH_OPTIONS[cfg?.switchType ?? 0]}
+                options={SWITCH_OPTIONS}
+                onChange={(o: any) => {
+                  const v = o?.value ?? 0;
+                  setCfg((c) => (c ? {...c, switchType: v} : c));
+                  heSetSwitch(send, v).catch(() => {});
+                }}
+              />
             </Detail>
           </ControlRow>
           <Note>
