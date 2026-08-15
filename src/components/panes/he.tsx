@@ -21,7 +21,7 @@
  *   그리드는 3단이다 — 아이콘 레일 / 하위 메뉴 / 내용. 래피드 트리거·데드존·보정이
  *   뒤따르므로 SECTIONS 에 한 줄 더하면 메뉴가 늘어난다.
  */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import styled from 'styled-components';
 import {useAppSelector} from 'src/store/hooks';
 import {getSelectedRawLayer} from 'src/store/keymapSlice';
@@ -61,6 +61,12 @@ import {AccentSelect} from '../inputs/accent-select';
 import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {DepthSlider} from './he-depth';
+import {
+  clearKeys,
+  getHeSelectedKeys,
+  setKeys,
+} from 'src/store/heSlice';
+import {useAppDispatch} from 'src/store/hooks';
 import {
   HE_SWITCHES,
   HeKeyGeo,
@@ -171,6 +177,11 @@ const Val = styled.span`
   font-variant-numeric: tabular-nums;
 `;
 
+const SelBtn = styled(AccentButton)`
+  margin-left: 8px;
+  min-width: 92px;
+`;
+
 /*
  * 프리셋 버튼은 폭을 맞춘다.
  *
@@ -232,6 +243,12 @@ export const HePane: React.FC = () => {
    */
   const rawLayer = useAppSelector(getSelectedRawLayer);
 
+  /*
+   * 고른 키. 키보드 그림(공유 캔버스)과 여기가 같은 것을 본다 — 그래서 스토어에 있다.
+   */
+  const dispatch = useAppDispatch();
+  const selectedKeys = useAppSelector(getHeSelectedKeys);
+
   const {basicKeyToByte, byteToKey} = useAppSelector(getBasicKeyToByte);
 
   const chan = useRef<HeTrackChannel | null>(null);
@@ -259,6 +276,20 @@ export const HePane: React.FC = () => {
       alive = false;
     };
   }, [api, send]);
+
+  /*
+   * Esc 로 선택을 푼다.
+   *
+   * 키보드를 만지다 보면 선택이 남은 줄 모르고 값을 바꾸게 된다. 빠져나갈 길이
+   * 하나 있어야 한다.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dispatch(clearKeys());
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dispatch]);
 
   /* 나갈 때는 반드시 끈다. 안 그러면 장치가 계속 프레임을 쏜다. */
   useEffect(() => {
@@ -336,6 +367,12 @@ export const HePane: React.FC = () => {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [tracking]);
+
+  /* 배치에 있는 키의 매트릭스 인덱스 — "모두 선택"과 "반전"의 모집단 */
+  const allKeyIndexes = useMemo(
+    () => layout.map((g) => g.row * 8 + g.col),
+    [layout],
+  );
 
   const travel = info?.travel ?? 400;
 
@@ -691,6 +728,36 @@ export const HePane: React.FC = () => {
         </SubmenuOverflowCell>
         <OverflowCell style={{pointerEvents: 'all'}}>
           <Content>
+            {/*
+              * 선택 도구는 섹션 위에 공통으로 둔다. 어느 탭에서든 "지금 몇 개를
+              * 고쳤는가"가 보여야 실수가 줄어든다.
+              */}
+            <ControlRow>
+              <Label>
+                {selectedKeys.length === 0
+                  ? t('All keys')
+                  : `${selectedKeys.length} ${t('keys selected')}`}
+              </Label>
+              <Detail>
+                <SelBtn onClick={() => dispatch(setKeys(allKeyIndexes))}>
+                  {t('Select All')}
+                </SelBtn>
+                <SelBtn
+                  onClick={() =>
+                    dispatch(
+                      setKeys(
+                        allKeyIndexes.filter((i) => !selectedKeys.includes(i)),
+                      ),
+                    )
+                  }
+                >
+                  {t('Invert')}
+                </SelBtn>
+                <SelBtn onClick={() => dispatch(clearKeys())}>
+                  {t('Clear')}
+                </SelBtn>
+              </Detail>
+            </ControlRow>
             {renderSection()}
           </Content>
         </OverflowCell>

@@ -406,5 +406,8 @@
   "Release": "해제",
   "Re-press": "재입력",
   "PRESS POINT": "입력 지점",
-  "Press Point": "입력 지점"
+  "Press Point": "입력 지점",
+  "All keys": "전체 키",
+  "keys selected": "개 선택됨",
+  "Invert": "반전 선택"
 }
