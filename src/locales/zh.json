@@ -392,5 +392,6 @@
   "he.switch.note": "用于把未校准的键换算成 mm 的标称行程。校准后以每键实测值为准。",
   "he.layout.error": "无法读取布局。此界面使用固件内的布局，而不是定义文件 (命令 0xC2)。",
   "he.noDevice": "连接键盘后将显示霍尔效应设置。",
-  "he.streamDenied": "流式通道访问被拒绝 (usage page 0xFF61)"
+  "he.streamDenied": "流式通道访问被拒绝 (usage page 0xFF61)",
+  "Show Actuation Line": "显示触发点参考线"
 }

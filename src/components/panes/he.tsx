@@ -57,6 +57,7 @@ import {
   faWaveSquare,
 } from '@fortawesome/free-solid-svg-icons';
 import {AccentButton} from '../inputs/accent-button';
+import {AccentSlider} from '../inputs/accent-slider';
 import {MenuTooltip} from '../inputs/tooltip';
 import {AccentRange} from '../inputs/accent-range';
 import {AccentSelect} from '../inputs/accent-select';
@@ -224,10 +225,10 @@ const Fill = styled.div<{$ratio: number}>`
 `;
 
 /*
- * 입력지점 눈금 하나.
+ * 입력지점 눈금.
  *
- * 트랙과 눈금 두 개를 다 그렸더니 키마다 선이 여러 개라 조잡했다. 튜닝할 때 실제로
- * 보는 건 "지금 깊이가 입력지점을 넘었나" 하나다.
+ * 기본으로 끈다 — 64키에 전부 선이 그어지면 배치가 지저분해진다. 액추에이션을
+ * 맞출 때만 켜서 본다.
  */
 const Tick = styled.div<{$at: number}>`
   position: absolute;
@@ -297,6 +298,14 @@ export const HePane: React.FC = () => {
   const [cfg, setCfg] = useState<HeSettings | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
+
+  /*
+   * 임계값 눈금은 기본으로 끈다.
+   *
+   * 64키에 전부 선이 그어지면 배치가 지저분해진다. 액추에이션을 실제로 맞출 때만
+   * 켜서 보면 되는 정보다.
+   */
+  const [showTick, setShowTick] = useState(false);
 
   /*
    * 키 이름은 키맵에서 온다 — 숫자만 있으면 어느 키인지 세어봐야 한다.
@@ -489,7 +498,7 @@ export const HePane: React.FC = () => {
                   * 바로 읽힌다.
                   */}
                 <Fill $ratio={s ? s.depth / travel : 0} />
-                {cfg && <Tick $at={cfg.pressUm / travel} />}
+                {showTick && cfg && <Tick $at={cfg.pressUm / travel} />}
                 <KeyText>
                   <Name>{label(i)}</Name>
                   <Val>{s ? (s.depth / 100).toFixed(2) : '—'}</Val>
@@ -531,6 +540,15 @@ export const HePane: React.FC = () => {
               </Detail>
             </ControlRow>
           )}
+          <ControlRow>
+            <Label>{t('Show Actuation Line')}</Label>
+            <Detail>
+              <AccentSlider
+                isChecked={showTick}
+                onChange={setShowTick}
+              />
+            </Detail>
+          </ControlRow>
           {err && <Err>{err}</Err>}
           <Note>
             {t('he.tracking.note')}

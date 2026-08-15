@@ -392,5 +392,6 @@
   "he.switch.note": "보정하지 않은 키를 mm 로 환산할 때 쓰는 공칭 행정이다. 보정하면 키별 실측이 우선한다.",
   "he.layout.error": "배치를 읽지 못했다. 이 화면은 정의 파일이 아니라 펌웨어가 들고 있는 배치를 쓴다 (명령 0xC2).",
   "he.noDevice": "키보드를 연결하면 홀이펙트 화면이 나온다.",
-  "he.streamDenied": "스트리밍 채널 접근이 거부됐다 (usage page 0xFF61)"
+  "he.streamDenied": "스트리밍 채널 접근이 거부됐다 (usage page 0xFF61)",
+  "Show Actuation Line": "입력지점 선 표시"
 }

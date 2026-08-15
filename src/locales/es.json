@@ -392,5 +392,6 @@
   "he.switch.note": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over.",
   "he.layout.error": "Could not read the layout. This view uses the layout the firmware holds, not the definition file (command 0xC2).",
   "he.noDevice": "Connect a keyboard to see hall effect controls.",
-  "he.streamDenied": "Streaming channel access denied (usage page 0xFF61)"
+  "he.streamDenied": "Streaming channel access denied (usage page 0xFF61)",
+  "Show Actuation Line": "Show Actuation Line"
 }
