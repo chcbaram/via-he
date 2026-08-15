@@ -58,6 +58,7 @@ import {AccentButton} from '../inputs/accent-button';
 import {MenuTooltip} from '../inputs/tooltip';
 import {AccentRange} from '../inputs/accent-range';
 import {AccentSelect} from '../inputs/accent-select';
+import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {
   HE_SWITCH_NAMES,
@@ -72,6 +73,14 @@ import {
   heSetRelease,
   heSetSwitch,
   heSetTracking,
+  heSetRtPress,
+  heSetRtRelease,
+  heSetBottom,
+  heSetDead,
+  heSetRtFlags,
+  HE_RT_ON,
+  HE_RT_BOTTOM,
+  HE_RT_CONT,
 } from 'src/utils/he-api';
 
 /* 1 키유닛을 픽셀로. geo 는 1/4 유닛이라 4로 나눈다. */
@@ -85,18 +94,8 @@ const SECTIONS = [
   {key: 'tracking', label: 'LIVE TRACKING', icon: faWaveSquare},
   {key: 'actuation', label: 'ACTUATION', icon: faArrowDownUpAcrossLine},
   {key: 'switch', label: 'SWITCH', icon: faToggleOn},
-  {
-    key: 'rapid',
-    label: 'RAPID TRIGGER',
-    icon: faBolt,
-    todo: 'firmware logic comes first',
-  },
-  {
-    key: 'deadzone',
-    label: 'DEAD ZONE',
-    icon: faCircleHalfStroke,
-    todo: 'firmware logic comes first',
-  },
+  {key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
+  {key: 'deadzone', label: 'DEAD ZONE', icon: faCircleHalfStroke},
   {
     key: 'calibrate',
     label: 'CALIBRATION',
@@ -122,9 +121,9 @@ const SWITCH_OPTIONS = HE_SWITCH_NAMES.map((label, value) => ({label, value}));
  * 같은 값이라 기준으로 삼기 좋다.
  */
 const PRESETS = [
-  {label: 'Beginner', press: 100, release: 50},
-  {label: 'Adaptive', press: 50, release: 20},
-  {label: 'Advanced', press: 30, release: 10},
+  {label: 'Beginner', press: 100, release: 50, rt: 50},
+  {label: 'Adaptive', press: 50, release: 20, rt: 30},
+  {label: 'Advanced', press: 30, release: 10, rt: 30},
 ] as const;
 
 /*
@@ -333,10 +332,22 @@ export const HePane: React.FC = () => {
 
     if (section === 'actuation') {
       const applyPreset = (p: (typeof PRESETS)[number]) => {
-        setCfg((c) => (c ? {...c, pressUm: p.press, releaseUm: p.release} : c));
+        setCfg((c) =>
+          c
+            ? {
+                ...c,
+                pressUm: p.press,
+                releaseUm: p.release,
+                rtPressUm: p.rt,
+                rtReleaseUm: p.rt,
+              }
+            : c,
+        );
         /* 해제가 입력보다 얕아야 하므로 해제를 먼저 내린다 */
         heSetRelease(send, p.release)
           .then(() => heSetPress(send, p.press))
+          .then(() => heSetRtPress(send, p.rt))
+          .then(() => heSetRtRelease(send, p.rt))
           .catch(() => {});
       };
 
@@ -393,6 +404,125 @@ export const HePane: React.FC = () => {
           <Note>
             {t('he.actuation.note')}
           </Note>
+        </>
+      );
+    }
+
+    if (section === 'rapid') {
+      const flags = cfg?.rtFlags ?? 0;
+      const setFlag = (bit: number, on: boolean) => {
+        const next = on ? flags | bit : flags & ~bit;
+        setCfg((c) => (c ? {...c, rtFlags: next} : c));
+        heSetRtFlags(send, next).catch(() => {});
+      };
+
+      return (
+        <>
+          <ControlRow>
+            <Label>{t('Rapid Trigger')}</Label>
+            <Detail>
+              <AccentSlider
+                isChecked={(flags & HE_RT_ON) !== 0}
+                onChange={(v: boolean) => setFlag(HE_RT_ON, v)}
+              />
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Continuous')}</Label>
+            <Detail>
+              <AccentSlider
+                isChecked={(flags & HE_RT_CONT) !== 0}
+                onChange={(v: boolean) => setFlag(HE_RT_CONT, v)}
+              />
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Re-press Distance')}</Label>
+            <Detail>
+              <AccentRange
+                min={10}
+                max={100}
+                value={cfg?.rtPressUm ?? 50}
+                onChange={(v: number) => {
+                  setCfg((c) => (c ? {...c, rtPressUm: v} : c));
+                  heSetRtPress(send, v).catch(() => {});
+                }}
+              />
+              <span style={{marginLeft: 12}}>
+                {((cfg?.rtPressUm ?? 50) / 100).toFixed(2)} mm
+              </span>
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Release Distance')}</Label>
+            <Detail>
+              <AccentRange
+                min={10}
+                max={100}
+                value={cfg?.rtReleaseUm ?? 50}
+                onChange={(v: number) => {
+                  setCfg((c) => (c ? {...c, rtReleaseUm: v} : c));
+                  heSetRtRelease(send, v).catch(() => {});
+                }}
+              />
+              <span style={{marginLeft: 12}}>
+                {((cfg?.rtReleaseUm ?? 50) / 100).toFixed(2)} mm
+              </span>
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Bottom Protection')}</Label>
+            <Detail>
+              <AccentSlider
+                isChecked={(flags & HE_RT_BOTTOM) !== 0}
+                onChange={(v: boolean) => setFlag(HE_RT_BOTTOM, v)}
+              />
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Bottom Zone')}</Label>
+            <Detail>
+              <AccentRange
+                min={0}
+                max={50}
+                value={cfg?.bottomUm ?? 10}
+                onChange={(v: number) => {
+                  setCfg((c) => (c ? {...c, bottomUm: v} : c));
+                  heSetBottom(send, v).catch(() => {});
+                }}
+              />
+              <span style={{marginLeft: 12}}>
+                {((cfg?.bottomUm ?? 10) / 100).toFixed(2)} mm
+              </span>
+            </Detail>
+          </ControlRow>
+          <Note>{t('he.rapid.note')}</Note>
+          <Note>{t('he.bottom.note')}</Note>
+        </>
+      );
+    }
+
+    if (section === 'deadzone') {
+      return (
+        <>
+          <ControlRow>
+            <Label>{t('Dead Zone')}</Label>
+            <Detail>
+              <AccentRange
+                min={0}
+                max={50}
+                value={cfg?.deadUm ?? 0}
+                onChange={(v: number) => {
+                  setCfg((c) => (c ? {...c, deadUm: v} : c));
+                  heSetDead(send, v).catch(() => {});
+                }}
+              />
+              <span style={{marginLeft: 12}}>
+                {((cfg?.deadUm ?? 0) / 100).toFixed(2)} mm
+              </span>
+            </Detail>
+          </ControlRow>
+          <Note>{t('he.deadzone.note')}</Note>
         </>
       );
     }

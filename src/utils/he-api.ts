@@ -216,14 +216,31 @@ export const VIA_CUSTOM_SET = 0x07;
 export const VIA_CUSTOM_GET = 0x08;
 
 export const HE_CHANNEL = 16;
-export const HE_VAL_PRESS = 1;    /* 입력지점 0.01mm */
-export const HE_VAL_RELEASE = 2;  /* 해제지점 0.01mm */
-export const HE_VAL_SWITCH = 3;   /* 스위치 종류 */
+
+/* 전부 0.01mm. 플래그와 스위치 종류만 8비트다. */
+export const HE_VAL_PRESS = 1;
+export const HE_VAL_RELEASE = 2;
+export const HE_VAL_SWITCH = 3;
+export const HE_VAL_RT_PRESS = 4;    /* RT 재입력 */
+export const HE_VAL_RT_RELEASE = 5;  /* RT 입력 해제 */
+export const HE_VAL_BOTTOM = 6;      /* 바닥 보호 */
+export const HE_VAL_DEAD = 7;        /* 데드존 */
+export const HE_VAL_RT_FLAGS = 8;
+
+/* keys.c 의 KEYS_RT_* 와 같은 비트 */
+export const HE_RT_ON = 1 << 0;
+export const HE_RT_BOTTOM = 1 << 1;
+export const HE_RT_CONT = 1 << 2;
 
 export type HeSettings = {
   pressUm: number;
   releaseUm: number;
   switchType: number;
+  rtPressUm: number;
+  rtReleaseUm: number;
+  bottomUm: number;
+  deadUm: number;
+  rtFlags: number;
 };
 
 export async function heGetSettings(send: HidSender): Promise<HeSettings> {
@@ -240,7 +257,30 @@ export async function heGetSettings(send: HidSender): Promise<HeSettings> {
     pressUm: await rd16(HE_VAL_PRESS),
     releaseUm: await rd16(HE_VAL_RELEASE),
     switchType: await rd8(HE_VAL_SWITCH),
+    rtPressUm: await rd16(HE_VAL_RT_PRESS),
+    rtReleaseUm: await rd16(HE_VAL_RT_RELEASE),
+    bottomUm: await rd16(HE_VAL_BOTTOM),
+    deadUm: await rd16(HE_VAL_DEAD),
+    rtFlags: await rd8(HE_VAL_RT_FLAGS),
   };
+}
+
+/* 0.01mm 값 하나를 쓴다 — VIA 는 빅엔디안 */
+async function wr16(send: HidSender, id: number, um: number) {
+  await send(VIA_CUSTOM_SET, [HE_CHANNEL, id, (um >> 8) & 0xff, um & 0xff]);
+}
+
+export const heSetRtPress = (s: HidSender, um: number) =>
+  wr16(s, HE_VAL_RT_PRESS, um);
+export const heSetRtRelease = (s: HidSender, um: number) =>
+  wr16(s, HE_VAL_RT_RELEASE, um);
+export const heSetBottom = (s: HidSender, um: number) =>
+  wr16(s, HE_VAL_BOTTOM, um);
+export const heSetDead = (s: HidSender, um: number) =>
+  wr16(s, HE_VAL_DEAD, um);
+
+export async function heSetRtFlags(send: HidSender, flags: number) {
+  await send(VIA_CUSTOM_SET, [HE_CHANNEL, HE_VAL_RT_FLAGS, flags & 0xff]);
 }
 
 export async function heSetPress(send: HidSender, um: number) {
