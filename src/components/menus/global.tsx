@@ -33,6 +33,35 @@ const GlobalContainer = styled(Container)`
   column-gap: 20px;
 `;
 
+/*
+ * 제목.
+ *
+ * 우측의 언어 선택·외부 링크와 같이 absolute 로 띄운다. 흐름에 넣으면 가운데
+ * 정렬된 탭 아이콘들이 그만큼 밀린다.
+ */
+const Title = styled.div`
+  position: absolute;
+  left: 1em;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  user-select: none;
+  pointer-events: none;
+`;
+
+const TitleVia = styled.span`
+  color: var(--color_label-highlighted);
+  font-weight: 500;
+`;
+
+const TitleHe = styled.span`
+  color: var(--color_accent);
+  font-weight: 400;
+  font-style: italic;
+`;
+
 export const UnconnectedGlobalMenu = () => {
   const {t, i18n} = useTranslation();
   const showDesignTab = useAppSelector(getShowDesignTab);
@@ -73,6 +102,10 @@ export const UnconnectedGlobalMenu = () => {
   return (
     <React.Fragment>
       <GlobalContainer>
+        <Title>
+          <TitleVia>VIA</TitleVia>
+          <TitleHe>HE</TitleHe>
+        </Title>
         <ErrorLink />
         {Panes}
         <LanguageSelect />

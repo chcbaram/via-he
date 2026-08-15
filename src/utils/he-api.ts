@@ -22,7 +22,10 @@ export const HE_EVT_TRACK = 0xc4;
 export const HE_TRACK_USAGE_PAGE = 0xff61;
 export const HE_TRACK_USAGE = 0x61;
 
+/* 트래킹 프레임 헤더 : [0]태그 [1]첫키 [2]개수 [3]전체 */
 const HDR = 4;
+/* 레이아웃 응답에서 항목이 시작하는 자리 : [0]명령 [1]에코 [2]개수 */
+const LAYOUT_OFF = 3;
 const PRESSED_BIT = 0x8000;
 
 export type HeKeyGeo = {
@@ -65,12 +68,13 @@ export async function heReadLayout(send: HidSender): Promise<HeKeyGeo[]> {
   let idx = 0;
 
   for (let guard = 0; guard < 64; guard++) {
+    /* 응답: [0]=명령 [1]=시작 인덱스(에코) [2]=개수 [3..]=항목 */
     const r = await send(HE_CMD_LAYOUT, [idx]);
-    const n = r[3];
+    const n = r[2];
     if (!n) break;
 
     for (let k = 0; k < n; k++) {
-      const o = HDR + k * 6;
+      const o = LAYOUT_OFF + k * 6;
       out.push({
         x: r[o],
         y: r[o + 1],
