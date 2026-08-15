@@ -196,11 +196,14 @@ const KeyBox = styled.div<{$pressed: boolean; $bg: string}>`
   padding: 5px 7px 5px 17px;
   color: var(--color_label);
   /*
-   * 눌림은 초록 막대와 체크로 알린다. 테두리까지 같은 색으로 두르면 정보가 겹치고,
-   * 정작 깊이를 읽어야 할 막대가 묻힌다. 대신 키캡을 살짝 밝혀 활성 상태만 준다.
+   * 눌림은 테두리로 알린다.
+   *
+   * 처음에는 막대와 같은 강조색이라 둘이 겹쳐 보였다. 막대를 초록으로 바꾸면서
+   * 색이 갈렸고, 그래서 테두리는 "눌렸다", 막대는 "얼마나 눌렸다" 로 역할이
+   * 나뉜다.
    */
-  filter: ${(p) => (p.$pressed ? 'brightness(1.35)' : 'none')};
-  transition: filter 60ms linear;
+  outline: ${(p) => (p.$pressed ? '2px solid var(--color_accent)' : 'none')};
+  outline-offset: -2px;
 `;
 
 /*
