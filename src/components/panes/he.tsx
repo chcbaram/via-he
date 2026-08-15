@@ -28,6 +28,7 @@ import {getBasicKeyToByte} from 'src/store/definitionsSlice';
 import {getLabelForByte} from 'src/utils/key';
 import {useTranslation} from 'react-i18next';
 import {getSelectedTheme} from 'src/store/settingsSlice';
+import {getDarkenedColor} from 'src/utils/color-math';
 import {KeyColorType} from '@the-via/reader';
 import {
   getSelectedConnectedDevice,
@@ -141,11 +142,29 @@ const HeBasePane = styled(Pane)`
 `;
 
 /*
- * 키보드 케이스.
+ * 배치 영역의 배경.
  *
- * 배경을 두 겹으로 두지 않는다. 그라데이션 위에 케이스를 또 깔면 테두리가 두 번
- * 생겨 조잡해진다. 케이스 하나만 두고 그 위에 키캡을 얹는다.
+ * 다른 탭은 공유 캔버스가 그리는 그라데이션 위에 키보드를 얹는다. HE 탭은 그
+ * 캔버스를 숨기므로(우리 배치와 겹친다) 같은 그라데이션을 여기서 직접 그린다.
+ *
+ * 한때 이걸 뺐는데, 겹쳐 보였던 원인은 그라데이션이 아니라 케이스였다 — 스플릿
+ * 백스페이스 소켓까지 다 그리느라 케이스 오른쪽에 빈 공간이 크게 남았다. 레이아웃
+ * 옵션을 반영하면서 케이스가 키에 딱 맞게 되어 겹쳐 보이지 않는다.
  */
+const BoardArea = styled.div<{$accent: string}>`
+  align-self: stretch;
+  margin: -18px -24px 4px;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  background: ${(p) =>
+    `linear-gradient(30deg, rgba(150,150,150,1) 10%, ${getDarkenedColor(
+      p.$accent,
+    )} 50%, rgba(150,150,150,1) 90%)`};
+`;
+
+/* 키보드 케이스 */
 const Case = styled.div<{$accent: string}>`
   display: inline-block;
   border-radius: 8px;
@@ -162,7 +181,7 @@ const Content = styled.div`
   display: flex;
   align-items: center;
   flex-direction: column;
-  padding: 12px 12px 24px;
+  padding: 18px 24px 24px;
 `;
 
 const Board = styled.div`
@@ -444,8 +463,9 @@ export const HePane: React.FC = () => {
     const height = Math.max(...keys.map((k) => k.y + k.h)) * U;
 
     return (
-      <Case $accent={accentColor}>
-        <Board style={{width, height}}>
+      <BoardArea $accent={accentColor}>
+        <Case $accent={accentColor}>
+          <Board style={{width, height}}>
           {keys.map((k) => {
             const i = k.row * 8 + k.col;
             const s = state[i];
@@ -477,9 +497,10 @@ export const HePane: React.FC = () => {
                 </KeyText>
               </KeyBox>
             );
-          })}
-        </Board>
-      </Case>
+            })}
+          </Board>
+        </Case>
+      </BoardArea>
     );
   };
 
