@@ -22,6 +22,10 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import styled from 'styled-components';
 import {useAppSelector} from 'src/store/hooks';
+import {getSelectedKeymap} from 'src/store/keymapSlice';
+import {getBasicKeyToByte} from 'src/store/definitionsSlice';
+import {getLabelForByte} from 'src/utils/key';
+import {useTranslation} from 'react-i18next';
 import {
   getSelectedConnectedDevice,
   getSelectedKeyboardAPI,
@@ -50,7 +54,6 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import {AccentButton} from '../inputs/accent-button';
 import {MenuTooltip} from '../inputs/tooltip';
-import {Badge} from './configure-panes/badge';
 import {AccentRange} from '../inputs/accent-range';
 import {AccentSelect} from '../inputs/accent-select';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
@@ -110,7 +113,25 @@ type SectionKey = (typeof SECTIONS)[number]['key'];
 
 const SWITCH_OPTIONS = HE_SWITCH_NAMES.map((label, value) => ({label, value}));
 
-/* Test 탭과 같은 전체 높이 판. 키보드 이름 뱃지가 위에 얹힌다. */
+/*
+ * 프리셋. 슬라이더 세 개를 모르는 사람도 바로 쓸 수 있게 한다.
+ *
+ * 첫 줄은 8편에서 정한 펌웨어 기본값과 같다 — 상용 웹툴의 "처음 사용자용" 과도
+ * 같은 값이라 기준으로 삼기 좋다.
+ */
+const PRESETS = [
+  {label: 'Beginner', press: 100, release: 50},
+  {label: 'Adaptive', press: 50, release: 20},
+  {label: 'Advanced', press: 30, release: 10},
+] as const;
+
+/*
+ * Test 탭과 같은 전체 높이 판.
+ *
+ * 키보드 이름 뱃지는 두지 않는다. Configure 의 뱃지는 공유 캔버스 위에 떠 있는데,
+ * 그건 ConfigureBasePane 이 캔버스 영역까지 덮고 있어서 가능하다. 우리 판은 그
+ * 아래에서 시작하므로 같은 뱃지를 넣으면 화면 한가운데에 떠서 어색하다.
+ */
 const HeBasePane = styled(Pane)`
   position: relative;
 `;
@@ -158,6 +179,13 @@ const Bar = styled.div<{$ratio: number}>`
   background: var(--color_accent);
 `;
 
+const Name = styled.div`
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
 const Val = styled.div`
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -182,6 +210,7 @@ const Err = styled(Note)`
 `;
 
 export const HePane: React.FC = () => {
+  const {t} = useTranslation();
   const device = useAppSelector(getSelectedConnectedDevice);
   const api = useAppSelector(getSelectedKeyboardAPI);
 
@@ -193,6 +222,10 @@ export const HePane: React.FC = () => {
   const [cfg, setCfg] = useState<HeSettings | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
+
+  /* 키 이름은 키맵에서 온다 — 숫자만 있으면 어느 키인지 세어봐야 한다 */
+  const keymap = useAppSelector(getSelectedKeymap);
+  const {basicKeyToByte, byteToKey} = useAppSelector(getBasicKeyToByte);
 
   const chan = useRef<HeTrackChannel | null>(null);
   const frames = useRef(0);
@@ -238,7 +271,7 @@ export const HePane: React.FC = () => {
         hid = await HeTrackChannel.request(device.vendorId, device.productId);
       }
       if (!hid) {
-        setErr('Streaming channel access denied (usage page 0xFF61)');
+        setErr(t('he.streamDenied'));
         return;
       }
 
@@ -299,6 +332,12 @@ export const HePane: React.FC = () => {
 
   const travel = info?.travel ?? 400;
 
+  const label = (i: number) => {
+    const byte = keymap?.[i];
+    if (byte === undefined) return '';
+    return getLabelForByte(byte, 100, basicKeyToByte, byteToKey) ?? '';
+  };
+
   const renderBoard = () => {
     const width = Math.max(...layout.map((k) => k.x + k.w), 0) * (U / 4);
     const height = Math.max(...layout.map((k) => k.y + k.h), 0) * (U / 4);
@@ -306,8 +345,7 @@ export const HePane: React.FC = () => {
     if (!layout.length) {
       return (
         <Note>
-          Could not read the layout. This view uses the layout the firmware
-          holds, not the definition file (command 0xC2).
+          {t('he.layout.error')}
         </Note>
       );
     }
@@ -329,6 +367,7 @@ export const HePane: React.FC = () => {
               }}
             >
               <Bar $ratio={s ? s.depth / travel : 0} />
+              <Name>{label(i)}</Name>
               <Val>{s ? (s.depth / 100).toFixed(2) : '—'}</Val>
               <Dim>{s ? s.raw : ''}</Dim>
             </KeyBox>
@@ -341,45 +380,66 @@ export const HePane: React.FC = () => {
   const renderSection = () => {
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
-      return <Note>Not yet — {todo.todo}</Note>;
+      return <Note>{t('Not yet')} — {t(todo.todo)}</Note>;
     }
 
     if (section === 'tracking') {
       return (
         <>
           <ControlRow>
-            <Label>Live Depth</Label>
+            <Label>{t('Live Depth')}</Label>
             <Detail>
               <AccentButton onClick={tracking ? stop : start}>
-                {tracking ? 'Stop' : 'Start'}
+                {tracking ? t('Stop') : t('Start')}
               </AccentButton>
             </Detail>
           </ControlRow>
           {info && (
             <ControlRow>
-              <Label>Status</Label>
+              <Label>{t('Status')}</Label>
               <Detail>
-                {info.keyCount} keys · {(travel / 100).toFixed(2)} mm travel
-                {tracking && ` · ${fps} snapshots/s`}
+                {info.keyCount} {t('keys')} · {(travel / 100).toFixed(2)} mm{' '}
+                {t('travel')}
+                {tracking && ` · ${fps} ${t('snapshots/s')}`}
               </Detail>
             </ControlRow>
           )}
           {err && <Err>{err}</Err>}
           {renderBoard()}
           <Note>
-            Top number is press depth in mm, bottom is the raw ADC value. The
-            left bar shows depth against full travel, and a highlighted border
-            means the firmware has decided the key is pressed.
+            {t('he.tracking.note')}
           </Note>
         </>
       );
     }
 
     if (section === 'actuation') {
+      const applyPreset = (p: (typeof PRESETS)[number]) => {
+        setCfg((c) => (c ? {...c, pressUm: p.press, releaseUm: p.release} : c));
+        /* 해제가 입력보다 얕아야 하므로 해제를 먼저 내린다 */
+        heSetRelease(send, p.release)
+          .then(() => heSetPress(send, p.press))
+          .catch(() => {});
+      };
+
       return (
         <>
           <ControlRow>
-            <Label>Actuation Point</Label>
+            <Label>{t('Preset')}</Label>
+            <Detail>
+              {PRESETS.map((p) => (
+                <AccentButton
+                  key={p.label}
+                  style={{marginLeft: 8}}
+                  onClick={() => applyPreset(p)}
+                >
+                  {t(p.label)}
+                </AccentButton>
+              ))}
+            </Detail>
+          </ControlRow>
+          <ControlRow>
+            <Label>{t('Actuation Point')}</Label>
             <Detail>
               <AccentRange
                 min={10}
@@ -396,7 +456,7 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <ControlRow>
-            <Label>Release Point</Label>
+            <Label>{t('Release Point')}</Label>
             <Detail>
               <AccentRange
                 min={10}
@@ -413,8 +473,7 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <Note>
-            Release must be shallower than actuation — the firmware clamps it.
-            These are global for now; per-key values come with rapid trigger.
+            {t('he.actuation.note')}
           </Note>
         </>
       );
@@ -424,7 +483,7 @@ export const HePane: React.FC = () => {
       return (
         <>
           <ControlRow>
-            <Label>Type</Label>
+            <Label>{t('Type')}</Label>
             <Detail>
               <AccentSelect
                 value={SWITCH_OPTIONS[cfg?.switchType ?? 0]}
@@ -438,8 +497,7 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           <Note>
-            Nominal travel used to convert uncalibrated keys to mm. Once
-            calibrated, the per-key measurement takes over.
+            {t('he.switch.note')}
           </Note>
         </>
       );
@@ -451,14 +509,13 @@ export const HePane: React.FC = () => {
   if (!device || !api) {
     return (
       <Content>
-        <Note>Connect a keyboard to see hall effect controls.</Note>
+        <Note>{t('he.noDevice')}</Note>
       </Content>
     );
   }
 
   return (
     <HeBasePane>
-      <Badge />
       <Grid>
         <MenuCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
@@ -466,7 +523,7 @@ export const HePane: React.FC = () => {
               <Row key={r.key} $selected={true}>
                 <IconContainer>
                   <FontAwesomeIcon icon={r.icon} />
-                  <MenuTooltip>{r.title}</MenuTooltip>
+                  <MenuTooltip>{t(r.title)}</MenuTooltip>
                 </IconContainer>
               </Row>
             ))}
@@ -481,7 +538,7 @@ export const HePane: React.FC = () => {
                 onClick={() => setSection(s.key)}
                 style={{opacity: (s as {todo?: string}).todo ? 0.5 : 1}}
               >
-                {s.label}
+                {t(s.label)}
               </SubmenuRow>
             ))}
           </MenuContainer>
