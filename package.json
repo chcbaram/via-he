@@ -1,15 +1,17 @@
 {
   "license": "GPL-3.0",
   "scripts": {
-    "dev": "node scripts/build-definitions.js && vite --force",
-    "build": "bun run build:kbs && tsc && vite build",
+    "dev": "vite --force",
+    "build": "vite build",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\"",
     "refresh-kbs": "bun update --force via-keyboards",
     "build:azure": "bun run refresh-kbs && bun run build",
     "preview": "vite preview",
-    "build:kbs": "node --import tsx node_modules/via-keyboards/scripts/build-all.ts public/definitions",
-    "find-deadcode": "ts-prune"
+    "build:kbs": "bun node_modules/via-keyboards/scripts/build-all.ts public/definitions",
+    "find-deadcode": "ts-prune",
+    "build:local": "bun scripts/add-local-kbs.ts",
+    "defs": "bun run build:kbs && bun run build:local"
   },
   "engines": {
     "node": ">=18.0.0"
