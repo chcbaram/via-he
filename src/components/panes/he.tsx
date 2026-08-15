@@ -499,14 +499,29 @@ export const HePane: React.FC = () => {
   /*
    * 어느 키의 깊이를 보여줄 것인가.
    *
-   * 키를 골라 설정하는 UI 가 아직 없으므로 **가장 깊이 눌린 키**를 쓴다. 아무 키나
-   * 눌러도 막대가 서므로 눈금을 맞추는 데는 충분하다. 키 선택이 들어오면 고른 키로
-   * 바꾼다.
+   * 고른 키가 있으면 **그중 가장 깊은 키**다. 키를 골라 놓고 그 키를 눌러야 막대가
+   * 서는 게 자연스럽고, 여러 개 골랐을 때 하나만 눌러도 보인다.
+   *
+   * 아무것도 안 골랐으면 전 키에서 가장 깊은 것을 쓴다 — 그때는 설정도 전 키에
+   * 적용되므로 아무 키나 눌러도 되는 게 맞다.
+   *
+   * state[] 는 매트릭스 인덱스로 늘어서 있다 (펌웨어가 그 순서로 실어 보낸다).
    */
-  const deepest = state.reduce(
-    (best, k) => (k && k.depth > best.um ? {um: k.depth, pressed: k.pressed} : best),
-    {um: 0, pressed: false},
-  );
+  const deepest = useMemo(() => {
+    const idxs =
+      selectedKeys.length > 0
+        ? selectedKeys
+        : state.map((_, i) => i);
+
+    return idxs.reduce(
+      (best, i) => {
+        const k = state[i];
+        return k && k.depth > best.um ? {um: k.depth, pressed: k.pressed} : best;
+      },
+      {um: 0, pressed: false},
+    );
+  }, [state, selectedKeys]);
+
 
   const label = (i: number) => {
     const byte = rawLayer?.keymap?.[i];
