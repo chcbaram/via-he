@@ -527,12 +527,16 @@ export const HePane: React.FC = () => {
               }
             : c,
         );
-        /* 해제가 입력보다 얕아야 하므로 해제를 먼저 내린다 */
-        heSetRelease(send, p.release)
-          .then(() => heSetPress(send, p.press))
-          .then(() => heSetRtPress(send, p.rt))
-          .then(() => heSetRtRelease(send, p.rt))
-          .catch(() => {});
+        /*
+         * 프리셋도 선택을 따른다 — 고른 키가 있으면 그 키들만 바뀐다.
+         * 해제가 입력보다 얕아야 하므로 해제를 먼저 내린다.
+         */
+        (async () => {
+          await put('releaseUm', p.release);
+          await put('pressUm', p.press);
+          await put('rtPressUm', p.rt);
+          await put('rtReleaseUm', p.rt);
+        })().catch(() => {});
       };
 
       return (
