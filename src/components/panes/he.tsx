@@ -9,11 +9,15 @@
  * 커스텀 메뉴는 [채널, 값ID] 두 바이트뿐이라 키 인덱스를 넣을 자리가 없다. 그래서
  * 전역 값만 다룰 수 있고, 키별 설정과 라이브 트래킹은 이쪽 몫이다.
  *
- * ★ 하위 메뉴로 나눠 둔다.
+ * ★ 화면 구조는 Test 탭을 따른다.
  *
- *   지금은 트래킹과 액추에이션 둘뿐이지만 래피드 트리거·데드존·보정이 뒤따른다.
- *   한 화면에 쌓으면 금방 못 쓰게 되므로 Configure 탭과 같은 구조를 쓴다 —
- *   여기 SECTIONS 에 한 줄 더하면 메뉴가 늘어난다.
+ *   Configure 탭 위의 키보드 그림은 그 탭 안에 있는 게 아니라 전역 렌더 레이어다
+ *   (그래서 ConfigureBasePane 이 투명하고 pointer-events 가 none 이다). 여기로
+ *   끌어오려면 렌더 레이어의 라우트 게이팅을 건드려야 하고, 끌어와도 우리가 그리는
+ *   깊이 배치와 겹친다. 그래서 전체 높이 그리드인 Test 탭 구조를 쓴다.
+ *
+ *   3단이다 — 아이콘 레일 / 하위 메뉴 / 내용. 지금은 트래킹·액추에이션·스위치뿐이지만
+ *   래피드 트리거·데드존·보정이 뒤따르므로 SECTIONS 에 한 줄 더하면 늘어난다.
  */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import styled from 'styled-components';
@@ -32,8 +36,21 @@ import {
   ControlRow,
   Label,
   Detail,
+  Row,
+  IconContainer,
 } from './grid';
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
+import {
+  faArrowDownUpAcrossLine,
+  faBolt,
+  faCircleHalfStroke,
+  faRulerVertical,
+  faToggleOn,
+  faWaveSquare,
+} from '@fortawesome/free-solid-svg-icons';
 import {AccentButton} from '../inputs/accent-button';
+import {MenuTooltip} from '../inputs/tooltip';
+import {Badge} from './configure-panes/badge';
 import {AccentRange} from '../inputs/accent-range';
 import {AccentSelect} from '../inputs/accent-select';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
@@ -60,17 +77,43 @@ const U = 52;
  * 앞으로 무엇이 오는지 알 수 있고, 로직이 생기면 플래그만 내리면 된다.
  */
 const SECTIONS = [
-  {key: 'tracking', label: 'LIVE TRACKING'},
-  {key: 'actuation', label: 'ACTUATION'},
-  {key: 'switch', label: 'SWITCH'},
-  {key: 'rapid', label: 'RAPID TRIGGER', todo: 'firmware logic comes first'},
-  {key: 'deadzone', label: 'DEAD ZONE', todo: 'firmware logic comes first'},
-  {key: 'calibrate', label: 'CALIBRATION', todo: 'porting the CLI keys cal flow'},
+  {key: 'tracking', label: 'LIVE TRACKING', icon: faWaveSquare},
+  {key: 'actuation', label: 'ACTUATION', icon: faArrowDownUpAcrossLine},
+  {key: 'switch', label: 'SWITCH', icon: faToggleOn},
+  {
+    key: 'rapid',
+    label: 'RAPID TRIGGER',
+    icon: faBolt,
+    todo: 'firmware logic comes first',
+  },
+  {
+    key: 'deadzone',
+    label: 'DEAD ZONE',
+    icon: faCircleHalfStroke,
+    todo: 'firmware logic comes first',
+  },
+  {
+    key: 'calibrate',
+    label: 'CALIBRATION',
+    icon: faRulerVertical,
+    todo: 'porting the CLI keys cal flow',
+  },
 ] as const;
+
+/*
+ * 아이콘 레일은 큰 갈래를, 가운데 열은 그 안의 항목을 고른다. 지금은 갈래가
+ * 하나(HE)뿐이라 레일에 항목 하나를 두고, 갈래가 늘면 여기에 더한다.
+ */
+const RAILS = [{key: 'he', title: 'Hall Effect', icon: faWaveSquare}] as const;
 
 type SectionKey = (typeof SECTIONS)[number]['key'];
 
 const SWITCH_OPTIONS = HE_SWITCH_NAMES.map((label, value) => ({label, value}));
+
+/* Test 탭과 같은 전체 높이 판. 키보드 이름 뱃지가 위에 얹힌다. */
+const HeBasePane = styled(Pane)`
+  position: relative;
+`;
 
 const Content = styled(Pane)`
   padding: 18px 24px;
@@ -406,25 +449,39 @@ export const HePane: React.FC = () => {
   }
 
   return (
-    <Grid>
-      <MenuCell />
-      <SubmenuOverflowCell>
-        <MenuContainer>
-          {SECTIONS.map((s) => (
-            <SubmenuRow
-              key={s.key}
-              $selected={section === s.key}
-              onClick={() => setSection(s.key)}
-              style={{opacity: (s as {todo?: string}).todo ? 0.5 : 1}}
-            >
-              {s.label}
-            </SubmenuRow>
-          ))}
-        </MenuContainer>
-      </SubmenuOverflowCell>
-      <OverflowCell>
-        <Content>{renderSection()}</Content>
-      </OverflowCell>
-    </Grid>
+    <HeBasePane>
+      <Badge />
+      <Grid>
+        <MenuCell style={{pointerEvents: 'all'}}>
+          <MenuContainer>
+            {RAILS.map((r) => (
+              <Row key={r.key} $selected={true}>
+                <IconContainer>
+                  <FontAwesomeIcon icon={r.icon} />
+                  <MenuTooltip>{r.title}</MenuTooltip>
+                </IconContainer>
+              </Row>
+            ))}
+          </MenuContainer>
+        </MenuCell>
+        <SubmenuOverflowCell>
+          <MenuContainer>
+            {SECTIONS.map((s) => (
+              <SubmenuRow
+                key={s.key}
+                $selected={section === s.key}
+                onClick={() => setSection(s.key)}
+                style={{opacity: (s as {todo?: string}).todo ? 0.5 : 1}}
+              >
+                {s.label}
+              </SubmenuRow>
+            ))}
+          </MenuContainer>
+        </SubmenuOverflowCell>
+        <OverflowCell>
+          <Content>{renderSection()}</Content>
+        </OverflowCell>
+      </Grid>
+    </HeBasePane>
   );
 };
