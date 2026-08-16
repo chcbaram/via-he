@@ -152,10 +152,79 @@
   },
   "menus": [
     {
+      "label": "Lighting",
+      "content": [
+        {
+          "label": "RGB Matrix",
+          "content": [
+            {
+              "label": "Brightness",
+              "type": "range",
+              "options": [
+                0,
+                255
+              ],
+              "content": [
+                "id_qmk_rgb_matrix_brightness",
+                3,
+                1
+              ]
+            },
+            {
+              "label": "Effect",
+              "type": "dropdown",
+              "options": [
+                "All Off",
+                "Solid Color",
+                "Gradient Up/Down",
+                "Breathing",
+                "Cycle All",
+                "Cycle Left/Right",
+                "Rainbow Moving Chevron",
+                "Pixel Flow",
+                "HE Depth Brightness",
+                "HE Depth Hue",
+                "HE Depth Ripple"
+              ],
+              "content": [
+                "id_qmk_rgb_matrix_effect",
+                3,
+                2
+              ]
+            },
+            {
+              "showIf": "{id_qmk_rgb_matrix_effect} != 0",
+              "label": "Effect Speed",
+              "type": "range",
+              "options": [
+                0,
+                255
+              ],
+              "content": [
+                "id_qmk_rgb_matrix_effect_speed",
+                3,
+                3
+              ]
+            },
+            {
+              "showIf": "{id_qmk_rgb_matrix_effect} != 0",
+              "label": "Color",
+              "type": "color",
+              "content": [
+                "id_qmk_rgb_matrix_color",
+                3,
+                4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "label": "QMK",
       "content": [
         {
-          "label": "키 처리",
+          "label": "Key Handling",
           "content": [
             {
               "label": "Hold On Other Key Press",
@@ -167,7 +236,7 @@
               ]
             },
             {
-              "label": "NKRO (전체 키 롤오버)",
+              "label": "NKRO",
               "type": "toggle",
               "content": [
                 "id_qmk_nkro",

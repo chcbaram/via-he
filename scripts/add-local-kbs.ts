@@ -14,6 +14,7 @@
  *   bun scripts/add-local-kbs.ts
  */
 import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 import {keyboardDefinitionV3ToVIADefinitionV3} from '@the-via/reader';
 
@@ -73,6 +74,29 @@ function main() {
     const src = JSON.parse(fs.readFileSync(path.join(SRC, f), 'utf8'));
     return keyboardDefinitionV3ToVIADefinitionV3(src).vendorProductId;
   });
+  /*
+   * ★ 해시를 갱신해야 앱이 새 정의를 본다.
+   *
+   *   syncStore() 는 index.html 에 심긴 해시가 캐시의 것과 같으면 **곧바로
+   *   반환하고 캐시를 그대로 쓴다.** 정의 파일만 바꾸면 앱은 바뀐 줄을 모른다.
+   *   조명 메뉴를 넣어 놓고 앱에 안 보여 한참 헤맸다.
+   *
+   *   해시는 상류 값과 우리 정의 내용을 함께 넣어 만든다 — 어느 쪽이 바뀌어도
+   *   달라진다. vite 가 설정을 읽을 때 hash.json 을 보므로 **개발 서버는 다시
+   *   띄워야** 반영된다.
+   */
+  const hashPath = path.join(OUT, 'hash.json');
+  const base = fs.existsSync(hashPath) ? fs.readFileSync(hashPath, 'utf8') : '';
+  const mine = files
+    .map((f) => fs.readFileSync(path.join(SRC, f), 'utf8'))
+    .join('');
+  const next = crypto
+    .createHash('sha256')
+    .update(JSON.parse(base || '""').slice(0, 32) + mine)
+    .digest('hex');
+  fs.writeFileSync(hashPath, JSON.stringify(next));
+  console.log(`해시 갱신 : ${next.slice(0, 16)}…  (개발 서버를 다시 띄워야 한다)`);
+
   fs.writeFileSync(
     'src/utils/he-boards.ts',
     '/* 자동 생성 — scripts/add-local-kbs.ts. 직접 고치지 말 것. */\n' +

@@ -415,5 +415,21 @@
   "he.tip.bottom": "바닥 근처에서 해제 판정을 끈다. 키를 끝까지 눌러 붙잡아도 손가락은 0.1~0.3mm씩 미세하게 풀리는데, 그것만으로 해제가 나가기 때문이다. 래피드 트리거를 켰을 때만 생기는 문제다.",
   "he.tip.bottomZone": "바닥에서 위로 이만큼이 보호 구간이다.",
   "he.tip.dead": "쉬는 위치에서 이 거리 안의 움직임은 무시한다. 진동이나 공차로 값이 흔들려도 우발적인 입력이 나가지 않는다. 진동이 있는 환경이 아니면 0으로 둔다.",
-  "he.tip.switch": "미보정 키를 mm로 환산할 때 쓰는 공칭 행정이다. 보정하면 키별 실측이 대신한다. 자기 스위치를 알면 그 제품을 골라야 한다 — 아니면 mm 표시가 틀린다."
+  "he.tip.switch": "미보정 키를 mm로 환산할 때 쓰는 공칭 행정이다. 보정하면 키별 실측이 대신한다. 자기 스위치를 알면 그 제품을 골라야 한다 — 아니면 mm 표시가 틀린다.",
+  "RGB Matrix": "RGB 매트릭스",
+  "All Off": "끔",
+  "Solid Color": "단색",
+  "Gradient Up/Down": "그라디언트 (위아래)",
+  "Breathing": "호흡",
+  "Cycle All": "전체 순환",
+  "Cycle Left/Right": "좌우 순환",
+  "Rainbow Moving Chevron": "무지개 갈매기",
+  "Pixel Flow": "픽셀 플로우",
+  "HE Depth Brightness": "HE · 깊이 밝기",
+  "HE Depth Hue": "HE · 깊이 색상",
+  "HE Depth Ripple": "HE · 깊이 파문",
+  "Key Handling": "키 처리",
+  "Hold On Other Key Press": "다른 키 누를 때 홀드",
+  "NKRO": "NKRO (전체 키 롤오버)",
+  "QMK": "QMK"
 }
