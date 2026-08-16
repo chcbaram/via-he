@@ -936,26 +936,36 @@ export const HePane: React.FC = () => {
     }
 
     /*
-     * 키캡 아래 줄 — 눌린 키의 실시간 값.
+     * 키캡 아래 줄.
      *
-     * ★ 눌린 키만 찍는다.
+     * ★ 원시값은 옵션이 켜져 있으면 **늘** 보인다.
      *
-     *   63개가 늘 숫자를 달고 있으면 어느 것이 움직이는지 안 보인다. 손이 닿은
-     *   키에만 뜨면 눈이 거기로 간다.
+     *   센서가 지금 무엇을 보고 있는지 확인하려고 켜는 것이라, 안 누른 키의 값이
+     *   오히려 알고 싶은 것이다 — 기준선이 키마다 얼마나 다른지가 거기서 보인다.
+     *   눌린 키만 찍으면 켜 놓고도 대부분 빈 화면이다.
+     *
+     * ★ mm 는 **실제로 움직일 때만** 찍는다.
+     *
+     *   안 누른 키도 깊이가 딱 0 이 아니다. 잡음이 몇 카운트 떠 있어 0.00 이
+     *   붙었다 떨어지기를 반복했다 — 옵션을 꺼 둔 화면에서 온 키캡이 깜빡였다.
+     *   잡음 폭(실측 p-p 40 카운트, 0.06mm 쯤)보다 위에서 자른다.
      *
      * ★ mm 는 0.05 단위로 끊는다.
      *
      *   0.01 까지 보이면 끝자리가 쉼 없이 떨려 읽을 수가 없다. 원시값은 끊지
      *   않는다 — 그건 떨림 자체를 보려고 켜는 것이다.
      */
+    const MM_MIN = 10;      /* 0.10mm — 잡음 위 */
     const live: Record<number, string> = {};
     for (const g of layout) {
       const i = g.row * MATRIX_COLS + g.col;
       const k = state[i];
-      if (!k || k.depth === 0) continue;
-      live[i] = showRaw
-        ? String(k.raw)
-        : (Math.round(k.depth / 5) * 5 / 100).toFixed(2);
+      if (!k) continue;
+      if (showRaw) {
+        live[i] = String(k.raw);
+      } else if (k.depth >= MM_MIN) {
+        live[i] = ((Math.round(k.depth / 5) * 5) / 100).toFixed(2);
+      }
     }
 
     const sig =
