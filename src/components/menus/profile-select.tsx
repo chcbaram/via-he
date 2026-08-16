@@ -32,6 +32,8 @@ import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {getSelectedKeyboardAPI} from 'src/store/devicesSlice';
 import {getHeProfile, setProfile} from 'src/store/heSlice';
 import {heMakeSend, heProfGet, heProfSet} from 'src/utils/he-api';
+import {getSelectedConnectedDevice} from 'src/store/devicesSlice';
+import {clearDeviceKeymap, loadKeymapFromDevice} from 'src/store/keymapSlice';
 
 /*
  * 키보드 이름 배지가 오른끝(right: 15px)이고, 그 왼쪽 자리를 쓴다.
@@ -137,6 +139,7 @@ export const ProfileSelect = () => {
   const dispatch = useAppDispatch();
   const api = useAppSelector(getSelectedKeyboardAPI);
   const prof = useAppSelector(getHeProfile);
+  const device = useAppSelector(getSelectedConnectedDevice);
   const [showList, setShowList] = useState(false);
 
   /*
@@ -166,6 +169,18 @@ export const ProfileSelect = () => {
     if (i === prof.active) return;
     try {
       dispatch(setProfile(await heProfSet(heMakeSend(api), i)));
+
+      /*
+       * ★ 키맵을 다시 읽는다.
+       *
+       *   프로파일마다 키맵이 다르다. 앱은 장치에서 한 번 읽어 들고 있으므로,
+       *   버리고 다시 읽지 않으면 화면의 키캡이 옛 프로파일 그대로다 — 더 나쁘게는
+       *   그 상태에서 키를 고치면 **새 프로파일에 옛 배치를 쓴다.**
+       */
+      if (device) {
+        dispatch(clearDeviceKeymap(device.path));
+        await dispatch(loadKeymapFromDevice(device));
+      }
     } catch {
       /* 못 바꿨으면 표시도 그대로 둔다 */
     }
