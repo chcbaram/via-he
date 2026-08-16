@@ -663,6 +663,24 @@ export async function heProfCopy(
  */
 let heGate: Promise<unknown> = Promise.resolve();
 
+/*
+ * 줄 서기에 **임의의 일**을 얹는다.
+ *
+ * ★ send 만 세워서는 모자랐다.
+ *
+ *   VIA 의 KeyboardAPI 는 자기 hidCommand 로 말한다 (키맵·매크로 읽기가 그렇다).
+ *   우리 send 만 줄을 세우면 그 둘이 나란히 나가고, HID 는 요청 하나에 응답 하나라
+ *   응답이 엇갈린다. 그러면 오류로 끝나는 게 아니라 **한쪽이 영영 안 온다** —
+ *   버튼이 회색으로 굳은 채 아무 일도 안 일어나는 모습이 이것이다.
+ *
+ *   그 일도 같은 줄에 세운다.
+ */
+export function heLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = heGate.then(fn, fn);
+  heGate = run.catch(() => {});
+  return run;
+}
+
 export function heMakeSend(api: {
   hidCommand: (cmd: number, bytes: number[]) => Promise<any>;
 }): HidSender {
@@ -740,18 +758,20 @@ export async function heReadBackup(
   km: KeymapIo,
   idxOf: number[],
   meta: {board: string; firmware: string; date: string},
+  onStep?: (msg: string) => void,
 ): Promise<HeBackup> {
   const {active, count} = await heProfGet(send);
   const profiles: HeProfBackup[] = [];
 
   for (let p = 0; p < count; p++) {
+    onStep?.(`${p + 1} / ${count}`);
     await heProfSet(send, p);
 
     const keys: Record<number, HeKeyCfg> = {};
     for (const i of idxOf) keys[i] = await heReadKeyCfg(send, i);
 
     const keymap: number[][] = [];
-    for (let l = 0; l < km.layers; l++) keymap.push(await km.read(l));
+    for (let l = 0; l < km.layers; l++) keymap.push(await heLock(() => km.read(l)));
 
     profiles.push({keys, keymap, rgb: await readRgb(send)});
   }
@@ -766,7 +786,7 @@ export async function heReadBackup(
       holdOkp: await get1(send, QMK_CHANNEL, VAL_HOLD_OKP),
       nkro: await get1(send, NKRO_CHANNEL, VAL_NKRO_EN),
     },
-    macros: await km.readMacros(),
+    macros: await heLock(() => km.readMacros()),
     profiles,
   } as HeBackup;
 }
@@ -776,14 +796,17 @@ export async function heWriteBackup(
   km: KeymapIo,
   idxOf: number[],
   b: HeBackup,
+  onStep?: (msg: string) => void,
 ): Promise<number> {
   const {active, count} = await heProfGet(send);
+  const total = Math.min(count, b.profiles.length);
   let n = 0;
 
-  for (let p = 0; p < Math.min(count, b.profiles.length); p++) {
+  for (let p = 0; p < total; p++) {
     const pb = b.profiles[p];
     if (!pb) continue;
 
+    onStep?.(`${p + 1} / ${total}`);
     await heProfSet(send, p);
 
     for (const i of idxOf) {
@@ -792,7 +815,7 @@ export async function heWriteBackup(
       await heWriteKeyCfg(send, i, c as HeKeyCfg);
       n++;
     }
-    if (pb.keymap?.length) await km.write(pb.keymap);
+    if (pb.keymap?.length) await heLock(() => km.write(pb.keymap));
     if (pb.rgb) await writeRgb(send, pb.rgb);
   }
 
@@ -802,7 +825,7 @@ export async function heWriteBackup(
     await set1(send, QMK_CHANNEL, VAL_HOLD_OKP, b.qmk.holdOkp);
     await set1(send, NKRO_CHANNEL, VAL_NKRO_EN, b.qmk.nkro);
   }
-  if (b.macros?.length) await km.writeMacros(b.macros);
+  if (b.macros?.length) await heLock(() => km.writeMacros(b.macros));
 
   return n;
 }

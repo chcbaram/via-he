@@ -120,6 +120,7 @@ import {
   heReadKeyCfg,
   heWriteKeyCfg,
   heCheckBackup,
+  heLock,
   heReadBackup,
   heWriteBackup,
   heMakeSend,
@@ -1457,7 +1458,7 @@ export const HePane: React.FC = () => {
        */
       const keymapIo = async () => {
         const kb = api as KeyboardAPI;
-        const layers = await kb.getLayerCount();
+        const layers = await heLock(() => kb.getLayerCount());
         const m = {rows: MATRIX_COLS, cols: MATRIX_COLS};   /* 8 x 8 */
         return {
           layers,
@@ -1481,11 +1482,17 @@ export const HePane: React.FC = () => {
             stamp.getDate(),
           )}`;
 
-          const b = await heReadBackup(send, await keymapIo(), allIdx, {
-            board,
-            firmware: fwInfo?.version ?? '',
-            date: stamp.toISOString(),
-          });
+          /*
+           * 프로파일 네 벌을 오가며 읽으므로 몇 초 걸린다. 아무 말 없이 버튼만
+           * 회색이면 멈춘 것과 구분이 안 된다 — 어디까지 갔는지 보인다.
+           */
+          const b = await heReadBackup(
+            send,
+            await keymapIo(),
+            allIdx,
+            {board, firmware: fwInfo?.version ?? '', date: stamp.toISOString()},
+            (m) => setBkMsg(`${t('Reading')} ${m}`),
+          );
 
           const blob = new Blob([JSON.stringify(b, null, 2)], {
             type: 'application/json',
@@ -1500,8 +1507,15 @@ export const HePane: React.FC = () => {
           setBkMsg(`${t('Saved')} — ${b.profiles.length} ${t('profiles')}`);
         } catch (e) {
           setBkMsg(String(e));
+        } finally {
+          /*
+           * ★ 어떤 길로 끝나든 푼다.
+           *
+           *   중간에 멈추면 버튼이 회색으로 굳은 채 아무 말도 없다. 사용자는 다시
+           *   눌러 볼 수조차 없다 — 실패했다고 말해 주는 편이 낫다.
+           */
+          setBkBusy(false);
         }
-        setBkBusy(false);
       };
 
       const doImport = async (file: File) => {
@@ -1516,7 +1530,9 @@ export const HePane: React.FC = () => {
             return;
           }
 
-          const n = await heWriteBackup(send, await keymapIo(), allIdx, obj);
+          const n = await heWriteBackup(send, await keymapIo(), allIdx, obj, (m) =>
+            setBkMsg(`${t('Writing')} ${m}`),
+          );
 
           /*
            * 읽어 둔 것이 전부 낡았다 — 키 설정도, 앱이 들고 있는 키맵도.
@@ -1531,8 +1547,9 @@ export const HePane: React.FC = () => {
           setBkMsg(`${t('Applied')} — ${n} ${t('keys')}`);
         } catch (e) {
           setBkMsg(String(e));
+        } finally {
+          setBkBusy(false);
         }
-        setBkBusy(false);
       };
 
       return (
