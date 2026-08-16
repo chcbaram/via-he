@@ -330,6 +330,23 @@ const SelBtn = styled(AccentButton)`
 `;
 
 /*
+ * 선택 버튼 세 개를 한 덩어리로 묶는다.
+ *
+ * ★ 재려고 두는 것이다.
+ *
+ *   바로 아래 스위치 목록의 폭을 이 줄에 맞추고 싶은데, 버튼 폭은 번역에 따라
+ *   달라진다 (min-width 92px 는 바닥일 뿐이고 "Select All" 은 이미 넘친다).
+ *   그래서 숫자를 골라 두면 언어를 바꾸는 순간 다시 어긋난다 — 실제로 92 로
+ *   맞춰 놓고 두 번 틀렸다.
+ *
+ *   짐작하지 말고 그려진 것을 잰다. 첫 버튼의 margin-left 도 폭에 들어가므로
+ *   잰 값을 그대로 쓰면 오른쪽 끝이 맞는다.
+ */
+const SelBtnGroup = styled.span`
+  display: inline-flex;
+`;
+
+/*
  * 굽기 쪽 버튼.
  *
  * "다시 굽기" 와 ".bin 고르기" 가 세로로 나란히 놓이는데 글자 길이가 달라 크기가
@@ -403,6 +420,27 @@ export const HePane: React.FC = () => {
   );
   const fwInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+
+  /*
+   * 선택 버튼 줄의 실제 폭. 스위치 목록이 이 폭을 따른다.
+   *
+   * 처음 그려질 때와 언어가 바뀔 때 값이 달라지므로 ResizeObserver 로 따라간다.
+   * 없으면(구형) 잰 값 없이 기본값으로 둔다 — 어긋날 뿐 깨지지는 않는다.
+   */
+  const selRowRef = useRef<HTMLSpanElement>(null);
+  const [selRowW, setSelRowW] = useState(330);
+
+  useEffect(() => {
+    const el = selRowRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      const w = Math.round(el.getBoundingClientRect().width);
+      if (w > 0) setSelRowW(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    /* 버튼 줄은 설정 갈래에서만 그려진다 — 갈래가 바뀌면 붙일 대상도 바뀐다 */
+  }, [rail]);
   const fwPermit = useRef<((d: HIDDevice | null) => void) | null>(null);
   const fwVid = useRef<number | undefined>(undefined);
   const fwPid = useRef<number | undefined>(undefined);
@@ -963,10 +1001,18 @@ export const HePane: React.FC = () => {
                       }
                     }}
                   >
-                    {/* ★ 'Flash' 는 앱에 이미 조명 뜻으로 "플래시" 라 번역돼 있다 */}
+                    {/*
+                      * ★ 이름 공간을 쓴다.
+                      *
+                      *   이 앱은 영어 문장을 그대로 키로 쓰는데, 'Flash' 는 이미
+                      *   조명 뜻으로 "플래시" 라 번역돼 있어 그대로 쓸 수 없다.
+                      *   피하려고 'Flash firmware' 로 늘렸더니 이번엔 영어에서
+                      *   버튼이 150px 를 넘어 옆 버튼들과 폭이 안 맞았다.
+                      *   짧은 낱말을 쓰되 키를 따로 두는 쪽이 맞다.
+                      */}
                     {sel && sel.version === cur
-                      ? t('Reflash firmware')
-                      : t('Flash firmware')}
+                      ? t('he.fw.reflash')
+                      : t('he.fw.flash')}
                   </FwBtn>
                 </Detail>
               </ControlRow>
@@ -1506,7 +1552,7 @@ export const HePane: React.FC = () => {
                 *   상자로 감싸도 250px 로 잘리던 이유다.
                 */}
               <AccentSelect
-                width={330}
+                width={selRowW}
                 value={switchOptions(switches)[cfg?.switchType ?? 0]}
                 options={switchOptions(switches)}
                 onChange={(o: any) => {
@@ -1601,6 +1647,7 @@ export const HePane: React.FC = () => {
                 </Hint>
               </Label>
               <Detail>
+                <SelBtnGroup ref={selRowRef}>
                 <SelBtn onClick={() => dispatch(setKeys(allKeyIndexes))}>
                   {t('Select All')}
                 </SelBtn>
@@ -1618,6 +1665,7 @@ export const HePane: React.FC = () => {
                 <SelBtn onClick={() => dispatch(clearKeys())}>
                   {t('Clear')}
                 </SelBtn>
+                </SelBtnGroup>
               </Detail>
             </ControlRow>
             )}

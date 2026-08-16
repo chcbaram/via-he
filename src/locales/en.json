@@ -415,5 +415,11 @@
   "he.tip.bottom": "Turns the release side off near the bottom. Holding a key fully pressed, a finger still eases off by 0.1-0.3mm, and that alone would release it. Only happens with rapid trigger.",
   "he.tip.bottomZone": "How deep the protected band reaches up from the bottom.",
   "he.tip.dead": "Movement within this distance of the resting position is ignored, so vibration or tolerance cannot produce an accidental press. Leave it at zero unless the board sees vibration.",
-  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise."
+  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise.",
+  "he.fw.flash": "Flash",
+  "he.fw.reflash": "Reflash",
+  "he.tip.cal": "The resting baseline is tracked automatically by the firmware. What this collects is the bottom — it can only be known by pressing each key all the way down. Without it the nominal switch travel is used; with it every key is measured, so the mm values are accurate.",
+  "he.tip.fw": "Pick the build output build/wish60-he.bin. If the app is running it switches to the bootloader on its own.",
+  "he.tip.boot": "Switches to the bootloader without flashing. Use it to grant bootloader permission ahead of time, or to get there by hand if the app misbehaves.",
+  "he.tip.calDone": "The keys painted above are the ones not calibrated yet. Once calibration starts it flips — the finished keys are painted instead."
 }

@@ -460,10 +460,10 @@
   "Permission needed": "権限が必要",
   "Run": "実行",
   "Release version": "配布バージョン",
-  "Flash firmware": "書き込み",
-  "Reflash firmware": "再書き込み",
   "Calibrated keys": "キャリブレーション済み",
   "stroke": "ストローク",
   "avg": "平均",
-  "he.tip.calDone": "上図で色が付いているキーは未キャリブレーションです。開始すると逆に完了したキーが色付きになります。"
+  "he.tip.calDone": "上図で色が付いているキーは未キャリブレーションです。開始すると逆に完了したキーが色付きになります。",
+  "he.fw.flash": "書き込み",
+  "he.fw.reflash": "再書き込み"
 }

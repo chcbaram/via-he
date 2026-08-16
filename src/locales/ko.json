@@ -461,10 +461,10 @@
   "Permission needed": "권한 필요",
   "Run": "실행하기",
   "Release version": "배포 버전",
-  "Flash firmware": "굽기",
-  "Reflash firmware": "다시 굽기",
   "Calibrated keys": "보정된 키",
   "stroke": "스트로크",
   "avg": "평균",
-  "he.tip.calDone": "위 그림에 칠해진 키가 아직 보정 안 된 키입니다. 보정을 시작하면 반대로 끝난 키가 칠해집니다."
+  "he.tip.calDone": "위 그림에 칠해진 키가 아직 보정 안 된 키입니다. 보정을 시작하면 반대로 끝난 키가 칠해집니다.",
+  "he.fw.flash": "굽기",
+  "he.fw.reflash": "다시 굽기"
 }
