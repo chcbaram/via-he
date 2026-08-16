@@ -687,8 +687,25 @@ export const HePane: React.FC = () => {
   useEffect(() => {
     const el = selRowRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
+    /*
+     * ★ 그룹이 아니라 **버튼의 양 끝**을 잰다.
+     *
+     *   그룹 폭에는 첫 버튼의 margin-left 가 들어간다. 그 값을 그대로 쓰면 목록이
+     *   왼쪽으로 그만큼 더 길어져 위 버튼 줄과 왼쪽 끝이 안 맞는다.
+     *
+     *   첫 버튼의 왼쪽부터 마지막 버튼의 오른쪽까지가 눈에 보이는 폭이다. 여백이
+     *   바뀌어도 따라가므로 숫자를 빼는 방식보다 안전하다.
+     */
     const ro = new ResizeObserver(() => {
-      const w = Math.round(el.getBoundingClientRect().width);
+      const first = el.firstElementChild;
+      const last = el.lastElementChild;
+      const w =
+        first && last
+          ? Math.round(
+              last.getBoundingClientRect().right -
+                first.getBoundingClientRect().left,
+            )
+          : Math.round(el.getBoundingClientRect().width);
       if (w > 0) setSelRowW(w);
     });
     ro.observe(el);
