@@ -2,6 +2,40 @@
   "board": "WISH60-HE",
   "firmwares": [
     {
+      "version": "V260816R27",
+      "board": "WISH60-HE",
+      "date": "2026-08-16",
+      "bin": "V260816R27/wish60-he-V260816R27.bin",
+      "size": 139000,
+      "crc": "0xBD3290CE",
+      "notes": [
+        "keys noise 에 관측 시간 인자 + 잡음을 거리로도 환산해 표시"
+      ]
+    },
+    {
+      "version": "V260816R25",
+      "board": "WISH60-HE",
+      "date": "2026-08-16",
+      "bin": "V260816R25/wish60-he-V260816R25.bin",
+      "size": 138328,
+      "crc": "0x547A624D",
+      "notes": [
+        "래피드 트리거를 깊이 구역마다 재단 — 되돌림 거리가 전 구간에서 설정대로"
+      ]
+    },
+    {
+      "version": "V260816R23",
+      "board": "WISH60-HE",
+      "date": "2026-08-16",
+      "bin": "V260816R23/wish60-he-V260816R23.bin",
+      "size": 137544,
+      "crc": "0x520564F6",
+      "notes": [
+        "RGB 는 거리 대신 센서 비율을 쓴다 — 125us 초과가 1177회에서 0회로",
+        "얕은 입력지점에 하한 (60카운트, 잡음 p-p 의 1.5배)"
+      ]
+    },
+    {
       "version": "V260816R22",
       "board": "WISH60-HE",
       "date": "2026-08-16",
