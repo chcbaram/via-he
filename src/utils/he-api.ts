@@ -949,3 +949,58 @@ export async function heWriteBackup(
 
   return n;
 }
+
+
+/*
+ * ── 진단 통계 — HID 0xC9 ────────────────────────────────────────────────
+ *
+ * 지금까지 CLI 로만 보던 값들이다. 한 번에 다 받는다 — 화면이 늘 함께 보는 값이라
+ * 따로 읽으면 서로 다른 순간의 것이 섞여 "최대 650us 인데 넘긴 적은 0" 같은 앞뒤
+ * 안 맞는 화면이 나온다.
+ */
+export const HE_CMD_STAT = 0xc9;
+
+const HE_STAT_OFF = 4;
+
+export type HeStat = {
+  scanUs: number;
+  scanUsMax: number;
+  scanOver: number;
+  scanCnt: number;
+  timeout: number;
+  calMs: number;
+  calibrated: number;
+  taskUs: number;
+  taskUsMax: number;
+  taskUsAvg: number;
+  taskOver: number;
+  taskCnt: number;
+  rgbUsMax: number;
+  rgbUsAvg: number;
+};
+
+export async function heReadStat(send: HidSender): Promise<HeStat> {
+  const r = await send(HE_CMD_STAT, []);
+  const u32 = (i: number) => {
+    const o = HE_STAT_OFF + i * 4;
+    return (
+      ((r[o] | (r[o + 1] << 8) | (r[o + 2] << 16) | (r[o + 3] << 24)) >>> 0)
+    );
+  };
+  return {
+    scanUs: u32(0),
+    scanUsMax: u32(1),
+    scanOver: u32(2),
+    scanCnt: u32(3),
+    timeout: u32(4),
+    calMs: u32(5),
+    calibrated: u32(6),
+    taskUs: u32(7),
+    taskUsMax: u32(8),
+    taskUsAvg: u32(9),
+    taskOver: u32(10),
+    taskCnt: u32(11),
+    rgbUsMax: u32(12),
+    rgbUsAvg: u32(13),
+  };
+}

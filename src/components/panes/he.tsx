@@ -53,6 +53,7 @@ import {
   faMicrochip,
   faFileArrowDown,
   faLayerGroup,
+  faStethoscope,
   faRulerVertical,
   faToggleOn,
   faWaveSquare,
@@ -103,6 +104,7 @@ import {
   HeKeyGeo,
   HeKeyState,
   HeProf,
+  HeStat,
   HeSettings,
   HeTrackChannel,
   HeTrackInfo,
@@ -120,6 +122,7 @@ import {
   heReadKeyCfg,
   heWriteKeyCfg,
   heCheckBackup,
+  heReadStat,
   heLock,
   heReadBackup,
   heWriteBackup,
@@ -206,6 +209,15 @@ const SECTIONS = [
    */
   {rail: 'device', key: 'profile', label: 'PROFILE', icon: faLayerGroup},
   {rail: 'device', key: 'backup', label: 'BACKUP', icon: faFileArrowDown},
+
+  /*
+   * ★ 진단은 설정이 아니다.
+   *
+   *   여기 있는 값은 고칠 수 있는 것이 아니라 **재는 것**이다. 설정 갈래에 두면
+   *   "이것도 만져야 하나" 로 읽힌다. 펌웨어·백업과 같은 부류다 — 장치 자체를
+   *   다루는 자리.
+   */
+  {rail: 'device', key: 'debug', label: 'DEBUG', icon: faStethoscope},
 ] as const;
 
 /*
@@ -572,6 +584,9 @@ export const HePane: React.FC = () => {
    * 뜻이 어긋나므로, 한 줄에서 정하고 두 버튼이 그것을 따른다.
    */
   const [bkScope, setBkScope] = useState(-1);
+
+  /* 진단 통계 — 화면이 열려 있는 동안만 주기로 읽는다 */
+  const [stat, setStat] = useState<HeStat | null>(null);
 
   /*
    * 선택 버튼 줄의 실제 폭. 스위치 목록이 이 폭을 따른다.
@@ -1109,6 +1124,38 @@ export const HePane: React.FC = () => {
   }, [api, send, rail, layout, keyCfgs]);
 
   /*
+   * 진단 화면이 열려 있는 동안만 통계를 읽는다.
+   *
+   * ★ 화면을 닫으면 멈춘다.
+   *
+   *   진단은 늘 필요한 것이 아니다. 안 보는 동안에도 계속 물으면 USB 통로를
+   *   차지하고, 그 통로는 라이브 깊이·보정과 같은 줄에 선다.
+   *
+   * 끝나면 다시 거는 방식이다 — setInterval 은 한 회차가 늦어지면 겹친다.
+   */
+  useEffect(() => {
+    if (!api || section !== 'debug') return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const tick = async () => {
+      try {
+        const v = await heReadStat(send);
+        if (alive) setStat(v);
+      } catch {
+        /* 이 명령을 모르는 펌웨어일 수 있다 — 조용히 넘어간다 */
+      }
+      if (alive) timer = setTimeout(tick, 500);
+    };
+    tick();
+
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [api, send, section]);
+
+  /*
    * 펌웨어 화면을 열 때마다 현재 버전을 다시 읽는다.
    *
    * 마운트 때 한 번만 읽으면 그 사이에 장치가 바뀌거나(굽기·재연결) 처음 읽기가
@@ -1447,6 +1494,50 @@ export const HePane: React.FC = () => {
           )}
 
           <Note>{t('he.note.prof')}</Note>
+        </>
+      );
+    }
+
+    if (section === 'debug') {
+      /*
+       * ★ 숫자 하나로는 아무것도 못 정한다.
+       *
+       *   "최대 650us" 만 보면 대응을 고를 수 없다. 861만 번 중 399번이면 부팅 잡음
+       *   이고 5만 번이면 구조 문제인데, 최대치는 그 둘을 구분해 주지 않는다.
+       *   그래서 최대치 옆에 **넘긴 횟수와 전체 횟수**를 같이 둔다.
+       */
+      const n = (v?: number) => (v === undefined ? '—' : v.toLocaleString());
+      const us = (v?: number) => (v === undefined ? '—' : `${v} us`);
+      const rate = (over?: number, all?: number) =>
+        over === undefined || !all
+          ? '—'
+          : `${over.toLocaleString()} / ${all.toLocaleString()}` +
+            (over ? ` (${((over * 100) / all).toFixed(4)}%)` : '');
+
+      const rows: [string, string, string][] = [
+        ['he.dbg.scan', t('Scan'), `${us(stat?.scanUs)}   ${t('max')} ${us(stat?.scanUsMax)}`],
+        ['he.dbg.scanOver', t('Scan over 60us'), rate(stat?.scanOver, stat?.scanCnt)],
+        ['he.dbg.task', t('Keyboard task'), `${us(stat?.taskUs)}   ${t('avg')} ${us(stat?.taskUsAvg)}   ${t('max')} ${us(stat?.taskUsMax)}`],
+        ['he.dbg.taskOver', t('Task over 125us'), rate(stat?.taskOver, stat?.taskCnt)],
+        ['he.dbg.rgb', t('RGB frame'), `${t('avg')} ${us(stat?.rgbUsAvg)}   ${t('max')} ${us(stat?.rgbUsMax)}`],
+        ['he.dbg.timeout', t('ADC timeout'), n(stat?.timeout)],
+        ['he.dbg.boot', t('Boot calibration'), stat ? `${stat.calMs} ms   ${stat.calibrated ? t('done') : t('not done')}` : '—'],
+        ['he.dbg.fps', t('Live frames'), tracking ? `${fps} / s` : t('off')],
+      ];
+
+      return (
+        <>
+          {rows.map(([tip, label, value]) => (
+            <ControlRow key={label}>
+              <Label>
+                <Hint tip={t(tip)}>{label}</Hint>
+              </Label>
+              <Detail>
+                <Summary>{value}</Summary>
+              </Detail>
+            </ControlRow>
+          ))}
+          <Note>{t('he.note.debug')}</Note>
         </>
       );
     }
