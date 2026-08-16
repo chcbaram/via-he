@@ -178,7 +178,7 @@ const paintKeycapLabel = (
     context.fillText(
       label.subLabel,
       canvasWidth - 4,
-      canvasHeight - (label.bar === undefined ? 4 : 8),
+      canvasHeight - (label.bar ? 8 : 4),
     );
     context.globalAlpha = 1;
     context.textAlign = 'start';
@@ -196,35 +196,21 @@ const paintKeycapLabel = (
    *   깔개를 먼저 깔아 0 일 때도 자리가 보이게 한다 — 안 그러면 눌러야만 막대가
    *   나타나서 어디를 봐야 할지 모른다.
    */
-  if (label && label.bar !== undefined) {
+  /*
+   * 들어간 만큼만 그린다. 깔개는 깔지 않는다.
+   *
+   * ★ 안 눌린 키에 자국을 남기지 않는다.
+   *
+   *   빈 깔개를 깔아 두면 63개 키캡에 회색 줄이 늘 그어져 있어, 정작 움직이는
+   *   막대가 그 줄들에 묻힌다. 아무것도 없다가 눌러야 생기는 편이 눈에 띈다.
+   */
+  if (label && label.bar) {
     const h = 3;
-    const y = canvasHeight - h - 1;
-    context.globalAlpha = 0.18;
-    context.fillRect(3, y, canvasWidth - 6, h);
     context.globalAlpha = 0.9;
-    context.fillRect(3, y, (canvasWidth - 6) * Math.min(1, label.bar), h);
+    context.fillRect(3, canvasHeight - h - 1, (canvasWidth - 6) * Math.min(1, label.bar), h);
     context.globalAlpha = 1;
   }
 
-  /*
-   * 입력으로 잡힌 키에 테두리.
-   *
-   * ★ 막대만으로는 모른다.
-   *
-   *   막대는 얼마나 들어갔는지를 보여줄 뿐, 설정한 입력지점을 넘었는지는 길이를
-   *   눈으로 재야 안다. 그런데 이 화면에서 정하는 것이 바로 그 지점이라, **넘는
-   *   순간**이 따로 보여야 값을 옮겨 볼 근거가 생긴다.
-   *
-   * ★ 색이 아니라 테두리다.
-   *
-   *   키 색은 이미 선택 표시가 쓰고 있다. 같은 통로에 얹으면 고른 키인지 눌린
-   *   키인지 구분이 안 된다. 테두리는 색과 겹치지 않으면서 선명하다.
-   */
-  if (label && label.pressed) {
-    context.strokeStyle = legendColor;
-    context.lineWidth = 2;
-    context.strokeRect(1, 1, canvasWidth - 2, canvasHeight - 2);
-  }
   return overflowed;
 };
 
@@ -485,6 +471,28 @@ export const Keycap: React.FC<TwoStringKeycapProps> = React.memo((props) => {
             background: getDarkenedColor(props.color.c, 0.8),
             transform: `perspective(100px) translateZ(${keycapZ}px)`,
             borderRadius: 3,
+            /*
+             * 입력으로 잡힌 키에 **바깥** 테두리.
+             *
+             * ★ 막대만으로는 모른다.
+             *
+             *   막대는 얼마나 들어갔는지를 보여줄 뿐, 설정한 입력지점을 넘었는지는
+             *   길이를 눈으로 재야 안다. 이 화면에서 정하는 것이 바로 그 지점이라
+             *   **넘는 순간**이 따로 보여야 값을 옮겨 볼 근거가 생긴다.
+             *
+             * ★ 색이 아니라 테두리다.
+             *
+             *   키 색은 이미 선택 표시가 쓴다. 같은 통로에 얹으면 고른 키인지 눌린
+             *   키인지 구분이 안 된다.
+             *
+             * ★ 캔버스가 아니라 여기다.
+             *
+             *   캔버스는 키캡 **윗면**만 덮는다. 거기에 그리면 키캡 안쪽에 줄이
+             *   하나 더 그어진 꼴이라 각인과 겹쳐 지저분하다. 이 요소가 키캡 몸통
+             *   자체라 outline 이 곧 바깥 테두리가 된다.
+             */
+            outline: label?.pressed ? `2px solid ${props.color.t}` : undefined,
+            outlineOffset: 1,
             width:
               textureWidth * CSSVarObject.keyXPos - CSSVarObject.keyXSpacing,
             height:

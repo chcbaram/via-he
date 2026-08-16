@@ -225,35 +225,21 @@ const paintKeycapLabel = (
       label.subLabel,
       (rect.tr.x - margin.x) * canvas.width,
       (1 - (rect.bl.y + margin.y)) * canvas.height -
-        (label.bar === undefined ? 0 : 14),
+        (label.bar ? 14 : 0),
     );
     context.globalAlpha = 1;
     context.textAlign = 'start';
   }
 
   /* 맨 아래 깊이 막대 — 2D 쪽 주석 참고 */
-  if (label && label.bar !== undefined) {
+  if (label && label.bar) {
     const x0 = (rect.bl.x + margin.x) * canvas.width;
     const w = (rect.tr.x - rect.bl.x - 2 * margin.x) * canvas.width;
     const h = 10;
     const y = (1 - rect.bl.y) * canvas.height - h - 6;
-    context.globalAlpha = 0.18;
-    context.fillRect(x0, y, w, h);
     context.globalAlpha = 0.9;
     context.fillRect(x0, y, w * Math.min(1, label.bar), h);
     context.globalAlpha = 1;
-  }
-
-  /* 입력으로 잡힌 키에 테두리 — 2D 쪽 주석 참고 */
-  if (label && label.pressed) {
-    context.strokeStyle = legendColor;
-    context.lineWidth = 6;
-    context.strokeRect(
-      rect.bl.x * canvas.width + 3,
-      (1 - rect.tr.y) * canvas.height + 3,
-      (rect.tr.x - rect.bl.x) * canvas.width - 6,
-      (rect.tr.y - rect.bl.y) * canvas.height - 6,
-    );
   }
   return overflowed;
 };
@@ -354,6 +340,31 @@ const paintKeycap = (
   const debug = false;
   if (debug) {
     paintDebugLines(canvas, textureRects.keycapRect, textureRects.faceRect);
+  }
+
+  /*
+   * 입력으로 잡힌 키에 **바깥** 테두리.
+   *
+   * ★ faceRect 가 아니라 keycapRect 다.
+   *
+   *   윗면에 그리면 키캡 안쪽에 줄이 하나 더 그어진 꼴이라 각인과 겹쳐 지저분하다.
+   *   keycapRect 가 키캡 바깥 모서리라 여기가 맞다. 라벨을 그리기 **전**에 긋는다 —
+   *   라벨 쪽은 윗면으로 클리핑을 걸어 두므로 그 뒤에는 바깥에 못 그린다.
+   *
+   * ★ 색이 아니라 테두리인 이유는 2D 쪽 주석에 적었다.
+   */
+  if (label && label.pressed) {
+    const r = textureRects.keycapRect;
+    const w = 6;
+
+    context.strokeStyle = legendColor;
+    context.lineWidth = w;
+    context.strokeRect(
+      r.bl.x * canvas.width + w / 2,
+      (1 - r.tr.y) * canvas.height + w / 2,
+      (r.tr.x - r.bl.x) * canvas.width - w,
+      (r.tr.y - r.bl.y) * canvas.height - w,
+    );
   }
 
   return paintKeycapLabel(canvas, textureRects.faceRect, legendColor, label);
