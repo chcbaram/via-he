@@ -444,6 +444,12 @@ export const HePane: React.FC = () => {
    * 처음 그려질 때와 언어가 바뀔 때 값이 달라지므로 ResizeObserver 로 따라간다.
    * 없으면(구형) 잰 값 없이 기본값으로 둔다 — 어긋날 뿐 깨지지는 않는다.
    */
+  /*
+   * 값 읽기 명령을 이 보드가 아는가. 한 번 실패하면 이번 연결 동안 안 묻는다.
+   * (펌웨어를 새로 구우면 장치가 다시 잡히면서 되살아난다)
+   */
+  const strokesOk = useRef(true);
+
   const selRowRef = useRef<HTMLSpanElement>(null);
   const [selRowW, setSelRowW] = useState(330);
 
@@ -754,40 +760,61 @@ export const HePane: React.FC = () => {
     if (!api || !cal?.active) return;
     let alive = true;
     /*
-     * 상태와 값을 **한 번에 이어서** 묻는다.
+     * ★ setInterval 이 아니라 **끝나면 다시 거는** 방식이다.
      *
-     * 둘을 따로 돌리면 같은 통로에 요청이 겹쳐 응답이 엇갈린다. 그리고 값 읽기는
-     * 프레임 세 번이라 한 번에 네 번을 왕복하는데, 250ms 안에 넉넉히 끝난다.
+     *   한 회차가 HID 왕복 네 번(상태 1 + 값 3)으로 늘었다. 250ms 안에 못 끝내면
+     *   다음 회차가 겹쳐 들어가고, 같은 통로에 요청이 섞이면 응답이 엇갈려
+     *   VIA 가 "Receiving incorrect response" 로 잡는다. 끝난 뒤에 거는 방식이면
+     *   겹칠 수가 없다.
      */
-    const id = setInterval(() => {
-      heCalStatus(send)
-        .then(async (c) => {
-          if (!alive) return;
-          setCal(c);
-          dispatch(setOverlayKeys(c.keys));
+    let timer: ReturnType<typeof setTimeout>;
 
-          /*
-           * 누르는 대로 값이 갱신되는 것을 보여준다.
-           *
-           * ★ 아직 못 잰 키는 빈칸으로 둔다.
-           *
-           *   0 을 찍으면 "0 카운트로 측정됨" 으로 읽힌다. 저장돼 있던 옛 값을
-           *   대신 찍는 것도 안 된다 — 지금 잰 값인 척한다.
-           */
-          const v = await heCalStrokes(send);
-          if (!alive) return;
-          const text: Record<number, string> = {};
-          for (const g of layout) {
-            const i = g.row * MATRIX_COLS + g.col;
-            if (v[i] > 0) text[i] = String(v[i]);
+    const tick = async () => {
+      try {
+        const c = await heCalStatus(send);
+        if (!alive) return;
+        setCal(c);
+        dispatch(setOverlayKeys(c.keys));
+
+        /*
+         * 누르는 대로 값이 갱신되는 것을 보여준다.
+         *
+         * ★ 아직 못 잰 키는 빈칸으로 둔다.
+         *
+         *   0 을 찍으면 "0 카운트로 측정됨" 으로 읽힌다. 저장돼 있던 옛 값을 대신
+         *   찍는 것도 안 된다 — 지금 잰 값인 척한다.
+         *
+         * ★ 이 명령을 모르는 펌웨어가 있다.
+         *
+         *   값 읽기는 나중에 생긴 명령이라, 그 전 펌웨어가 올라간 보드는 엉뚱한
+         *   응답을 준다. VIA 는 그것을 오류로 잡아 로그에 쌓는다 — 250ms 마다
+         *   쌓이면 오류 표시가 뜨고 진짜 오류를 못 본다. 한 번 실패하면 이 회차
+         *   동안 다시 묻지 않는다. 진행 상황은 상태 명령만으로도 나온다.
+         */
+        if (strokesOk.current) {
+          try {
+            const v = await heCalStrokes(send);
+            if (!alive) return;
+            const text: Record<number, string> = {};
+            for (const g of layout) {
+              const i = g.row * MATRIX_COLS + g.col;
+              if (v[i] > 0) text[i] = String(v[i]);
+            }
+            dispatch(setOverlayText(text));
+          } catch {
+            strokesOk.current = false;
           }
-          dispatch(setOverlayText(text));
-        })
-        .catch(() => {});
-    }, 250);
+        }
+      } catch {
+        /* 한 회차 실패는 넘어간다 — 다음에 다시 묻는다 */
+      }
+      if (alive) timer = setTimeout(tick, 250);
+    };
+
+    timer = setTimeout(tick, 250);
     return () => {
       alive = false;
-      clearInterval(id);
+      clearTimeout(timer);
     };
   }, [api, send, cal?.active, layout, dispatch]);
 
