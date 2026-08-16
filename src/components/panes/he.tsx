@@ -129,13 +129,19 @@ const U = 62;
 /*
  * 화면별로 키캡에 얹을 값.
  *
- * 여기 없는 화면은 값을 안 얹는다. 화면이 늘면 한 줄 더한다 — 얹을 값이 없는 것도
- * 뜻이 있는 답이라 굳이 적지 않는다.
+ * ★ 그 화면이 다루는 값을 **다** 얹는다.
+ *
+ *   입력지점만 얹었더니 해제지점이 어디인지는 키캡에서 알 수 없었다. 한 자에서
+ *   둘을 같이 잡게 해 놓고 키캡에는 하나만 보이면 앞뒤가 안 맞는다.
+ *
+ *   순서는 화면의 줄 순서와 같다 — 화면에서 위에 있는 것이 앞에 온다.
+ *
+ * 여기 없는 화면은 값을 안 얹는다. 화면이 늘면 한 줄 더한다.
  */
-const OVERLAY_FIELD: Record<string, keyof HeKeyCfg | undefined> = {
-  actuation: 'pressUm',
-  rapid: 'rtReleaseUm',
-  deadzone: 'deadUm',
+const OVERLAY_FIELDS: Record<string, (keyof HeKeyCfg)[] | undefined> = {
+  actuation: ['pressUm', 'releaseUm'],
+  rapid: ['rtReleaseUm', 'rtPressUm'],
+  deadzone: ['deadUm'],
 };
 
 const SECTIONS = [
@@ -413,15 +419,18 @@ const PresetVals = styled.div`
 `;
 
 /*
- * 한 줄이 값을 둘 다룰 때 아래에 붙는 이름.
+ * 한 줄이 값을 둘 다룰 때 아래에 붙는 둘째 이름.
  *
  * 자 하나에 손잡이가 둘이므로 이름도 둘이어야 한다. 행을 나누면 자가 두 개인 줄
- * 안다 — 같은 행에 두되 작게 붙인다.
+ * 안다 — 같은 행에 둔다.
+ *
+ * ★ 글자 크기는 첫째 이름과 같다.
+ *
+ *   작게 줄였더니 덜 중요한 값으로 읽혔다. 둘은 대등한 값이다 — 하나는 들어갈 때,
+ *   하나는 나올 때를 정할 뿐이다.
  */
-const SubLabel = styled.div`
-  font-size: 13px;
-  opacity: 0.65;
-  margin-top: 2px;
+const SecondLabel = styled.div`
+  margin-top: 14px;
 `;
 
 const Note = styled.div`
@@ -805,8 +814,8 @@ export const HePane: React.FC = () => {
   useEffect(() => {
     if (rail !== 'tune') return;
 
-    const field = OVERLAY_FIELD[section];
-    if (!field) {
+    const fields = OVERLAY_FIELDS[section];
+    if (!fields) {
       dispatch(setOverlayText(null));
       return;
     }
@@ -815,7 +824,11 @@ export const HePane: React.FC = () => {
     for (const g of layout) {
       const i = g.row * MATRIX_COLS + g.col;
       const c = keyCfgs[i];
-      if (c) text[i] = (((c[field] as number) ?? 0) / 100).toFixed(2);
+      if (!c) continue;
+      /* 값 사이는 사선 하나로 붙인다 — 1u 키캡에 빈칸까지 넣을 자리가 없다 */
+      text[i] = fields
+        .map((f) => (((c[f] as number) ?? 0) / 100).toFixed(2))
+        .join('/');
     }
     dispatch(setOverlayText(text));
   }, [rail, section, keyCfgs, layout, dispatch]);
@@ -1728,9 +1741,9 @@ export const HePane: React.FC = () => {
           <ControlRow>
             <Label>
               <Hint tip={t('he.tip.press')}>{t('Press Point')}</Hint>
-              <SubLabel>
+              <SecondLabel>
                 <Hint tip={t('he.tip.release')}>{t('Release Point')}</Hint>
-              </SubLabel>
+              </SecondLabel>
             </Label>
             <Detail>
               <DepthSlider

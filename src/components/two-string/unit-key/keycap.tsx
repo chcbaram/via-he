@@ -177,8 +177,20 @@ const paintKeycapLabel = (
    *   그 키에서 값이 배경에 묻는다. 각인과 같은 색을 쓰면 반전이 저절로 따라온다.
    */
   if (label && label.subLabel) {
-    const fontSize = 11;
+    /*
+     * ★ 넘치면 줄인다.
+     *
+     *   값이 하나면 "1.00" 이지만 둘이면 "1.00/0.50" 이라 두 배가 넘는다. 1u
+     *   키캡에서는 고정 크기로는 안 들어간다. 자르면 뒤 값이 사라져 있는지조차
+     *   모르므로, 들어갈 때까지 줄인다 — 작아도 있는 편이 낫다.
+     */
+    let fontSize = 11;
+    const room = canvasWidth - 7;
     context.font = `${fontSize}px ${fontFamily}`;
+    while (fontSize > 7 && context.measureText(label.subLabel).width > room) {
+      fontSize -= 0.5;
+      context.font = `${fontSize}px ${fontFamily}`;
+    }
     context.textAlign = 'right';
     context.globalAlpha = 0.8;
     /* 막대가 있으면 그 위로 올린다 */
