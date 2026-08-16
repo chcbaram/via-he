@@ -65,6 +65,7 @@ import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {DepthSlider} from './he-depth';
 import {ProfileSelect} from 'src/components/menus/profile-select';
+import {Badge} from './configure-panes/badge';
 import {
   fwFetch,
   fwList,
@@ -2374,6 +2375,14 @@ export const HePane: React.FC = () => {
         */}
       <div style={{position: 'absolute', top: 50, left: 0, right: 0, pointerEvents: 'none'}}>
         <div style={{pointerEvents: 'all'}}>
+          {/*
+            * 키보드 이름 배지도 같이 둔다 — 어느 보드를 보고 있는지는 여기서도
+            * 유효한 물음이고, 장치를 바꾸는 길이 탭마다 다르면 찾아 헤맨다.
+            *
+            * 레이어 버튼은 안 가져온다. HE 설정은 레이어와 무관하다 — 입력지점은
+            * 스위치의 성질이지 그 키가 무슨 글자를 내느냐와 상관이 없다.
+            */}
+          <Badge />
           <ProfileSelect />
         </div>
       </div>
