@@ -119,7 +119,6 @@ import {
   heCheckBackup,
   heMakeSend,
   heProfGet,
-  heProfSet,
   heProfCopy,
   HeKeyCfg,
   HE_KEY_ALL,
@@ -1334,15 +1333,6 @@ export const HePane: React.FC = () => {
        *   들고 있던 것을 그대로 두면 옛 프로파일의 숫자가 새 프로파일의 것인 척
        *   남는다 — 그 상태에서 슬라이더를 건드리면 옛 값이 새 프로파일에 써진다.
        */
-      const pick = async (i: number) => {
-        try {
-          dispatch(setProfile(await heProfSet(send, i)));
-          setCopyMsg(null);
-        } catch (e) {
-          setErr(String(e));
-        }
-      };
-
       /*
        * ★ 되돌릴 수 없으므로 한 번 묻는다.
        *
@@ -1366,16 +1356,22 @@ export const HePane: React.FC = () => {
 
       return (
         <>
+          {/*
+            * ★ 여기서는 **고르지 않는다.**
+            *
+            *   고르는 자리는 키보드 이름 옆의 배지다. 프로파일은 어느 탭에 있든
+            *   바꿀 수 있어야 하고, 늘 보이는 자리에 이미 있는 것을 화면 안에 또
+            *   두면 어느 쪽이 진짜인지 헷갈린다. 여기는 **손대는 일**만 맡는다 —
+            *   복사, 그리고 앞으로 이름 붙이기·초기화가 붙을 자리다.
+            */}
           <ControlRow>
             <Label>
               <Hint tip={t('he.tip.prof')}>{t('Profile')}</Hint>
             </Label>
             <Detail>
-              {Array.from({length: cnt}, (_, i) => (
-                <ProfBtn key={i} $on={i === now} onClick={() => pick(i)}>
-                  {i + 1}
-                </ProfBtn>
-              ))}
+              <Summary>
+                {now + 1} / {cnt}
+              </Summary>
             </Detail>
           </ControlRow>
 
