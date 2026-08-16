@@ -296,25 +296,50 @@ export async function heSetSwitch(send: HidSender, type: number) {
 }
 
 /*
- * 스위치 종류표 — keys.c 의 keys_switch[] 와 순서가 같아야 한다.
+ * 스위치 종류표 — HID 0xC6. **장치에서 읽는다.**
  *
- * 앞의 GENERIC_CNT 개가 일반형이고 그 뒤가 제원을 아는 제품이다. 자기 스위치를
+ * 앞의 genericCnt 개가 일반형이고 그 뒤가 제원을 아는 제품이다. 자기 스위치를
  * 알면 제품을 고르는 쪽이 언제나 낫다 — 전 행정이 정확해야 mm 표시가 맞는다.
  * 일반형 4.0mm 로 두고 실제가 3.4mm 였을 때 모든 mm 가 18% 어긋났다.
  *
- * ★ 장치에서 읽어오는 쪽이 옳다. 지금은 양쪽에 같은 표가 있어 어긋날 수 있다 —
- *   배치(heReadLayout)처럼 HID 로 받아오는 것을 다음에 넣는다.
+ * ★ 여기 표를 박아 두면 안 된다.
+ *
+ *   설정은 **번호**로 저장된다. 펌웨어에 스위치를 하나 추가하면 그 뒤 번호가 전부
+ *   밀리는데, 도구가 옛 목록을 들고 있으면 사용자가 고른 것과 다른 스위치가 걸린다.
+ *   그러면 전 행정이 달라져 모든 mm 표시가 조용히 어긋난다.
+ *
+ *   응답 [1]=에코 [2]=전체 개수 [3]=일반형 개수 [4..5]=전 행정 [6..]=이름(NUL 종료)
  */
-export const HE_SWITCH_GENERIC_CNT = 3;
+export const HE_CMD_SWITCH = 0xc6;
 
-export const HE_SWITCHES = [
-  {name: 'generic 4.0mm', travelUm: 400},
-  {name: 'generic 3.5mm', travelUm: 350},
-  {name: 'generic 3.0mm', travelUm: 300},
-  {name: 'GEON RAW HE', travelUm: 340},
-];
+export type HeSwitch = {name: string; travelUm: number};
 
-export const HE_SWITCH_NAMES = HE_SWITCHES.map((s) => s.name);
+export type HeSwitchTable = {
+  list: HeSwitch[];
+  genericCnt: number;
+};
+
+export async function heReadSwitches(
+  send: HidSender,
+): Promise<HeSwitchTable> {
+  const head = await send(HE_CMD_SWITCH, [0]);
+  const total = head[2];
+  const genericCnt = head[3];
+  const list: HeSwitch[] = [];
+
+  for (let i = 0; i < total && i < 64; i++) {
+    const r = i === 0 ? head : await send(HE_CMD_SWITCH, [i]);
+    /* NUL 까지가 이름이다. send 는 number[] 를 주므로 바이트를 직접 잇는다. */
+    let name = '';
+    for (let k = HE_SWITCH_NAME_OFF; k < r.length && r[k]; k++) {
+      name += String.fromCharCode(r[k]);
+    }
+    list.push({name, travelUm: r[4] | (r[5] << 8)});
+  }
+  return {list, genericCnt};
+}
+
+const HE_SWITCH_NAME_OFF = 6;
 
 
 /*

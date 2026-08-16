@@ -68,7 +68,8 @@ import {
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
 import {
-  HE_SWITCHES,
+  heReadSwitches,
+  type HeSwitchTable,
   HeKeyGeo,
   HeKeyState,
   HeSettings,
@@ -126,11 +127,15 @@ type SectionKey = (typeof SECTIONS)[number]['key'];
 /*
  * 이름 뒤에 전 행정을 같이 찍는다. 자기 스위치를 아는 사람은 제품을 골라야 mm 가
  * 맞는다 — 일반형 4.0mm 로 두고 실제가 3.4mm 였을 때 모든 mm 가 18% 어긋났다.
+ *
+ * ★ 목록은 **장치에서 읽는다** (heReadSwitches). 여기 박아 두면 펌웨어에 스위치를
+ *   하나 추가할 때 번호가 밀려, 사용자가 고른 것과 다른 스위치가 걸린다.
  */
-const SWITCH_OPTIONS = HE_SWITCHES.map((s, value) => ({
-  label: `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
-  value,
-}));
+const switchOptions = (tbl: HeSwitchTable | null) =>
+  (tbl?.list ?? []).map((s, value) => ({
+    label: `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
+    value,
+  }));
 
 /*
  * 프리셋. 슬라이더 세 개를 모르는 사람도 바로 쓸 수 있게 한다.
@@ -242,10 +247,22 @@ const Hint: React.FC<{tip: string; children: React.ReactNode}> = ({
   </HintWrap>
 );
 
+const SEL_BTN_W = 92;
+const SEL_BTN_GAP = 8;
+
+/* 선택 버튼 셋. 폭을 고정해야 스위치 목록과 오른쪽 끝이 맞는다 (SELECT_W). */
 const SelBtn = styled(AccentButton)`
-  margin-left: 8px;
-  min-width: 92px;
+  margin-left: ${SEL_BTN_GAP}px;
+  min-width: ${SEL_BTN_W}px;
 `;
+
+/*
+ * 목록 상자 폭 — 위쪽 선택 버튼 셋과 같은 폭으로 맞춘다.
+ *
+ * 둘이 같은 열에 세로로 놓이는데 폭이 다르면 오른쪽 끝이 어긋나 눈에 걸린다.
+ * 버튼 3개 x (폭 + 왼쪽 여백) 이 곧 그 줄의 폭이다.
+ */
+const SELECT_W = 3 * (SEL_BTN_W + SEL_BTN_GAP);
 
 /*
  * 프리셋 버튼은 폭을 맞춘다.
@@ -295,6 +312,7 @@ export const HePane: React.FC = () => {
   const [state, setState] = useState<HeKeyState[]>([]);
   const [tracking, setTracking] = useState(false);
   const [cfg, setCfg] = useState<HeSettings | null>(null);
+  const [switches, setSwitches] = useState<HeSwitchTable | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
 
@@ -447,6 +465,9 @@ export const HePane: React.FC = () => {
       .catch((e) => alive && setErr(String(e)));
     heGetSettings(send)
       .then((c) => alive && setCfg(c))
+      .catch(() => {});
+    heReadSwitches(send)
+      .then((t) => alive && setSwitches(t))
       .catch(() => {});
     return () => {
       alive = false;
@@ -845,9 +866,9 @@ export const HePane: React.FC = () => {
                 *   상자로 감싸도 250px 로 잘리던 이유다.
                 */}
               <AccentSelect
-                width={330}
-                value={SWITCH_OPTIONS[cfg?.switchType ?? 0]}
-                options={SWITCH_OPTIONS}
+                width={SELECT_W}
+                value={switchOptions(switches)[cfg?.switchType ?? 0]}
+                options={switchOptions(switches)}
                 onChange={(o: any) => {
                   const v = o?.value ?? 0;
                   setCfg((c) => (c ? {...c, switchType: v} : c));
