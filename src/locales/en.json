@@ -444,5 +444,8 @@
   "Host layout": "Host layout",
   "profiles": "profiles",
   "Reading": "Reading",
-  "Writing": "Writing"
+  "Writing": "Writing",
+  "Target": "Target",
+  "All profiles": "All profiles",
+  "he.tip.bkScope": "All profiles saves the whole keyboard, including macros and QMK options. A single profile saves just that one — load it into any profile number to move a setup from one board to another."
 }

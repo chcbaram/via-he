@@ -566,6 +566,14 @@ export const HePane: React.FC = () => {
   const bkInput = useRef<HTMLInputElement>(null);
 
   /*
+   * 백업 대상. -1 = 모든 프로파일, 0.. = 그 번호 하나.
+   *
+   * 저장과 불러오기가 같은 값을 본다. "1번만 저장" 해 놓고 "모두 불러오기" 를 하면
+   * 뜻이 어긋나므로, 한 줄에서 정하고 두 버튼이 그것을 따른다.
+   */
+  const [bkScope, setBkScope] = useState(-1);
+
+  /*
    * 선택 버튼 줄의 실제 폭. 스위치 목록이 이 폭을 따른다.
    *
    * 처음 그려질 때와 언어가 바뀔 때 값이 달라지므로 ResizeObserver 로 따라간다.
@@ -1492,6 +1500,7 @@ export const HePane: React.FC = () => {
             allIdx,
             {board, firmware: fwInfo?.version ?? '', date: stamp.toISOString()},
             (m) => setBkMsg(`${t('Reading')} ${m}`),
+            bkScope < 0 ? undefined : [bkScope],
           );
 
           const blob = new Blob([JSON.stringify(b, null, 2)], {
@@ -1500,7 +1509,11 @@ export const HePane: React.FC = () => {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${board}-${day}.json`;
+          /* 파일 이름에 대상을 적는다 — 나중에 무엇이 든 파일인지 열어 보지 않아도 안다 */
+          a.download =
+            bkScope < 0
+              ? `${board}-${day}.json`
+              : `${board}-p${bkScope + 1}-${day}.json`;
           a.click();
           URL.revokeObjectURL(url);
 
@@ -1530,8 +1543,13 @@ export const HePane: React.FC = () => {
             return;
           }
 
-          const n = await heWriteBackup(send, await keymapIo(), allIdx, obj, (m) =>
-            setBkMsg(`${t('Writing')} ${m}`),
+          const n = await heWriteBackup(
+            send,
+            await keymapIo(),
+            allIdx,
+            obj,
+            (m) => setBkMsg(`${t('Writing')} ${m}`),
+            bkScope < 0 ? undefined : bkScope,
           );
 
           /*
@@ -1554,6 +1572,40 @@ export const HePane: React.FC = () => {
 
       return (
         <>
+          {/*
+            * ★ 대상을 먼저 고른다.
+            *
+            *   "전부" 와 "하나" 는 뜻이 다른 일이다. 전부는 이 키보드를 통째로 되돌리는
+            *   것이고, 하나는 프로파일 한 벌만 옮기는 것이다 — 다른 보드의 1번을 이
+            *   보드 3번에 붓는 식으로도 쓴다.
+            *
+            *   하나만 담을 때는 매크로와 QMK 설정을 안 넣는다. 프로파일 하나를
+            *   불러오면서 그것들까지 바뀌면 고른 것보다 많은 것이 바뀐다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.bkScope')}>{t('Target')}</Hint>
+            </Label>
+            <Detail>
+              <AccentSelect
+                width={selRowW}
+                value={
+                  bkScope < 0
+                    ? {label: t('All profiles'), value: -1}
+                    : {label: `${t('Profile')} ${bkScope + 1}`, value: bkScope}
+                }
+                options={[
+                  {label: t('All profiles'), value: -1},
+                  ...Array.from({length: prof?.count ?? 4}, (_, i) => ({
+                    label: `${t('Profile')} ${i + 1}`,
+                    value: i,
+                  })),
+                ]}
+                onChange={(o: any) => setBkScope(o?.value ?? -1)}
+              />
+            </Detail>
+          </ControlRow>
+
           <ControlRow>
             <Label>
               <Hint tip={t('he.tip.backup')}>{t('Settings file')}</Hint>

@@ -587,11 +587,23 @@ export type HeBackup = {
   firmware: string;
   date: string;
 
-  /* 프로파일을 안 따르는 것들 — 한 벌만 담는다 */
-  qmk: {holdOkp: number; nkro: number};
-  macros: number[];
+  /*
+   * 프로파일을 안 따르는 것들 — 한 벌만 담는다.
+   *
+   * 프로파일 하나만 담을 때는 **넣지 않는다.** "2번 프로파일" 을 불러오면서 매크로와
+   * NKRO 까지 바뀌면 고른 것보다 많은 것이 바뀐다.
+   */
+  qmk?: {holdOkp: number; nkro: number};
+  macros?: number[];
 
+  /*
+   * 담긴 프로파일과, 각각이 원래 몇 번이었나.
+   *
+   * 번호를 같이 적어야 "1번만 담은 파일" 과 "전부 담은 파일" 을 같은 방식으로 되돌릴
+   * 수 있다. 그리고 1번을 담아서 3번에 붓는 것도 뜻이 분명해진다.
+   */
   profiles: HeProfBackup[];
+  profileIndexes: number[];
 };
 
 /*
@@ -808,12 +820,20 @@ export async function heReadBackup(
   idxOf: number[],
   meta: {board: string; firmware: string; date: string},
   onStep?: (msg: string) => void,
+  /* 담을 프로파일. 없으면 전부 */
+  only?: number[],
 ): Promise<HeBackup> {
   const {active, count} = await heProfGet(send);
+  const want =
+    only && only.length
+      ? only.filter((i) => i >= 0 && i < count)
+      : Array.from({length: count}, (_, i) => i);
+
   const profiles: HeProfBackup[] = [];
 
-  for (let p = 0; p < count; p++) {
-    onStep?.(`${p + 1} / ${count}`);
+  for (let n = 0; n < want.length; n++) {
+    const p = want[n];
+    onStep?.(`${n + 1} / ${want.length}`);
     await heProfSet(send, p);
 
     const keys: Record<number, HeKeyCfg> = {};
@@ -828,16 +848,23 @@ export async function heReadBackup(
 
   await heProfSet(send, active);      /* 있던 자리로 되돌린다 */
 
+  const whole = want.length === count;
+
   return {
     kind: HE_BACKUP_KIND,
     version: HE_BACKUP_VER,
     ...meta,
-    qmk: {
-      holdOkp: await get1(send, QMK_CHANNEL, VAL_HOLD_OKP),
-      nkro: await get1(send, NKRO_CHANNEL, VAL_NKRO_EN),
-    },
-    macros: await heLock(() => km.readMacros(), 'macros'),
+    ...(whole
+      ? {
+          qmk: {
+            holdOkp: await get1(send, QMK_CHANNEL, VAL_HOLD_OKP),
+            nkro: await get1(send, NKRO_CHANNEL, VAL_NKRO_EN),
+          },
+          macros: await heLock(() => km.readMacros(), 'macros'),
+        }
+      : {}),
     profiles,
+    profileIndexes: want,
   } as HeBackup;
 }
 
@@ -847,6 +874,8 @@ export async function heWriteBackup(
   idxOf: number[],
   b: HeBackup,
   onStep?: (msg: string) => void,
+  /* 이 번호에 붓는다. 없으면 파일에 적힌 번호 그대로 */
+  target?: number,
 ): Promise<number> {
   const {active, count} = await heProfGet(send);
 
@@ -868,14 +897,27 @@ export async function heWriteBackup(
     return m;
   }
 
-  const total = Math.min(count, b.profiles.length);
+  /*
+   * 어디에 붓나.
+   *
+   *   target 이 있으면 파일의 **첫 프로파일**을 그 번호에 붓는다 — 다른 보드의
+   *   1번을 이 보드 3번에 옮기는 식이다.
+   *   없으면 파일에 적힌 번호 그대로 되돌린다.
+   */
+  const idxs =
+    target !== undefined
+      ? [target]
+      : b.profileIndexes ?? b.profiles.map((_, i) => i);
+
+  const total = Math.min(idxs.length, b.profiles.length);
   let n = 0;
 
-  for (let p = 0; p < total; p++) {
-    const pb = b.profiles[p];
-    if (!pb) continue;
+  for (let k = 0; k < total; k++) {
+    const pb = b.profiles[k];
+    const p = idxs[k];
+    if (!pb || p < 0 || p >= count) continue;
 
-    onStep?.(`${p + 1} / ${total}`);
+    onStep?.(`${k + 1} / ${total}`);
     await heProfSet(send, p);
 
     for (const i of idxOf) {
@@ -894,7 +936,8 @@ export async function heWriteBackup(
     await set1(send, QMK_CHANNEL, VAL_HOLD_OKP, b.qmk.holdOkp);
     await set1(send, NKRO_CHANNEL, VAL_NKRO_EN, b.qmk.nkro);
   }
-  if (b.macros?.length) await heLock(() => km.writeMacros(b.macros), 'macros');
+  const macros = b.macros;
+  if (macros?.length) await heLock(() => km.writeMacros(macros), 'macros');
 
   return n;
 }
