@@ -555,7 +555,30 @@ export async function heCalSave(send: HidSender): Promise<HeCalState> {
  *   막을 수 있는 것은 막는다.
  */
 export const HE_BACKUP_KIND = 'wish60-he/settings';
-export const HE_BACKUP_VER = 1;
+
+/*
+ * 2: 프로파일 네 벌을 통째로 — HE 설정 + 키맵 + 조명, 그리고 매크로·QMK 설정.
+ *
+ * ★ 한 곳에서 다 담는다.
+ *
+ *   1 은 HE 설정만 담았다. 그런데 프로파일이 생기면서 "이 키보드를 지금처럼 되돌리기"
+ *   에 필요한 것이 여럿으로 늘었다 — 담는 곳이 흩어지면 사용자는 무엇을 어디서
+ *   받아 뒀는지 기억해야 하고, 하나를 빠뜨린 채 복원하면 어긋난 상태가 된다.
+ *
+ *   VIA 의 키맵 저장/불러오기는 그대로 둔다. 그쪽은 **키맵만** 다루는 도구라 뜻이
+ *   분명하고, 이미 쓰던 파일이 있다.
+ */
+export const HE_BACKUP_VER = 2;
+
+/* 프로파일 한 벌이 담는 것 */
+export type HeProfBackup = {
+  /* 매트릭스 인덱스 -> 그 키의 설정. 없는 키는 건드리지 않는다 */
+  keys: Record<number, HeKeyCfg>;
+  /* [레이어][키 정의 순서] 키코드 */
+  keymap: number[][];
+  /* 조명 — VIA 커스텀 채널의 값들 */
+  rgb: {brightness: number; effect: number; speed: number; color: number[]};
+};
 
 export type HeBackup = {
   kind: string;
@@ -563,18 +586,13 @@ export type HeBackup = {
   board: string;
   firmware: string;
   date: string;
-  /* 매트릭스 인덱스 -> 그 키의 설정. 없는 키는 건드리지 않는다 */
-  keys: Record<number, HeKeyCfg>;
-};
 
-export function heMakeBackup(
-  board: string,
-  firmware: string,
-  date: string,
-  keys: Record<number, HeKeyCfg>,
-): HeBackup {
-  return {kind: HE_BACKUP_KIND, version: HE_BACKUP_VER, board, firmware, date, keys};
-}
+  /* 프로파일을 안 따르는 것들 — 한 벌만 담는다 */
+  qmk: {holdOkp: number; nkro: number};
+  macros: number[];
+
+  profiles: HeProfBackup[];
+};
 
 /*
  * 받은 것이 우리 파일이 맞는지 본다.
@@ -656,4 +674,135 @@ export function heMakeSend(api: {
     heGate = run.catch(() => {});
     return run;
   };
+}
+
+
+/*
+ * ── 전체 백업 ────────────────────────────────────────────────────────────
+ *
+ * ★ 프로파일마다 갈아 끼워 가며 읽는다.
+ *
+ *   키맵도 조명도 "지금 프로파일" 것만 읽고 쓸 수 있다. 네 벌을 담으려면 네 번
+ *   옮겨 다녀야 한다. 끝나면 원래 있던 프로파일로 되돌려 놓는다 — 백업을 떴다고
+ *   보드가 4번에 가 있으면 안 된다.
+ */
+export const QMK_CHANNEL = 14;
+export const NKRO_CHANNEL = 15;
+export const RGB_CHANNEL = 3;
+
+const VAL_HOLD_OKP = 1;
+const VAL_NKRO_EN = 1;
+
+const RGB_BRIGHTNESS = 1;
+const RGB_EFFECT = 2;
+const RGB_SPEED = 3;
+const RGB_COLOR = 4;
+
+const get1 = async (send: HidSender, ch: number, id: number) =>
+  (await send(VIA_CUSTOM_GET, [ch, id]))[3];
+
+const set1 = (send: HidSender, ch: number, id: number, v: number) =>
+  send(VIA_CUSTOM_SET, [ch, id, v]);
+
+async function readRgb(send: HidSender) {
+  const c = await send(VIA_CUSTOM_GET, [RGB_CHANNEL, RGB_COLOR]);
+  return {
+    brightness: await get1(send, RGB_CHANNEL, RGB_BRIGHTNESS),
+    effect: await get1(send, RGB_CHANNEL, RGB_EFFECT),
+    speed: await get1(send, RGB_CHANNEL, RGB_SPEED),
+    color: [c[3], c[4]],          /* 색상·채도 */
+  };
+}
+
+async function writeRgb(send: HidSender, r: HeProfBackup['rgb']) {
+  await set1(send, RGB_CHANNEL, RGB_BRIGHTNESS, r.brightness);
+  await set1(send, RGB_CHANNEL, RGB_EFFECT, r.effect);
+  await set1(send, RGB_CHANNEL, RGB_SPEED, r.speed);
+  await send(VIA_CUSTOM_SET, [RGB_CHANNEL, RGB_COLOR, r.color[0], r.color[1]]);
+}
+
+/*
+ * 키맵·매크로를 실제로 읽고 쓰는 손.
+ *
+ * 이 파일은 VIA 의 KeyboardAPI 를 모른다 — 부르는 쪽이 넘긴다. 그래야 백업 로직이
+ * "무엇을 어떤 순서로 담나" 만 다루고, 프로토콜 세부는 원래 있던 자리에 남는다.
+ */
+type KeymapIo = {
+  layers: number;
+  read: (layer: number) => Promise<number[]>;
+  write: (keymap: number[][]) => Promise<void>;
+  readMacros: () => Promise<number[]>;
+  writeMacros: (data: number[]) => Promise<void>;
+};
+
+export async function heReadBackup(
+  send: HidSender,
+  km: KeymapIo,
+  idxOf: number[],
+  meta: {board: string; firmware: string; date: string},
+): Promise<HeBackup> {
+  const {active, count} = await heProfGet(send);
+  const profiles: HeProfBackup[] = [];
+
+  for (let p = 0; p < count; p++) {
+    await heProfSet(send, p);
+
+    const keys: Record<number, HeKeyCfg> = {};
+    for (const i of idxOf) keys[i] = await heReadKeyCfg(send, i);
+
+    const keymap: number[][] = [];
+    for (let l = 0; l < km.layers; l++) keymap.push(await km.read(l));
+
+    profiles.push({keys, keymap, rgb: await readRgb(send)});
+  }
+
+  await heProfSet(send, active);      /* 있던 자리로 되돌린다 */
+
+  return {
+    kind: HE_BACKUP_KIND,
+    version: HE_BACKUP_VER,
+    ...meta,
+    qmk: {
+      holdOkp: await get1(send, QMK_CHANNEL, VAL_HOLD_OKP),
+      nkro: await get1(send, NKRO_CHANNEL, VAL_NKRO_EN),
+    },
+    macros: await km.readMacros(),
+    profiles,
+  } as HeBackup;
+}
+
+export async function heWriteBackup(
+  send: HidSender,
+  km: KeymapIo,
+  idxOf: number[],
+  b: HeBackup,
+): Promise<number> {
+  const {active, count} = await heProfGet(send);
+  let n = 0;
+
+  for (let p = 0; p < Math.min(count, b.profiles.length); p++) {
+    const pb = b.profiles[p];
+    if (!pb) continue;
+
+    await heProfSet(send, p);
+
+    for (const i of idxOf) {
+      const c = (pb.keys as any)[i] ?? (pb.keys as any)[String(i)];
+      if (!c) continue;
+      await heWriteKeyCfg(send, i, c as HeKeyCfg);
+      n++;
+    }
+    if (pb.keymap?.length) await km.write(pb.keymap);
+    if (pb.rgb) await writeRgb(send, pb.rgb);
+  }
+
+  await heProfSet(send, active);
+
+  if (b.qmk) {
+    await set1(send, QMK_CHANNEL, VAL_HOLD_OKP, b.qmk.holdOkp);
+    await set1(send, NKRO_CHANNEL, VAL_NKRO_EN, b.qmk.nkro);
+  }
+  if (b.macros?.length) await km.writeMacros(b.macros);
+
+  return n;
 }

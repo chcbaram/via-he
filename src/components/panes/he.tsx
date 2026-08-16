@@ -64,7 +64,9 @@ import {AccentSelect} from '../inputs/accent-select';
 import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {DepthSlider} from './he-depth';
+import type {KeyboardAPI} from 'src/utils/keyboard-api';
 import {ProfileSelect} from 'src/components/menus/profile-select';
+import {loadKeymapFromDevice} from 'src/store/keymapSlice';
 import {Badge} from './configure-panes/badge';
 import {
   fwFetch,
@@ -117,8 +119,9 @@ import {
   heSetRtFlags,
   heReadKeyCfg,
   heWriteKeyCfg,
-  heMakeBackup,
   heCheckBackup,
+  heReadBackup,
+  heWriteBackup,
   heMakeSend,
   heProfGet,
   heProfCopy,
@@ -167,15 +170,6 @@ const OVERLAY_FIELDS: Record<string, (keyof HeKeyCfg)[] | undefined> = {
 };
 
 const SECTIONS = [
-  /*
-   * ★ 프로파일이 맨 위다.
-   *
-   *   아래 화면들이 정하는 값이 전부 **어느 프로파일 안의** 값이다. 그걸 모르고
-   *   값을 만지면 나중에 "내가 맞춰 둔 게 어디 갔나" 가 된다. 무엇을 고치는지 먼저
-   *   보여야 한다.
-   */
-  {rail: 'tune', key: 'profile', label: 'PROFILE', icon: faLayerGroup},
-
   /* 자주 만지는 것부터. 스위치는 한 번 정하면 끝이라 뒤에 둔다. */
   {rail: 'tune', key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
   {rail: 'tune', key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
@@ -200,6 +194,16 @@ const SECTIONS = [
    *   같은 말을 두 군데 쓰면 어느 쪽인지 헷갈린다.
    */
   {rail: 'device', key: 'firmware', label: 'FIRMWARE', icon: faMicrochip},
+
+  /*
+   * ★ 프로파일은 설정이 아니라 **장치의 상태**다.
+   *
+   *   처음에는 설정 갈래 맨 위에 뒀다. "아래 화면들이 어느 프로파일 안의 값인지"
+   *   를 먼저 보여야 한다고 봤는데, 고르는 자리가 키보드 이름 옆으로 올라가면서
+   *   그 몫이 사라졌다. 여기 남은 것은 복사·이름 같은 **손보는 일**이라, 펌웨어나
+   *   백업과 같은 부류다.
+   */
+  {rail: 'device', key: 'profile', label: 'PROFILE', icon: faLayerGroup},
   {rail: 'device', key: 'backup', label: 'BACKUP', icon: faFileArrowDown},
 ] as const;
 
@@ -1440,21 +1444,36 @@ export const HePane: React.FC = () => {
 
     if (section === 'backup') {
       /*
-       * ★ 내보낼 때 장치에서 다시 읽는다.
+       * ★ 한 파일에 다 담는다.
        *
-       *   화면이 들고 있는 값을 쓰면, 이 갈래에 바로 들어온 경우 읽어 둔 것이
-       *   없거나 낡았을 수 있다. 파일은 **장치에 실제로 들어 있는 것**이어야 한다.
+       *   프로파일 네 벌의 HE 설정·키맵·조명, 그리고 프로파일을 안 따르는 매크로와
+       *   QMK 설정까지. 담는 곳이 흩어지면 사용자는 무엇을 어디서 받아 뒀는지
+       *   기억해야 하고, 하나를 빠뜨린 채 복원하면 어긋난 상태가 된다.
+       *
+       *   보정값만 빼놓는다 — 이 보드의 스위치를 잰 값이라 다른 보드에서는 틀리다.
+       *
+       *   VIA 의 키맵 저장/불러오기는 그대로 둔다. 그쪽은 키맵만 다루는 도구라 뜻이
+       *   분명하고 이미 쓰던 파일이 있다.
        */
+      const keymapIo = async () => {
+        const kb = api as KeyboardAPI;
+        const layers = await kb.getLayerCount();
+        const m = {rows: MATRIX_COLS, cols: MATRIX_COLS};   /* 8 x 8 */
+        return {
+          layers,
+          read: (l: number) => kb.readRawMatrix(m, l) as Promise<number[]>,
+          write: (km: number[][]) => kb.writeRawMatrix(m, km),
+          readMacros: () => kb.getMacroBytes(),
+          writeMacros: (d: number[]) => kb.setMacroBytes(d),
+        };
+      };
+
+      const allIdx = layout.map((g) => g.row * MATRIX_COLS + g.col);
+
       const doExport = async () => {
         setBkBusy(true);
         setBkMsg(null);
         try {
-          const keys: Record<number, HeKeyCfg> = {};
-          for (const g of layout) {
-            const i = g.row * MATRIX_COLS + g.col;
-            keys[i] = await heReadKeyCfg(send, i);
-          }
-
           const board = fwInfo?.board ?? 'wish60-he';
           const stamp = new Date();
           const pad = (n: number) => String(n).padStart(2, '0');
@@ -1462,22 +1481,15 @@ export const HePane: React.FC = () => {
             stamp.getDate(),
           )}`;
 
-          const blob = new Blob(
-            [
-              JSON.stringify(
-                heMakeBackup(
-                  board,
-                  fwInfo?.version ?? '',
-                  stamp.toISOString(),
-                  keys,
-                ),
-                null,
-                2,
-              ),
-            ],
-            {type: 'application/json'},
-          );
+          const b = await heReadBackup(send, await keymapIo(), allIdx, {
+            board,
+            firmware: fwInfo?.version ?? '',
+            date: stamp.toISOString(),
+          });
 
+          const blob = new Blob([JSON.stringify(b, null, 2)], {
+            type: 'application/json',
+          });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -1485,7 +1497,7 @@ export const HePane: React.FC = () => {
           a.click();
           URL.revokeObjectURL(url);
 
-          setBkMsg(`${t('Saved')} — ${Object.keys(keys).length} ${t('keys')}`);
+          setBkMsg(`${t('Saved')} — ${b.profiles.length} ${t('profiles')}`);
         } catch (e) {
           setBkMsg(String(e));
         }
@@ -1504,26 +1516,17 @@ export const HePane: React.FC = () => {
             return;
           }
 
-          /*
-           * 파일에 있는 키만 쓴다.
-           *
-           * 배치가 조금 다른 판(옵션 소켓)에서 만든 파일이라도 겹치는 키는 살린다.
-           * 없는 키를 기본값으로 덮으면 사용자가 잃는 쪽이 더 크다.
-           */
-          let n = 0;
-          for (const g of layout) {
-            const i = g.row * MATRIX_COLS + g.col;
-            const c = obj.keys[i] ?? obj.keys[String(i)];
-            if (!c) continue;
-            await heWriteKeyCfg(send, i, c as HeKeyCfg);
-            n++;
-          }
+          const n = await heWriteBackup(send, await keymapIo(), allIdx, obj);
 
-          /* 읽어 둔 것이 낡았다 — 다음 렌더에서 다시 읽는다 */
+          /*
+           * 읽어 둔 것이 전부 낡았다 — 키 설정도, 앱이 들고 있는 키맵도.
+           * 키맵은 버리지 않고 덮어쓴다 (버리면 화면이 그릴 것이 없어진다).
+           */
           setKeyCfgs({});
           heGetSettings(send)
             .then((c) => setCfg(c))
             .catch(() => {});
+          if (device) await dispatch(loadKeymapFromDevice(device, true));
 
           setBkMsg(`${t('Applied')} — ${n} ${t('keys')}`);
         } catch (e) {

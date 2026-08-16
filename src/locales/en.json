@@ -429,8 +429,8 @@
   "Settings file": "Settings file",
   "Result": "Result",
   "Applied": "Applied",
-  "he.tip.backup": "Saves every key's press point, rapid trigger and dead zone to a file, or writes a saved file back. Calibration is not included — it measures this board's own switches and would be wrong on another board.",
-  "he.note.backup": "Calibration stays with the board. It measures this board's own switches, so copying it elsewhere would silently skew every mm reading — recalibrate instead. Only keys present in the file are written; the rest are left alone.",
+  "he.tip.backup": "Saves everything this keyboard needs to be itself — all four profiles with their HE settings, keymaps and lighting, plus macros and QMK options. Calibration is not included; it measures this board's own switches.",
+  "he.note.backup": "Calibration stays with the board — recalibrate instead of copying it. The keymap Save/Load in the keymap tab still works on its own; this file is the whole board.",
   "he.bk.save": "Save",
   "he.bk.load": "Load",
   "PROFILE": "PROFILE",
@@ -441,5 +441,6 @@
   "Copy {{cur}} to": "Copy {{cur}} to",
   "Copied to profile {{n}}": "Copied to profile {{n}}",
   "Overwrite profile {{n}} with profile {{cur}}?": "Overwrite profile {{n}} with profile {{cur}}? Its settings are lost.",
-  "Host layout": "Host layout"
+  "Host layout": "Host layout",
+  "profiles": "profiles"
 }
