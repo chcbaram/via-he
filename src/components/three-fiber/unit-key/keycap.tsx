@@ -224,10 +224,36 @@ const paintKeycapLabel = (
     context.fillText(
       label.subLabel,
       (rect.tr.x - margin.x) * canvas.width,
-      (1 - (rect.bl.y + margin.y)) * canvas.height,
+      (1 - (rect.bl.y + margin.y)) * canvas.height -
+        (label.bar === undefined ? 0 : 14),
     );
     context.globalAlpha = 1;
     context.textAlign = 'start';
+  }
+
+  /* 맨 아래 깊이 막대 — 2D 쪽 주석 참고 */
+  if (label && label.bar !== undefined) {
+    const x0 = (rect.bl.x + margin.x) * canvas.width;
+    const w = (rect.tr.x - rect.bl.x - 2 * margin.x) * canvas.width;
+    const h = 10;
+    const y = (1 - rect.bl.y) * canvas.height - h - 6;
+    context.globalAlpha = 0.18;
+    context.fillRect(x0, y, w, h);
+    context.globalAlpha = 0.9;
+    context.fillRect(x0, y, w * Math.min(1, label.bar), h);
+    context.globalAlpha = 1;
+  }
+
+  /* 입력으로 잡힌 키에 테두리 — 2D 쪽 주석 참고 */
+  if (label && label.pressed) {
+    context.strokeStyle = legendColor;
+    context.lineWidth = 6;
+    context.strokeRect(
+      rect.bl.x * canvas.width + 3,
+      (1 - rect.tr.y) * canvas.height + 3,
+      (rect.tr.x - rect.bl.x) * canvas.width - 6,
+      (rect.tr.y - rect.bl.y) * canvas.height - 6,
+    );
   }
   return overflowed;
 };

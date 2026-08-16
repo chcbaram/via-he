@@ -76,6 +76,8 @@ import {
   getHeSelectedKeys,
   setOverlayKeys,
   setOverlayText,
+  setOverlayBars,
+  setOverlayPressed,
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
@@ -807,6 +809,96 @@ export const HePane: React.FC = () => {
   }, [rail, section, keyCfgs, layout, dispatch]);
 
   /*
+   * 설정 갈래에서는 라이브 깊이를 **알아서 켠다.**
+   *
+   * ★ 이 화면의 값은 전부 "얼마나 눌렀을 때" 를 정하는 것이다.
+   *
+   *   입력지점을 1.5mm 로 놓고도 그게 손끝에서 어디쯤인지 모르면 숫자를 옮겨 볼
+   *   근거가 없다. 켜 두면 키캡 막대가 그 자리를 바로 보여준다. 매번 켜는 버튼을
+   *   누르게 할 이유가 없다 — 버튼은 끄고 싶을 때를 위해 남겨 둔다.
+   *
+   * ★ 권한은 묻지 않는다.
+   *
+   *   처음 한 번은 사용자가 버튼으로 켜서 허락해야 한다. 화면을 열었을 뿐인데
+   *   장치 선택 창이 뜨면 놀란다. 한 번 허락하면 그다음부터 저절로 열린다.
+   *
+   * ★ 장치 갈래에서는 끈다.
+   *
+   *   거기서는 깊이를 볼 일이 없고, 굽는 동안 스트림이 열려 있으면 장치가
+   *   재열거될 때 엉킨다. 보정 갈래에서는 켠 채로 둔다 — 거기도 깊이를 본다.
+   */
+  const autoTried = useRef(false);
+
+  useEffect(() => {
+    if (!api || !device || busy) return;
+
+    if (rail === 'device') {
+      if (tracking) stop();
+      return;
+    }
+    if (rail !== 'tune' || tracking || autoTried.current) return;
+
+    autoTried.current = true;
+    start(true);
+  }, [api, device, rail, tracking, busy]);
+
+  /*
+   * 라이브 깊이를 키캡 막대로 보낸다.
+   *
+   * ★ 단계로 끊어서 보낸다.
+   *
+   *   깊이는 화면 주사율마다 들어온다. 그대로 흘려보내면 63개 키캡이 초당 60번씩
+   *   다시 그려진다 — 키캡 하나가 캔버스 하나라(3D 는 텍스처 업로드까지) 그 값을
+   *   치를 이유가 없다.
+   *
+   *   20단계로 끊으면 **실제로 움직인 키만** 다시 그린다. 가만히 있는 키는 값이
+   *   안 바뀌므로 아예 안 그린다. 0.2mm 마다 한 칸이라 눈으로는 연속으로 보인다.
+   *
+   * 트래킹이 꺼져 있거나 다른 갈래면 막대를 치운다.
+   */
+  const barsSig = useRef('');
+
+  useEffect(() => {
+    const clear = () => {
+      if (barsSig.current !== '') {
+        barsSig.current = '';
+        dispatch(setOverlayBars(null));
+        dispatch(setOverlayPressed(null));
+      }
+    };
+    if (rail !== 'tune' || !tracking) {
+      clear();
+      return;
+    }
+
+    /* travel 은 아래에서 선언되므로 여기서는 원본을 본다 (같은 값이다) */
+    const full = info?.travel ?? 400;
+    const bars: Record<number, number> = {};
+    for (const g of layout) {
+      const i = g.row * MATRIX_COLS + g.col;
+      const d = state[i]?.depth ?? 0;
+      const q = Math.max(0, Math.min(20, Math.round((d / full) * 20)));
+      bars[i] = q / 20;
+    }
+
+    /*
+     * 입력으로 잡힌 키. 막대와 **같은 프레임에서** 뽑는다 — 따로 돌면 막대가
+     * 찬 프레임과 테두리가 켜지는 프레임이 어긋나 깜빡이는 것처럼 보인다.
+     */
+    const pressed: number[] = [];
+    for (const g of layout) {
+      const i = g.row * MATRIX_COLS + g.col;
+      if (state[i]?.pressed) pressed.push(i);
+    }
+
+    const sig = JSON.stringify(bars) + '|' + pressed.join(',');
+    if (sig === barsSig.current) return;
+    barsSig.current = sig;
+    dispatch(setOverlayBars(bars));
+    dispatch(setOverlayPressed(pressed));
+  }, [state, tracking, rail, layout, info?.travel, dispatch]);
+
+  /*
    * 설정 갈래에 들어오면 전 키 값을 채운다.
    *
    * keyCfgs 는 원래 **고른 키**만 읽어 둔다 — 고치려는 키만 알면 됐기 때문이다.
@@ -949,17 +1041,24 @@ export const HePane: React.FC = () => {
     };
   }, [api, send]);
 
-  const start = async () => {
+  /*
+   * silent 면 권한을 **묻지 않는다**.
+   *
+   * 자동으로 켤 때 쓴다. requestDevice() 는 사용자 제스처 안에서만 부를 수 있어
+   * 자동 시작에서는 애초에 못 부르고, 부를 수 있다 해도 화면을 열었을 뿐인데
+   * 장치 선택 창이 뜨면 놀란다. 이미 허락된 장치면 find() 만으로 열린다.
+   */
+  const start = async (silent = false) => {
     if (!device || !api) return;
-    setErr(null);
+    if (!silent) setErr(null);
     try {
       let hid = await HeTrackChannel.find(device.vendorId, device.productId);
-      if (!hid) {
+      if (!hid && !silent) {
         /* 권한이 없다 — 이 클릭이 사용자 제스처라 여기서 물어볼 수 있다 */
         hid = await HeTrackChannel.request(device.vendorId, device.productId);
       }
       if (!hid) {
-        setErr(t('he.streamDenied'));
+        if (!silent) setErr(t('he.streamDenied'));
         return;
       }
 
@@ -974,7 +1073,7 @@ export const HePane: React.FC = () => {
       chan.current = c;
       setTracking(true);
     } catch (e) {
-      setErr(String(e));
+      if (!silent) setErr(String(e));
     }
   };
 

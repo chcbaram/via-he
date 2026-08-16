@@ -174,9 +174,56 @@ const paintKeycapLabel = (
     context.font = `${fontSize}px ${fontFamily}`;
     context.textAlign = 'right';
     context.globalAlpha = 0.8;
-    context.fillText(label.subLabel, canvasWidth - 4, canvasHeight - 4);
+    /* 막대가 있으면 그 위로 올린다 */
+    context.fillText(
+      label.subLabel,
+      canvasWidth - 4,
+      canvasHeight - (label.bar === undefined ? 4 : 8),
+    );
     context.globalAlpha = 1;
     context.textAlign = 'start';
+  }
+
+  /*
+   * 맨 아래 깊이 막대.
+   *
+   * ★ 글자가 아니라 막대여야 한다.
+   *
+   *   누르는 동안 얼마나 들어갔는지는 숫자로 읽을 겨를이 없다. 길이는 곁눈으로도
+   *   들어온다. 설정한 입력지점(글자)과 지금 깊이(막대)를 한 키캡에 같이 두면
+   *   "이 키는 여기서 들어간다" 가 눈으로 맞춰진다.
+   *
+   *   깔개를 먼저 깔아 0 일 때도 자리가 보이게 한다 — 안 그러면 눌러야만 막대가
+   *   나타나서 어디를 봐야 할지 모른다.
+   */
+  if (label && label.bar !== undefined) {
+    const h = 3;
+    const y = canvasHeight - h - 1;
+    context.globalAlpha = 0.18;
+    context.fillRect(3, y, canvasWidth - 6, h);
+    context.globalAlpha = 0.9;
+    context.fillRect(3, y, (canvasWidth - 6) * Math.min(1, label.bar), h);
+    context.globalAlpha = 1;
+  }
+
+  /*
+   * 입력으로 잡힌 키에 테두리.
+   *
+   * ★ 막대만으로는 모른다.
+   *
+   *   막대는 얼마나 들어갔는지를 보여줄 뿐, 설정한 입력지점을 넘었는지는 길이를
+   *   눈으로 재야 안다. 그런데 이 화면에서 정하는 것이 바로 그 지점이라, **넘는
+   *   순간**이 따로 보여야 값을 옮겨 볼 근거가 생긴다.
+   *
+   * ★ 색이 아니라 테두리다.
+   *
+   *   키 색은 이미 선택 표시가 쓰고 있다. 같은 통로에 얹으면 고른 키인지 눌린
+   *   키인지 구분이 안 된다. 테두리는 색과 겹치지 않으면서 선명하다.
+   */
+  if (label && label.pressed) {
+    context.strokeStyle = legendColor;
+    context.lineWidth = 2;
+    context.strokeRect(1, 1, canvasWidth - 2, canvasHeight - 2);
   }
   return overflowed;
 };

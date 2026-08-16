@@ -109,12 +109,18 @@ export function getLabels<T>(
         if (!props.keyLabels) return base;
 
         const sub = props.keyLabels[i];
+        const bar = props.keyBars?.[i];
+        const pressed = props.keyPressed?.[i];
         const b = base && typeof base === 'object' ? base : {};
         return {
           ...b,
           compact: true,
           subLabel: sub,
-          key: `${(b as any).key ?? ''}|c|${sub ?? ''}`,
+          bar,
+          pressed,
+          key: `${(b as any).key ?? ''}|c|${sub ?? ''}|${bar ?? ''}|${
+            pressed ? 1 : 0
+          }`,
         };
       });
 }

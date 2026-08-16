@@ -44,12 +44,25 @@ type HeState = {
    * 읽힌다.
    */
   overlayText: Record<number, string> | null;
+
+  /*
+   * 키캡 아래 막대 (0~1) — **지금 상태**다. 매트릭스 인덱스로 넣는다.
+   *
+   * 글자와 통로를 따로 둔다. 글자는 설정값이라 가끔 바뀌지만 막대는 누르는 동안
+   * 계속 움직인다 — 한 통로에 섞으면 막대가 움직일 때마다 글자까지 다시 그린다.
+   */
+  overlayBars: Record<number, number> | null;
+
+  /* 지금 입력으로 잡힌 키 (매트릭스 인덱스). 막대와 다른 것이다 */
+  overlayPressed: number[] | null;
 };
 
 const initialState: HeState = {
   selectedKeys: [],
   overlayKeys: null,
   overlayText: null,
+  overlayBars: null,
+  overlayPressed: null,
 };
 
 const heSlice = createSlice({
@@ -78,6 +91,19 @@ const heSlice = createSlice({
       state.overlayKeys = action.payload;
     },
 
+    /* 키캡 아래 막대. null 이면 막대를 안 그린다. */
+    setOverlayBars: (
+      state,
+      action: PayloadAction<Record<number, number> | null>,
+    ) => {
+      state.overlayBars = action.payload;
+    },
+
+    /* 지금 입력으로 잡힌 키. null 이면 테두리를 안 그린다. */
+    setOverlayPressed: (state, action: PayloadAction<number[] | null>) => {
+      state.overlayPressed = action.payload;
+    },
+
     /* 지금 화면이 키캡에 찍을 값. null 이면 원래 각인으로 되돌린다. */
     setOverlayText: (
       state,
@@ -95,10 +121,15 @@ export const {
   clearKeys,
   setOverlayKeys,
   setOverlayText,
+  setOverlayBars,
+  setOverlayPressed,
 } = heSlice.actions;
 
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
 export const getHeOverlayKeys = (state: RootState) => state.he.overlayKeys;
 export const getHeOverlayText = (state: RootState) => state.he.overlayText;
+export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
+export const getHeOverlayPressed = (state: RootState) =>
+  state.he.overlayPressed;
 
 export default heSlice.reducer;

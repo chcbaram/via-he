@@ -33,6 +33,8 @@ export type KeyboardCanvasContentProps<T> = {
   selectedKey?: number;
   keyColors?: number[][];
   keyLabels?: (string | undefined)[];
+  keyBars?: (number | undefined)[];
+  keyPressed?: (boolean | undefined)[];
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;
   width: number;
@@ -64,6 +66,20 @@ export type KeyGroupProps<T> = {
    *   입력지점은 값이 연속이다. 같은 통로로 못 보낸다.
    */
   keyLabels?: (string | undefined)[];
+  /*
+   * 키캡 아래에 그릴 막대 (0~1, 키 정의 순서). 값이 아니라 **지금 상태**다.
+   *
+   * 글자와 통로를 따로 둔다 — 글자는 설정값처럼 가끔 바뀌지만 막대는 누르는 동안
+   * 계속 움직인다. 섞어 두면 막대가 움직일 때마다 글자까지 다시 그린다.
+   */
+  keyBars?: (number | undefined)[];
+  /*
+   * 지금 **입력으로 잡힌** 키 (키 정의 순서).
+   *
+   * 막대(얼마나 들어갔나)와 다른 것이다. 설정한 입력지점을 넘었는지는 막대 길이를
+   * 눈으로 재서는 알 수 없다 — 넘는 순간이 따로 보여야 한다.
+   */
+  keyPressed?: (boolean | undefined)[];
   selectedKey?: number;
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;

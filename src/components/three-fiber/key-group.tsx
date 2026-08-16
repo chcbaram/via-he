@@ -71,7 +71,7 @@ export const KeyGroup: React.FC<KeyGroupProps<ThreeEvent<MouseEvent>>> = (
   ]);
   const labels = useMemo(() => {
     return getLabels(props, macroExpressions, basicKeyToByte, byteToKey, keycodeLUT);
-  }, [keys, props.matrixKeycodes, props.keyLabels, macros, props.definition, keycodeLUT]);
+  }, [keys, props.matrixKeycodes, props.keyLabels, props.keyBars, props.keyPressed, macros, props.definition, keycodeLUT]);
   const {width, height} = calculateKeyboardFrameDimensions(keys);
   const elems = useMemo(() => {
     return props.keys.map((k, i) => {
