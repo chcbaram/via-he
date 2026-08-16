@@ -986,17 +986,31 @@ export type HeStat = {
  * clear 를 주면 누적값을 0 부터 다시 세고, **지운 뒤의 값**을 돌려준다.
  * 따로 물으면 그 사이에 몇 회가 더 쌓여 "지웠는데 0 이 아닌" 화면이 나온다.
  */
+/*
+ * ★ 한 프레임은 32바이트뿐이라 페이지로 나눠 받는다.
+ *
+ *   앞 4바이트를 빼면 LE32 가 일곱 개다. 열넷을 한 번에 담으려다 펌웨어가 버퍼를
+ *   28바이트 넘겨 썼다 (R15 에서 고쳤다).
+ */
+const HE_PER_PAGE = 7;
+
+const le32 = (r: number[], off: number, i: number) => {
+  const o = off + i * 4;
+  return (r[o] | (r[o + 1] << 8) | (r[o + 2] << 16) | (r[o + 3] << 24)) >>> 0;
+};
+
 export async function heReadStat(
   send: HidSender,
   clear = false,
 ): Promise<HeStat> {
-  const r = await send(HE_CMD_STAT, clear ? [HE_STAT_CLEAR] : []);
-  const u32 = (i: number) => {
-    const o = HE_STAT_OFF + i * 4;
-    return (
-      ((r[o] | (r[o + 1] << 8) | (r[o + 2] << 16) | (r[o + 3] << 24)) >>> 0)
-    );
-  };
+  const v: number[] = [];
+  for (let page = 0; page * HE_PER_PAGE < 14; page++) {
+    /* 지우기는 첫 페이지에서 한 번만 — 페이지마다 지우면 두 번째가 0 이 된다 */
+    const sub = clear && page === 0 ? HE_STAT_CLEAR : HE_STAT_READ;
+    const r = await send(HE_CMD_STAT, [sub, page]);
+    for (let i = 0; i < HE_PER_PAGE; i++) v.push(le32(r, HE_STAT_OFF, i));
+  }
+  const u32 = (i: number) => v[i];
   return {
     scanUs: u32(0),
     scanUsMax: u32(1),
@@ -1012,5 +1026,69 @@ export async function heReadStat(
     taskCnt: u32(11),
     rgbUsMax: u32(12),
     rgbUsAvg: u32(13),
+  };
+}
+
+
+/*
+ * ── 하드웨어·펌웨어 제원 — HID 0xCA ─────────────────────────────────────
+ *
+ * 안 바뀌는 값이라 화면이 한 번만 읽는다. 통계(0xC9)와 나눈 이유가 그것이다 —
+ * 같이 두면 안 바뀌는 값을 초당 두 번씩 나른다.
+ */
+export const HE_CMD_HWINFO = 0xca;
+
+const HE_HW_OFF = 4;
+const HE_HW_PAGE_MCU = 2;
+const HE_HW_PAGE_AUTHOR = 3;
+
+export type HeHwInfo = {
+  clockHz: number;
+  fwSize: number;
+  appBegin: number;
+  appSize: number;
+  eepromSize: number;
+  calAddr: number;
+  setAddr: number;
+  keyCount: number;
+  rows: number;
+  cols: number;
+  layers: number;
+  ledCount: number;
+  mcu: string;
+  author: string;
+};
+
+export async function heReadHwInfo(send: HidSender): Promise<HeHwInfo> {
+  const v: number[] = [];
+  for (let page = 0; page * HE_PER_PAGE < 12; page++) {
+    const r = await send(HE_CMD_HWINFO, [0, page]);
+    for (let i = 0; i < HE_PER_PAGE; i++) v.push(le32(r, HE_HW_OFF, i));
+  }
+
+  const str = async (page: number) => {
+    const r = await send(HE_CMD_HWINFO, [0, page]);
+    let out = '';
+    for (let i = HE_HW_OFF; i < r.length && r[i]; i++) {
+      out += String.fromCharCode(r[i]);
+    }
+    return out;
+  };
+
+  return {
+    clockHz: v[0],
+    fwSize: v[1],
+    appBegin: v[2],
+    appSize: v[3],
+    eepromSize: v[4],
+    calAddr: v[5],
+    setAddr: v[6],
+    keyCount: v[7],
+    rows: v[8],
+    cols: v[9],
+    layers: v[10],
+    ledCount: v[11],
+    mcu: await str(HE_HW_PAGE_MCU),
+    author: await str(HE_HW_PAGE_AUTHOR),
   };
 }

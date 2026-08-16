@@ -54,6 +54,7 @@ import {
   faFileArrowDown,
   faLayerGroup,
   faStethoscope,
+  faCircleInfo,
   faRulerVertical,
   faToggleOn,
   faWaveSquare,
@@ -105,6 +106,7 @@ import {
   HeKeyState,
   HeProf,
   HeStat,
+  HeHwInfo,
   HeSettings,
   HeTrackChannel,
   HeTrackInfo,
@@ -123,6 +125,7 @@ import {
   heWriteKeyCfg,
   heCheckBackup,
   heReadStat,
+  heReadHwInfo,
   heLock,
   heReadBackup,
   heWriteBackup,
@@ -218,6 +221,12 @@ const SECTIONS = [
    *   다루는 자리.
    */
   {rail: 'device', key: 'debug', label: 'DEBUG', icon: faStethoscope},
+
+  /*
+   * 맨 끝이다. 여기 값은 **안 바뀌는 것**이라 한 번 보고 잊는다 — 자주 여는 것을
+   * 앞에 두는 순서를 지킨다.
+   */
+  {rail: 'device', key: 'info', label: 'INFO', icon: faCircleInfo},
 ] as const;
 
 /*
@@ -587,6 +596,9 @@ export const HePane: React.FC = () => {
 
   /* 진단 통계 — 화면이 열려 있는 동안만 주기로 읽는다 */
   const [stat, setStat] = useState<HeStat | null>(null);
+
+  /* 제원 — 안 바뀌는 값이라 한 번만 읽는다 */
+  const [hw, setHw] = useState<HeHwInfo | null>(null);
 
   /*
    * 선택 버튼 줄의 실제 폭. 스위치 목록이 이 폭을 따른다.
@@ -1156,6 +1168,22 @@ export const HePane: React.FC = () => {
   }, [api, send, section]);
 
   /*
+   * 제원은 화면을 처음 열 때 한 번만 읽는다.
+   *
+   * 클럭도 EEPROM 크기도 도중에 바뀌지 않는다. 주기로 읽으면 USB 통로만 차지한다.
+   */
+  useEffect(() => {
+    if (!api || section !== 'info' || hw) return;
+    let alive = true;
+    heReadHwInfo(send)
+      .then((v) => alive && setHw(v))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [api, send, section, hw]);
+
+  /*
    * 펌웨어 화면을 열 때마다 현재 버전을 다시 읽는다.
    *
    * 마운트 때 한 번만 읽으면 그 사이에 장치가 바뀌거나(굽기·재연결) 처음 읽기가
@@ -1498,6 +1526,66 @@ export const HePane: React.FC = () => {
       );
     }
 
+    if (section === 'info') {
+      const kb = (v?: number) =>
+        v === undefined ? '—' : `${(v / 1024).toFixed(1)} KB`;
+      const hex = (v?: number) =>
+        v === undefined ? '—' : `0x${v.toString(16).toUpperCase()}`;
+
+      /*
+       * 펌웨어 크기는 배포 목록에서 가져온다.
+       *
+       * 장치가 주는 값은 코드+상수의 끝 주소라 실제 파일보다 조금 작다. 사용자가
+       * 견줄 대상은 자기가 구운 파일이므로, 그 버전의 배포 크기가 있으면 그걸 쓴다.
+       */
+      const rel = (fwList_ ?? []).find((f) => f.version === fwInfo?.version);
+
+      const rows: [string, string][] = [
+        [t('Board'), fwInfo?.board ?? '—'],
+        [t('Firmware'), fwInfo?.version ?? '—'],
+        [
+          t('Firmware size'),
+          rel ? `${rel.size.toLocaleString()} B` : kb(hw?.fwSize),
+        ],
+        [
+          t('Flash region'),
+          hw ? `${hex(hw.appBegin)} + ${kb(hw.appSize)}` : '—',
+        ],
+        [t('MCU'), hw?.mcu ?? '—'],
+        [
+          t('Core clock'),
+          hw ? `${Math.round(hw.clockHz / 1000000)} MHz` : '—',
+        ],
+        [t('EEPROM'), kb(hw?.eepromSize)],
+        [
+          t('Stores'),
+          hw ? `${t('calibration')} ${hex(hw.calAddr)} · ${t('settings')} ${hex(hw.setAddr)}` : '—',
+        ],
+        [
+          t('Matrix'),
+          hw ? `${hw.rows} x ${hw.cols}   ${hw.keyCount} ${t('keys')}` : '—',
+        ],
+        [t('Layers'), hw ? String(hw.layers) : '—'],
+        [t('LEDs'), hw ? String(hw.ledCount) : '—'],
+        [t('Profiles'), prof ? String(prof.count) : '—'],
+        [t('Made by'), hw?.author ?? '—'],
+      ];
+
+      return (
+        <>
+          {rows.map(([label, value]) => (
+            <ControlRow key={label}>
+              <Label>{label}</Label>
+              <Detail>
+                <Summary>{value}</Summary>
+              </Detail>
+            </ControlRow>
+          ))}
+          <Note>{t('he.note.info')}</Note>
+        </>
+      );
+    }
+
     if (section === 'debug') {
       /*
        * ★ 숫자 하나로는 아무것도 못 정한다.
@@ -1507,6 +1595,9 @@ export const HePane: React.FC = () => {
        *   그래서 최대치 옆에 **넘긴 횟수와 전체 횟수**를 같이 둔다.
        */
       const n = (v?: number) => (v === undefined ? '—' : v.toLocaleString());
+      /* us 한 바퀴가 곧 주파수다. 1000/us = kHz */
+      const khz = (v?: number) =>
+        !v ? '—' : v >= 1000 ? `${(1000 / v).toFixed(2)} kHz` : `${(1000 / v).toFixed(1)} kHz`;
       const us = (v?: number) => (v === undefined ? '—' : `${v} us`);
       const rate = (over?: number, all?: number) =>
         over === undefined || !all
@@ -1515,7 +1606,23 @@ export const HePane: React.FC = () => {
             (over ? ` (${((over * 100) / all).toFixed(4)}%)` : '');
 
       const rows: [string, string, string][] = [
-        ['he.dbg.scan', t('Scan'), `${us(stat?.scanUs)}   ${t('max')} ${us(stat?.scanUsMax)}`],
+        /*
+         * ★ 주파수도 같이 보인다.
+         *
+         *   30us 가 몇 kHz 인지 머릿속으로 나누게 하면 안 된다. 이 화면에서 정말
+         *   알고 싶은 것은 "8kHz 가 나오나" 이고, 그건 us 가 아니라 kHz 로 물어야
+         *   답이 바로 나온다. 최대 시간 쪽은 **최저** 주파수다 — 최악의 한 바퀴가
+         *   곧 그 순간의 속도다.
+         */
+        [
+          'he.dbg.scan',
+          t('Scan'),
+          stat
+            ? `${us(stat.scanUs)} (${khz(stat.scanUs)})   ${t('max')} ${us(
+                stat.scanUsMax,
+              )} (${khz(stat.scanUsMax)})`
+            : '—',
+        ],
         ['he.dbg.scanOver', t('Scan over 60us'), rate(stat?.scanOver, stat?.scanCnt)],
         ['he.dbg.task', t('Keyboard task'), `${us(stat?.taskUs)}   ${t('avg')} ${us(stat?.taskUsAvg)}   ${t('max')} ${us(stat?.taskUsMax)}`],
         ['he.dbg.taskOver', t('Task over 125us'), rate(stat?.taskOver, stat?.taskCnt)],
