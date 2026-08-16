@@ -368,9 +368,25 @@ const Hint: React.FC<{tip: string; children: React.ReactNode}> = ({
  * 부트로더로 넘어가고 기다리는 동안에는 비율을 모른다 — 그때는 흐르는 줄무늬로
  * "살아 있다" 만 보여준다.
  */
+/*
+ * 굽는 동안의 상태 한 줄.
+ *
+ * ★ 폭을 잡아 둔다.
+ *
+ *   퍼센트가 "9%" 에서 "10%" 로 갈 때 글자 수가 늘면서 줄 전체가 좌우로 흔들렸다.
+ *   이 자리는 오른끝에 붙어 있어서 늘어난 만큼 왼쪽으로 밀린다.
+ *
+ *   숫자 폭을 고정(tabular-nums)하고 칸을 넉넉히 잡아 오른쪽으로 정렬한다 —
+ *   자릿수가 바뀌어도 오른끝이 안 움직인다. 다른 문구("부트로더로 넘어가는 중")가
+ *   들어올 자리라 min-width 로 바닥만 준다.
+ */
 const FwStat = styled.span`
   margin-left: 12px;
   white-space: nowrap;
+  display: inline-block;
+  min-width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 `;
 
 const FwBar = styled.div`
