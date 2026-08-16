@@ -200,7 +200,22 @@ const Tick = styled.div<{$y: number; $major: boolean}>`
 type Props = {
   /* 0.01mm */
   value: number;
+  /* 잡을 수 있는 최대 — 그 키의 전 행정 */
   travelUm: number;
+  /*
+   * 눈금이 덮는 범위. 없으면 travelUm 과 같다.
+   *
+   * ★ 눈금과 잡히는 범위는 다르다.
+   *
+   *   눈금은 3.4 처럼 끝나면 읽기 나쁘다 — 4.0 까지 그어 두면 눈금이 온전한
+   *   숫자로 끝난다. 그리고 키는 공칭 행정보다 깊이 들어갈 수 있어서, 눈금을
+   *   행정에 맞추면 그 사실이 꼭대기에 붙어 안 보인다.
+   *
+   *   그렇다고 손잡이를 거기까지 열면 안 된다. 펌웨어가 설정값을 전 행정으로
+   *   잘라내므로(keysClampUm), 4.0 으로 잡아도 조용히 3.4 가 된다 — 화면과 장치가
+   *   갈라진다.
+   */
+  scaleUm?: number;
   onChange: (um: number) => void;
   /* 라이브 깊이 (0.01mm). null 이면 막대를 비운다 */
   depthUm: number | null;
@@ -229,6 +244,7 @@ type Props = {
 export const DepthSlider: React.FC<Props> = ({
   value,
   travelUm,
+  scaleUm,
   onChange,
   depthUm,
   pressed,
@@ -238,7 +254,8 @@ export const DepthSlider: React.FC<Props> = ({
   showValues,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const toY = (um: number) => (Math.min(um, travelUm) / travelUm) * H;
+  const full = scaleUm ?? travelUm;
+  const toY = (um: number) => (Math.min(um, full) / full) * H;
 
   const dual = value2 !== undefined && onChange2 !== undefined;
 
@@ -257,8 +274,9 @@ export const DepthSlider: React.FC<Props> = ({
       const r = el.getBoundingClientRect();
       const ratio = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
       /* 0.05mm 단위로 물린다 — 그보다 잘게 잡아도 손으로 재현이 안 된다 */
-      let um = Math.round((ratio * travelUm) / 5) * 5;
-      um = Math.max(5, um);
+      let um = Math.round((ratio * full) / 5) * 5;
+      /* 눈금은 더 넓어도 잡히는 것은 전 행정까지다 */
+      um = Math.max(5, Math.min(um, travelUm));
 
       if (!dual) {
         onChange(um);
@@ -268,7 +286,7 @@ export const DepthSlider: React.FC<Props> = ({
       if (which === 'a') onChange(Math.max(um, (value2 as number) + 5));
       else onChange2!(Math.min(um, value - 5));
     },
-    [onChange, onChange2, travelUm, dual, value, value2],
+    [onChange, onChange2, travelUm, full, dual, value, value2],
   );
 
   const nearest = (clientY: number): 'a' | 'b' => {
@@ -294,7 +312,7 @@ export const DepthSlider: React.FC<Props> = ({
 
   /* 0.5mm 마다 눈금, 1.0mm 마다 숫자 */
   const ticks: {y: number; major: boolean; label?: string}[] = [];
-  for (let um = 0; um <= travelUm; um += 50) {
+  for (let um = 0; um <= full; um += 50) {
     const major = um % 100 === 0;
     ticks.push({
       y: toY(um),

@@ -1823,6 +1823,14 @@ export const HePane: React.FC = () => {
               <DepthSlider
                 value={num('pressUm', cfg?.pressUm ?? 100) ?? 100}
                 travelUm={travel}
+                /*
+                 * 눈금은 온전한 mm 로 끝나게 올려 잡는다.
+                 *
+                 * 전 행정이 3.4 라 눈금이 3.4 에서 끊기면 읽기 나쁘고, 키가 공칭보다
+                 * 깊이 들어가는 것도 꼭대기에 붙어 안 보인다. 잡히는 범위는 그대로
+                 * 전 행정까지다 — 슬라이더가 알아서 자른다.
+                 */
+                scaleUm={Math.max(400, Math.ceil(travel / 100) * 100)}
                 depthUm={tracking ? deepest.um : null}
                 pressed={deepest.pressed}
                 showValues
