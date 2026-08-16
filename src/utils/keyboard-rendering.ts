@@ -36,6 +36,16 @@ export const CSSVarObject = {
   insideBorder: 10,
 };
 
+/*
+ * 키보드가 담긴 자리를 얼마나 채울지.
+ *
+ * 1 이면 딱 맞게 채운다 — 그러면 자리에 끼인 것처럼 보이고 가장자리 키가 화면 끝에
+ * 닿는다. 조금 남겨 둔다.
+ *
+ * ★ 키보드 크기를 조절하려면 **이 숫자 하나만** 만진다. 2D 와 3D 가 같은 값을 본다.
+ */
+export const KB_FILL = 0.9;
+
 export const KeycapMetric = {
   keyWidth: 18.1,
   keyXSpacing: 1.05,

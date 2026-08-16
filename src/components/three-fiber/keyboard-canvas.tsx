@@ -5,6 +5,7 @@ import {shallowEqual} from 'react-redux';
 import {
   calculateKeyboardFrameDimensions,
   CSSVarObject,
+  KB_FILL,
 } from 'src/utils/keyboard-rendering';
 import {
   KeyboardCanvasContentProps,
@@ -43,21 +44,29 @@ export const KeyboardCanvas: React.FC<
     }
   }, []);
 
+  /*
+   * 담긴 자리를 채우는 배율 — 2D 와 같은 규칙이다 (two-string/keyboard-canvas.tsx).
+   *
+   * 가로 맞춤에 상한 1 이 걸려 있어서 작은 배치가 자리를 남기고도 안 커졌다.
+   * 풀었다 — 3D 는 확대해도 흐려지지 않으므로 2D 보다 더 잃을 것이 없다.
+   *
+   * 높이는 500 고정이다. 손잡이를 내리면 three.js 뷰포트 자체가 커져 그만큼
+   * 커지므로, 여기서 또 곱하면 두 번 커진다.
+   */
   const ratio =
-    Math.min(
-      Math.min(
+    KB_FILL *
+    (Math.min(
+      (containerDimensions &&
+        containerDimensions.width /
+          ((CSSVarObject.keyWidth + CSSVarObject.keyXSpacing) * width -
+            CSSVarObject.keyXSpacing +
+            70)) ||
         1,
-        containerDimensions &&
-          containerDimensions.width /
-            ((CSSVarObject.keyWidth + CSSVarObject.keyXSpacing) * width -
-              CSSVarObject.keyXSpacing +
-              70),
-      ),
       500 /
         ((CSSVarObject.keyHeight + CSSVarObject.keyYSpacing) * height -
           CSSVarObject.keyYSpacing +
           70),
-    ) || 1;
+    ) || 1);
 
   return (
     <group
