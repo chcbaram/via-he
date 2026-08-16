@@ -61,6 +61,13 @@ const Swatch = styled.span<{$color: string; $dash?: boolean}>`
 
 const LIVE = '#4da3ff';
 
+/* 세로선이 가리키는 거리. 눈금과 같은 크기라 줄이 하나 더 늘어 보이지 않는다 */
+const Live = styled.text`
+  fill: ${LIVE};
+  font-size: 10px;
+  font-weight: 600;
+`;
+
 type Props = {
   curve: HeCurve | null;
   travelMm: number;
@@ -91,6 +98,15 @@ export const HeGraph: React.FC<Props> = ({curve, travelMm, u}) => {
   /* 지금 자리 — 같은 u 를 두 방식으로 읽으면 가로로 벌어진다 */
   const liveLin = u === null ? null : u * travelMm;
   const liveMod = u === null || !curve ? null : heCurveToMm(curve, u);
+
+  /*
+   * 숫자를 붙일 쪽. 모델이 있으면 모델이고, 없으면 직선이 유일한 답이다.
+   *
+   * ★ 일반형 스위치(제원을 모르는 것)는 곡선을 못 만든다. 그때 모델 쪽에만 숫자를
+   *   달아 두면 **아래쪽이 통째로 비어 버린다** — 거리를 읽으라고 만든 그림인데
+   *   정작 거리가 안 보인다. 있는 쪽에 붙인다.
+   */
+  const liveRead = liveMod ?? liveLin;
 
   const ticksX = [];
   for (let mm = 0; mm <= travelMm + 0.01; mm += 1) ticksX.push(mm);
@@ -132,19 +148,58 @@ export const HeGraph: React.FC<Props> = ({curve, travelMm, u}) => {
         )}
 
         {/*
-          * 지금 자리. 세로선 하나에 점 둘 — 같은 u 에서 두 방식이 말하는 거리가
-          * 가로로 벌어진 것이 그대로 오차다.
+          * 지금 자리 — 가로 하나에 세로 둘, 점 둘.
+          *
+          *   가로선은 센서가 준 값 u 다. 두 점이 그 선 위에 나란히 놓이므로, 벌어진
+          *   폭이 곧 두 환산의 차이다.
+          *
+          *   ★ 세로선이 있어야 그 차이를 **거리로** 읽는다. 점만 있으면 "저기쯤" 이지
+          *     몇 mm 인지 눈이 못 짚는다. 축까지 내려 그으면 눈금과 바로 만난다.
+          *
+          *   선 모양을 곡선·직선과 맞춘다 — 실선이 모델, 파선이 지금 환산이다.
+          *   어느 세로선이 어느 선의 것인지 색 말고 모양으로도 갈린다.
           */}
         {u !== null && (
           <>
             <line x1={PAD.l} y1={y(u)} x2={PAD.l + iw} y2={y(u)}
                   stroke={LIVE} strokeWidth={1} opacity={0.4} />
             {liveLin !== null && (
+              <line x1={x(liveLin)} y1={y(u)} x2={x(liveLin)} y2={PAD.t + ih}
+                    stroke={LIVE}
+                    strokeWidth={liveMod === null ? 1.5 : 1}
+                    strokeDasharray={liveMod === null ? undefined : '4 3'}
+                    opacity={liveMod === null ? 0.7 : 0.5} />
+            )}
+            {liveMod !== null && (
+              <line x1={x(liveMod)} y1={y(u)} x2={x(liveMod)} y2={PAD.t + ih}
+                    stroke={LIVE} strokeWidth={1.5} opacity={0.7} />
+            )}
+            {liveLin !== null && (
               <circle cx={x(liveLin)} cy={y(u)} r={4} fill="none"
                       stroke={LIVE} strokeWidth={2} />
             )}
             {liveMod !== null && (
               <circle cx={x(liveMod)} cy={y(u)} r={4} fill={LIVE} />
+            )}
+
+            {/*
+              * 눈금에 걸리지 않게 축 **위쪽**에 붙인다. 아래는 정수 눈금 자리다.
+              * 양 끝에서 잘리지 않도록 기준점만 바꾼다.
+              */}
+            {liveRead !== null && (
+              <Live
+                x={x(liveRead)}
+                y={PAD.t + ih - 6}
+                textAnchor={
+                  liveRead > travelMm * 0.85
+                    ? 'end'
+                    : liveRead < travelMm * 0.15
+                      ? 'start'
+                      : 'middle'
+                }
+              >
+                {liveRead.toFixed(2)}
+              </Live>
             )}
           </>
         )}
