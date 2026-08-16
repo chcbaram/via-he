@@ -133,6 +133,7 @@ const BarMark = styled.div<{$y: number}>`
 const Readout = styled.div<{$y: number; $dim?: boolean}>`
   position: absolute;
   left: 0;
+  right: 0;
   top: ${(p) => p.$y}px;
   transform: translateY(-50%);
   white-space: nowrap;
@@ -140,11 +141,21 @@ const Readout = styled.div<{$y: number; $dim?: boolean}>`
   opacity: ${(p) => (p.$dim ? 0.7 : 1)};
 `;
 
+/*
+ * 설정값 칸 — **자 왼쪽**에 둔다.
+ *
+ * 오른쪽에 두었더니 자와 값 사이에 눈금이 끼어 있어, 손잡이를 끌면서 숫자를 보려면
+ * 눈금을 건너뛰어야 했다. 왼쪽에 붙이고 오른끝을 맞추면 손잡이 바로 옆이 숫자다.
+ *
+ * 오른쪽은 실시간 값이 쓴다 — 자를 사이에 두고 왼쪽이 정해 둔 값, 오른쪽이 지금
+ * 값으로 갈린다.
+ */
 const Readouts = styled.div`
   position: relative;
   height: ${H}px;
   width: 74px;
   font-size: 13px;
+  text-align: right;
 `;
 
 /*
@@ -158,6 +169,7 @@ const Readouts = styled.div`
 const LiveReadouts = styled(Readouts)`
   width: 62px;
   color: ${LIVE_COLOR};
+  text-align: left;
 `;
 
 const Ruler = styled.div`
@@ -313,6 +325,16 @@ export const DepthSlider: React.FC<Props> = ({
 
   return (
     <Wrap>
+      {showValues && (
+        <Readouts>
+          {dual && (
+            <Readout $y={readoutY.b} $dim>
+              {(value2! / 100).toFixed(2)} mm
+            </Readout>
+          )}
+          <Readout $y={readoutY.a}>{(value / 100).toFixed(2)} mm</Readout>
+        </Readouts>
+      )}
       <Track
         ref={ref}
         onPointerDown={onDown}
@@ -354,16 +376,6 @@ export const DepthSlider: React.FC<Props> = ({
         </LiveReadouts>
       )}
 
-      {showValues && (
-        <Readouts>
-          {dual && (
-            <Readout $y={readoutY.b} $dim>
-              {(value2! / 100).toFixed(2)} mm
-            </Readout>
-          )}
-          <Readout $y={readoutY.a}>{(value / 100).toFixed(2)} mm</Readout>
-        </Readouts>
-      )}
     </Wrap>
   );
 };
