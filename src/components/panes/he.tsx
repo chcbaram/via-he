@@ -74,7 +74,7 @@ import {
 import {
   clearKeys,
   getHeSelectedKeys,
-  setCalKeys,
+  setOverlayKeys,
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
@@ -111,6 +111,9 @@ import {
   HE_RT_BOTTOM,
   HE_RT_CONT,
 } from 'src/utils/he-api';
+
+/* 매트릭스 열 수. 펌웨어의 키 인덱스가 row * COLS + col 이다. */
+const MATRIX_COLS = 8;
 
 /* 1 키유닛을 픽셀로. geo 는 1/4 유닛이라 4로 나눈다. */
 const U = 62;
@@ -389,6 +392,8 @@ export const HePane: React.FC = () => {
   const [cfg, setCfg] = useState<HeSettings | null>(null);
   const [switches, setSwitches] = useState<HeSwitchTable | null>(null);
   const [cal, setCal] = useState<HeCalState | null>(null);
+  /* 보정 화면에서 읽는 전 키 상태 — 어느 키가 이미 보정됐나 */
+  const [calAll, setCalAll] = useState<HeKeyCfg[] | null>(null);
   const [fw, setFw] = useState<IapProgress | null>(null);
   const [fwErr, setFwErr] = useState<string | null>(null);
   const [fwList_, setFwList] = useState<FwEntry[] | null>(null);
@@ -484,7 +489,7 @@ export const HePane: React.FC = () => {
 
   /* 배치에 있는 키의 매트릭스 인덱스 — "모두 선택"과 "반전"의 모집단 */
   const allKeyIndexes = useMemo(
-    () => layout.map((g) => g.row * 8 + g.col),
+    () => layout.map((g) => g.row * MATRIX_COLS + g.col),
     [layout],
   );
 
@@ -569,6 +574,74 @@ export const HePane: React.FC = () => {
   }, [api, send]);
 
   /*
+   * 보정 화면을 열면 **저장돼 있는** 보정 상태를 전 키에서 읽는다.
+   *
+   * 보정을 도는 동안에만 칠하면, 평소에는 어느 키가 이미 보정됐는지 볼 길이 없다.
+   * 63번 왕복이라 1~2초 걸리지만 화면을 열 때 한 번뿐이다.
+   */
+  useEffect(() => {
+    /*
+     * ── 키보드 그림에 무엇을 칠할지 ──────────────────────────────────────
+     *
+     * ★ **화면에 들어갈 때 자기 것을 넣는 것이 그 화면의 책임이다.**
+     *
+     *   안 넣으면 앞 화면의 표시가 그대로 남는다. 실제로 보정에서 칠한 것이
+     *   펌웨어 화면까지 따라갔고, 반대로 예전 "모두 선택" 이 보정 상태로
+     *   오해되기도 했다.
+     *
+     *   지금 정한 것 —
+     *
+     *     설정 갈래     null      선택 표시를 보여준다
+     *     보정 (쉴 때)   안 된 키   무엇이 남았는지가 알고 싶은 것이다
+     *     보정 (도는 중) 끝난 키    채워지는 것이 진행 상황이다 (아래 폴링에서)
+     *     장치 갈래     []        칠할 것이 없다
+     *
+     *   화면이 늘면 여기에 한 줄 더한다.
+     */
+    if (rail === 'tune') {
+      dispatch(setOverlayKeys(null));
+      return;
+    }
+    dispatch(setOverlayKeys([]));
+    if (!api || section !== 'calibrate' || cal?.active) return;
+
+    let alive = true;
+    (async () => {
+      const out: HeKeyCfg[] = [];
+      for (const g of layout) {
+        const i = g.row * MATRIX_COLS + g.col;
+        try {
+          out[i] = await heReadKeyCfg(send, i);
+        } catch {
+          /* 한 키가 실패해도 나머지는 읽는다 */
+        }
+        if (!alive) return;
+      }
+      if (!alive) return;
+      setCalAll(out);
+
+      /*
+       * ★ **안 된** 키를 칠한다.
+       *
+       *   끝난 키를 칠하면 61/63 이 다 켜져서 아무것도 안 켜진 것과 같다. 여기서
+       *   알고 싶은 것은 "무엇이 남았나" 이고, 그건 몇 개뿐이라 눈에 띈다.
+       *   보정을 도는 동안에는 반대로 끝난 키를 칠한다 — 그때는 채워지는 것이
+       *   진행 상황이기 때문이다.
+       */
+      dispatch(
+        setOverlayKeys(
+          layout
+            .map((g) => g.row * MATRIX_COLS + g.col)
+            .filter((i) => !out[i]?.calibrated),
+        ),
+      );
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, send, rail, section, cal?.active, layout, dispatch]);
+
+  /*
    * 펌웨어 화면을 열 때마다 현재 버전을 다시 읽는다.
    *
    * 마운트 때 한 번만 읽으면 그 사이에 장치가 바뀌거나(굽기·재연결) 처음 읽기가
@@ -600,7 +673,7 @@ export const HePane: React.FC = () => {
         .then((c) => {
           if (!alive) return;
           setCal(c);
-          dispatch(setCalKeys(c.keys));
+          dispatch(setOverlayKeys(c.keys));
         })
         .catch(() => {});
     }, 250);
@@ -729,6 +802,25 @@ export const HePane: React.FC = () => {
       {um: 0, pressed: false},
     );
   }, [state, selectedKeys]);
+
+  /*
+   * 선택과 무관하게 판 전체에서 가장 깊은 키.
+   *
+   * ★ 보정 화면은 선택을 보면 안 된다.
+   *
+   *   설정 화면에서는 고른 키만 보는 것이 맞다 — 그 키들을 튜닝하는 중이니까.
+   *   보정은 전 키를 하나씩 눌러야 하는 일이라, 선택이 남아 있으면 **그 키를 누를
+   *   때만 막대가 움직인다.** 실제로 "특정 키만 실시간 깊이가 보인다" 로 나타났다.
+   */
+  const deepestAll = useMemo(
+    () =>
+      state.reduce(
+        (best, k) =>
+          k && k.depth > best.um ? {um: k.depth, pressed: k.pressed} : best,
+        {um: 0, pressed: false},
+      ),
+    [state],
+  );
 
 
   const label = (i: number) => {
@@ -1046,7 +1138,7 @@ export const HePane: React.FC = () => {
         return heCalStart(send)
           .then((c) => {
             setCal(c);
-            dispatch(setCalKeys(c.keys));
+            dispatch(setOverlayKeys(c.keys));
           })
           .catch((e) => setErr(String(e)));
       };
@@ -1056,7 +1148,11 @@ export const HePane: React.FC = () => {
         return (save ? heCalSave(send) : heCalCancel(send))
           .then((c) => {
             setCal(c);
-            dispatch(setCalKeys(null));   /* 그림을 선택 표시로 되돌린다 */
+            /*
+             * 비워 두면 위의 효과가 다시 돌아 "아직 안 된 키" 로 채운다.
+             * null 을 넣으면 아직 보정 갈래인데 선택 표시가 나온다.
+             */
+            dispatch(setOverlayKeys([]));
           })
           .catch((x) => setErr(String(x)));
       };
@@ -1125,14 +1221,14 @@ export const HePane: React.FC = () => {
               <DepthSlider
                 value={calScale}
                 travelUm={calScale}
-                depthUm={tracking ? deepest.um : null}
-                pressed={deepest.pressed}
+                depthUm={tracking ? deepestAll.um : null}
+                pressed={deepestAll.pressed}
                 onChange={() => {}}
                 readOnly
               />
               <Val>
-                {tracking && deepest.pressed
-                  ? fmtMm(deepest.um)
+                {tracking && deepestAll.pressed
+                  ? fmtMm(deepestAll.um)
                   : '—'}
               </Val>
             </Detail>

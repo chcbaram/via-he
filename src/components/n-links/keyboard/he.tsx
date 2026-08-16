@@ -32,7 +32,7 @@ import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {getSelectedKeymap} from 'src/store/keymapSlice';
 import {
   addKey,
-  getHeCalKeys,
+  getHeOverlayKeys,
   getHeSelectedKeys,
   toggleKey,
 } from 'src/store/heSlice';
@@ -54,7 +54,7 @@ export const HeKeyboard = (props: {
   );
   const definition = useAppSelector(getSelectedDefinition);
   const selected = useAppSelector(getHeSelectedKeys);
-  const calKeys = useAppSelector(getHeCalKeys);
+  const overlay = useAppSelector(getHeOverlayKeys);
 
   /*
    * 키 정의 순서 -> 매트릭스 인덱스.
@@ -66,13 +66,12 @@ export const HeKeyboard = (props: {
   const idxOf = (k: {row: number; col: number}) => k.row * cols + k.col;
 
   /*
-   * 고른 키만 테마의 강조색으로 — 색칠은 테마가 한다.
+   * 칠할 키. 색칠은 테마가 한다 (키캡 렌더는 손대지 않는다).
    *
-   * 보정 중에는 선택 대신 **끝난 키**를 칠한다. 어느 키가 남았는지 그림에서
-   * 바로 보이는 것이 CLI 의 격자 뷰보다 낫다. 같은 통로를 쓰므로 키캡 렌더는
-   * 손대지 않는다.
+   * 무엇을 칠할지는 **지금 화면이 정한다** (heSlice 의 overlayKeys). null 이면
+   * 보여줄 것이 없다는 뜻이라 선택 표시로 돌아간다.
    */
-  const marked = calKeys ?? selected;
+  const marked = overlay ?? selected;
   const shownKeys = useMemo(
     () =>
       keys.map((k) =>

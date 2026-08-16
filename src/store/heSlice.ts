@@ -17,18 +17,26 @@ type HeState = {
   selectedKeys: number[];
 
   /*
-   * 보정 중일 때 **끝난 키**.
+   * 키보드 그림에 무엇을 칠할지 — **지금 화면이 정한다.**
    *
-   * 키보드 그림에 진행 상황을 칠하려고 둔다. 선택과 같은 통로를 쓰지만 뜻이
-   * 다르므로 따로 둔다 — 보정 중에는 선택이 아니라 이쪽이 그려진다.
-   * null 이면 보정 중이 아니다.
+   * ★ 화면마다 키보드에 보여줄 것이 다르다.
+   *
+   *   설정 화면은 "고른 키" 를, 보정 화면은 "아직 안 된 키" 를, 보정 도는 중에는
+   *   "끝난 키" 를 보여야 한다. 앞으로 키별 값이나 디버그 정보도 붙는다.
+   *
+   *   그래서 그림은 이 하나만 본다. **화면에 들어갈 때 자기 것을 넣는 것이
+   *   그 화면의 책임이다.** 안 넣으면 앞 화면의 표시가 그대로 남는다 — 실제로
+   *   보정에서 칠한 것이 펌웨어 화면까지 따라갔다.
+   *
+   *   null 은 "표시할 것이 없으니 선택을 보여라" 는 뜻이다. 빈 배열과 다르다 —
+   *   빈 배열은 "칠할 것이 없다" 이다.
    */
-  calKeys: number[] | null;
+  overlayKeys: number[] | null;
 };
 
 const initialState: HeState = {
   selectedKeys: [],
-  calKeys: null,
+  overlayKeys: null,
 };
 
 const heSlice = createSlice({
@@ -52,17 +60,17 @@ const heSlice = createSlice({
     clearKeys: (state) => {
       state.selectedKeys = [];
     },
-    /* 보정 진행 상황. null 을 넣으면 보정이 끝난 것이다. */
-    setCalKeys: (state, action: PayloadAction<number[] | null>) => {
-      state.calKeys = action.payload;
+    /* 지금 화면이 그림에 칠할 것. null 이면 선택 표시로 되돌린다. */
+    setOverlayKeys: (state, action: PayloadAction<number[] | null>) => {
+      state.overlayKeys = action.payload;
     },
   },
 });
 
-export const {toggleKey, addKey, setKeys, clearKeys, setCalKeys} =
+export const {toggleKey, addKey, setKeys, clearKeys, setOverlayKeys} =
   heSlice.actions;
 
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
-export const getHeCalKeys = (state: RootState) => state.he.calKeys;
+export const getHeOverlayKeys = (state: RootState) => state.he.overlayKeys;
 
 export default heSlice.reducer;
