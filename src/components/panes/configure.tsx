@@ -24,6 +24,7 @@ import {makeCustomMenus} from './configure-panes/custom/menu-generator';
 import {LayerControl} from './configure-panes/layer-control';
 import {Badge} from './configure-panes/badge';
 import {ProfileSelect} from 'src/components/menus/profile-select';
+import {getHeSwitching} from 'src/store/heSlice';
 import {AccentButtonLarge} from '../inputs/accent-button';
 import {useAppSelector} from 'src/store/hooks';
 import {getSelectedDefinition} from 'src/store/definitionsSlice';
@@ -195,12 +196,36 @@ const LoaderPane = styled(CenterPane)`
   z-index: 4;
 `;
 
+/*
+ * 프로파일을 갈아 끼우는 동안 덮는 막.
+ *
+ * ★ 로딩 화면으로 갈아타지 않는다.
+ *
+ *   전환은 키맵을 다시 읽는 일이라 200ms 쯤 걸린다. 그동안 "다 읽지 못했다" 가 되어
+ *   캐릭터 로딩 화면이 번쩍 나타났다 사라졌다 — 짧아서 더 거슬린다.
+ *
+ *   화면은 그대로 두고 살짝 어둡게만 한다. 무엇을 보고 있었는지가 유지되고, 뭔가
+ *   진행 중이라는 것도 보인다. 그동안 클릭은 막는다 — 반쯤 읽힌 키맵을 만지면
+ *   옛 값이 새 프로파일에 써진다.
+ */
+const SwitchVeil = styled.div`
+  position: absolute;
+  top: 50px;
+  bottom: 50px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: all;
+`;
+
 export const ConfigurePane = () => {
   const selectedDefinition = useAppSelector(getSelectedDefinition);
   const loadProgress = useAppSelector(getLoadProgress);
   const renderMode = useAppSelector(getRenderMode);
+  const switching = useAppSelector(getHeSwitching);
 
-  const showLoader = !selectedDefinition || loadProgress !== 1;
+  const showLoader = (!selectedDefinition || loadProgress !== 1) && !switching;
   return showLoader ? (
     renderMode === '2D' ? (
       <Loader
@@ -210,6 +235,7 @@ export const ConfigurePane = () => {
     ) : null
   ) : (
     <ConfigureBasePane>
+      {switching && <SwitchVeil />}
       <ConfigureGrid />
     </ConfigureBasePane>
   );

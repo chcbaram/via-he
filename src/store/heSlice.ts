@@ -72,6 +72,18 @@ type HeState = {
    * 척 보여주게 된다.
    */
   profile: {active: number; count: number} | null;
+
+  /*
+   * 프로파일을 갈아 끼우는 중인가.
+   *
+   * 전환은 키맵을 다시 읽는 일이라 200ms 쯤 걸린다. 그동안 키맵 화면은 "다 읽지
+   * 못했다" 로 보고 로딩 화면으로 통째로 갈아탄다 — 캐릭터가 번쩍 나타났다 사라져
+   * 눈이 아프다.
+   *
+   * 바뀌는 중이라고 알려 두면, 화면을 그대로 두고 살짝 어둡게만 해서 "지금 뭔가
+   * 하고 있다" 를 보인다.
+   */
+  switching: boolean;
 };
 
 const initialState: HeState = {
@@ -82,6 +94,7 @@ const initialState: HeState = {
   overlayPressed: null,
   overlayLive: null,
   profile: null,
+  switching: false,
 };
 
 const heSlice = createSlice({
@@ -131,6 +144,11 @@ const heSlice = createSlice({
       state.profile = action.payload;
     },
 
+    /* 프로파일을 갈아 끼우는 중. */
+    setSwitching: (state, action: PayloadAction<boolean>) => {
+      state.switching = action.payload;
+    },
+
     /* 키캡 아래에 찍을 실시간 값. */
     setOverlayLive: (
       state,
@@ -160,6 +178,7 @@ export const {
   setOverlayPressed,
   setOverlayLive,
   setProfile,
+  setSwitching,
 } = heSlice.actions;
 
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
@@ -170,5 +189,6 @@ export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;
 export const getHeOverlayLive = (state: RootState) => state.he.overlayLive;
 export const getHeProfile = (state: RootState) => state.he.profile;
+export const getHeSwitching = (state: RootState) => state.he.switching;
 
 export default heSlice.reducer;

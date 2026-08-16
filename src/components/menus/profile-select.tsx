@@ -30,7 +30,7 @@ import {faAngleDown} from '@fortawesome/free-solid-svg-icons';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {getSelectedKeyboardAPI} from 'src/store/devicesSlice';
-import {getHeProfile, setProfile} from 'src/store/heSlice';
+import {getHeProfile, setProfile, setSwitching} from 'src/store/heSlice';
 import {heMakeSend, heProfGet, heProfSet} from 'src/utils/he-api';
 import {getSelectedConnectedDevice} from 'src/store/devicesSlice';
 import {clearDeviceKeymap, loadKeymapFromDevice} from 'src/store/keymapSlice';
@@ -167,6 +167,7 @@ export const ProfileSelect = () => {
   const pick = async (i: number) => {
     setShowList(false);
     if (i === prof.active) return;
+    dispatch(setSwitching(true));
     try {
       dispatch(setProfile(await heProfSet(heMakeSend(api), i)));
 
@@ -184,6 +185,7 @@ export const ProfileSelect = () => {
     } catch {
       /* 못 바꿨으면 표시도 그대로 둔다 */
     }
+    dispatch(setSwitching(false));
   };
 
   return (
