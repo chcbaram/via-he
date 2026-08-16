@@ -29,6 +29,15 @@
 import React, {useCallback, useRef} from 'react';
 import styled from 'styled-components';
 
+/*
+ * 실시간 값의 색 — 키캡의 눌림 테두리·아래 숫자와 같아야 한다.
+ * (two-string/unit-key/keycap.tsx 의 PRESSED_COLOR)
+ */
+const LIVE_COLOR = '#4da3ff';
+
+/* 잡음 위에서 자른다 — 안 누른 키도 깊이가 딱 0 이 아니다 (0.01mm 단위) */
+const LIVE_MIN = 10;
+
 const H = 220;          /* 자 높이(px) */
 const TRACK_W = 6;
 const BAR_W = 14;
@@ -136,6 +145,19 @@ const Readouts = styled.div`
   height: ${H}px;
   width: 74px;
   font-size: 13px;
+`;
+
+/*
+ * 실시간 깊이 값 — 막대가 닿은 높이에 붙는다.
+ *
+ * ★ 설정값과 **다른 칸**에 둔다.
+ *
+ *   같은 칸에 넣으면 값이 지나갈 때마다 설정값 글자와 포개진다. 색이 달라도 겹친
+ *   글자는 둘 다 못 읽는다. 칸을 나누면 서로 지나가도 각자 읽힌다.
+ */
+const LiveReadouts = styled(Readouts)`
+  width: 62px;
+  color: ${LIVE_COLOR};
 `;
 
 const Ruler = styled.div`
@@ -315,6 +337,22 @@ export const DepthSlider: React.FC<Props> = ({
           </Tick>
         ))}
       </Ruler>
+
+      {/*
+        * ★ 칸은 늘 자리를 잡아 둔다.
+        *
+        *   값이 있을 때만 칸을 만들면, 키를 누를 때마다 옆의 설정값들이 가로로
+        *   밀린다. 읽으려는 숫자가 움직이는 것만큼 거슬리는 것이 없다.
+        */}
+      {showValues && (
+        <LiveReadouts>
+          {depthUm !== null && depthUm >= LIVE_MIN && (
+            <Readout $y={toY(depthUm)}>
+              {((Math.round(depthUm / 5) * 5) / 100).toFixed(2)} mm
+            </Readout>
+          )}
+        </LiveReadouts>
+      )}
 
       {showValues && (
         <Readouts>
