@@ -128,6 +128,13 @@ type Props = {
   /* 라이브 깊이 (0.01mm). null 이면 막대를 비운다 */
   depthUm: number | null;
   pressed?: boolean;
+  /*
+   * 값을 못 바꾸게 한다.
+   *
+   * 보정 화면에서는 이 자가 **설정하는 도구가 아니라 보는 도구**다. 끌 수 있으면
+   * 사용자가 여기서 값을 바꾸는 줄 알고 만진다.
+   */
+  readOnly?: boolean;
 };
 
 export const DepthSlider: React.FC<Props> = ({
@@ -136,6 +143,7 @@ export const DepthSlider: React.FC<Props> = ({
   onChange,
   depthUm,
   pressed,
+  readOnly,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const toY = (um: number) => (Math.min(um, travelUm) / travelUm) * H;
@@ -154,10 +162,12 @@ export const DepthSlider: React.FC<Props> = ({
   );
 
   const onDown = (e: React.PointerEvent) => {
+    if (readOnly) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     pick(e.clientY);
   };
   const onMove = (e: React.PointerEvent) => {
+    if (readOnly) return;
     if (e.buttons & 1) pick(e.clientY);
   };
 
@@ -174,9 +184,14 @@ export const DepthSlider: React.FC<Props> = ({
 
   return (
     <Wrap>
-      <Track ref={ref} onPointerDown={onDown} onPointerMove={onMove}>
+      <Track
+        ref={ref}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        style={readOnly ? {cursor: 'default', opacity: 0.35} : undefined}
+      >
         <Fill $h={toY(value)} />
-        <Knob $y={toY(value)} />
+        {!readOnly && <Knob $y={toY(value)} />}
       </Track>
 
       <Bar>

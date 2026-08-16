@@ -64,11 +64,17 @@ import {DepthSlider} from './he-depth';
 import {
   clearKeys,
   getHeSelectedKeys,
+  setCalKeys,
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
 import {
   heReadSwitches,
+  heCalStart,
+  heCalStatus,
+  heCalSave,
+  heCalCancel,
+  type HeCalState,
   type HeSwitchTable,
   HeKeyGeo,
   HeKeyState,
@@ -104,24 +110,32 @@ const U = 62;
  */
 const SECTIONS = [
   /* 자주 만지는 것부터. 스위치는 한 번 정하면 끝이라 뒤에 둔다. */
-  {key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
-  {key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
-  {key: 'deadzone', label: 'DEAD ZONE', icon: faCircleHalfStroke},
-  {key: 'switch', label: 'SWITCH', icon: faToggleOn},
-  {
-    key: 'calibrate',
-    label: 'CALIBRATION',
-    icon: faRulerVertical,
-    todo: 'porting the CLI keys cal flow',
-  },
+  {rail: 'tune', key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
+  {rail: 'tune', key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
+  {rail: 'tune', key: 'deadzone', label: 'DEAD ZONE', icon: faCircleHalfStroke},
+  {rail: 'tune', key: 'switch', label: 'SWITCH', icon: faToggleOn},
+
+  /*
+   * ★ 보정은 갈래가 다르다.
+   *
+   *   위엣것들은 **취향을 정하는** 설정이라 자주 만지고 값이 바로 반영된다.
+   *   보정은 **장치를 재는** 일이라 한 번 하고 잊는다. 성격이 다른 것을 같은
+   *   목록에 두면 "이것도 매번 만져야 하나" 로 읽힌다.
+   *
+   *   그리고 보정은 하나가 아니다 — 바닥값(지금)에 이어 비선형 보정이 온다.
+   */
+  {rail: 'cal', key: 'calibrate', label: 'BOTTOM-OUT', icon: faRulerVertical},
 ] as const;
 
 /*
- * 아이콘 레일은 큰 갈래를, 가운데 열은 그 안의 항목을 고른다. 지금은 갈래가
- * 하나(HE)뿐이라 레일에 항목 하나를 두고, 갈래가 늘면 여기에 더한다.
+ * 아이콘 레일은 큰 갈래를, 가운데 열은 그 안의 항목을 고른다.
  */
-const RAILS = [{key: 'he', title: 'Hall Effect', icon: faWaveSquare}] as const;
+const RAILS = [
+  {key: 'tune', title: 'Hall Effect', icon: faWaveSquare},
+  {key: 'cal', title: 'Calibration', icon: faRulerVertical},
+] as const;
 
+type RailKey = (typeof RAILS)[number]['key'];
 type SectionKey = (typeof SECTIONS)[number]['key'];
 
 /*
@@ -247,22 +261,19 @@ const Hint: React.FC<{tip: string; children: React.ReactNode}> = ({
   </HintWrap>
 );
 
-const SEL_BTN_W = 92;
-const SEL_BTN_GAP = 8;
-
-/* 선택 버튼 셋. 폭을 고정해야 스위치 목록과 오른쪽 끝이 맞는다 (SELECT_W). */
-const SelBtn = styled(AccentButton)`
-  margin-left: ${SEL_BTN_GAP}px;
-  min-width: ${SEL_BTN_W}px;
-`;
-
 /*
- * 목록 상자 폭 — 위쪽 선택 버튼 셋과 같은 폭으로 맞춘다.
+ * 선택 버튼 셋.
  *
- * 둘이 같은 열에 세로로 놓이는데 폭이 다르면 오른쪽 끝이 어긋나 눈에 걸린다.
- * 버튼 3개 x (폭 + 왼쪽 여백) 이 곧 그 줄의 폭이다.
+ * ★ 목록 상자와 폭을 맞추려다 되돌렸다.
+ *
+ *   두 줄의 오른쪽 끝이 어긋나는 게 눈에 걸려 폭을 맞춰 봤는데, 그러자 **다른
+ *   탭의 슬라이더가 상대적으로 좁아 보였다.** 이 열의 폭은 이 화면 하나가 아니라
+ *   탭 전체가 나눠 쓰는 값이라, 한 줄만 보고 정하면 다른 데가 틀어진다.
  */
-const SELECT_W = 3 * (SEL_BTN_W + SEL_BTN_GAP);
+const SelBtn = styled(AccentButton)`
+  margin-left: 8px;
+  min-width: 92px;
+`;
 
 /*
  * 프리셋 버튼은 폭을 맞춘다.
@@ -306,6 +317,7 @@ export const HePane: React.FC = () => {
   const device = useAppSelector(getSelectedConnectedDevice);
   const api = useAppSelector(getSelectedKeyboardAPI);
 
+  const [rail, setRail] = useState<RailKey>('tune');
   const [section, setSection] = useState<SectionKey>('actuation');
   const [layout, setLayout] = useState<HeKeyGeo[]>([]);
   const [info, setInfo] = useState<HeTrackInfo | null>(null);
@@ -313,6 +325,7 @@ export const HePane: React.FC = () => {
   const [tracking, setTracking] = useState(false);
   const [cfg, setCfg] = useState<HeSettings | null>(null);
   const [switches, setSwitches] = useState<HeSwitchTable | null>(null);
+  const [cal, setCal] = useState<HeCalState | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
 
@@ -475,6 +488,30 @@ export const HePane: React.FC = () => {
   }, [api, send]);
 
   /*
+   * 보정 중에는 상태를 주기적으로 읽는다.
+   *
+   * 표본 수집은 펌웨어가 스캔마다 하므로 여기서는 진행 상황만 가져온다. 250ms
+   * 마다면 눈으로 따라가기 충분하고 USB 도 한가하다.
+   */
+  useEffect(() => {
+    if (!api || !cal?.active) return;
+    let alive = true;
+    const id = setInterval(() => {
+      heCalStatus(send)
+        .then((c) => {
+          if (!alive) return;
+          setCal(c);
+          dispatch(setCalKeys(c.keys));
+        })
+        .catch(() => {});
+    }, 250);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [api, send, cal?.active, dispatch]);
+
+  /*
    * Esc 로 선택을 푼다.
    *
    * 키보드를 만지다 보면 선택이 남은 줄 모르고 값을 바꾸게 된다. 빠져나갈 길이
@@ -605,6 +642,144 @@ export const HePane: React.FC = () => {
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
       return <Note>{t('Not yet')} — {t(todo.todo)}</Note>;
+    }
+
+    if (section === 'calibrate') {
+      const active = cal?.active ?? false;
+      const done = cal?.done ?? 0;
+      const total = cal?.total ?? 0;
+      /* 표에서 가장 긴 행정. 공칭보다 깊이 들어가도 눈금 안에 들어온다 */
+      const calScale = Math.max(
+        travel,
+        ...(switches?.list.map((x) => x.travelUm) ?? [travel]),
+      );
+
+      /*
+       * ★ 누른 뒤 포커스를 뗀다.
+       *
+       *   보정은 **키보드를 두드리는 화면**이다. 버튼에 포커스가 남아 있으면
+       *   Enter 나 Space 가 그 버튼을 누른다 — 시작하자마자 Enter 를 치면 그 자리에
+       *   들어선 저장 버튼이 눌려 바로 끝나 버렸다. 스페이스바는 보정 대상이기까지
+       *   해서 더 나쁘다.
+       */
+      const blur = (e: React.MouseEvent) =>
+        (e.currentTarget as HTMLElement).blur();
+
+      /*
+       * 보정을 시작하면 라이브 트래킹도 같이 켠다.
+       *
+       * 얼마나 눌러야 "끝" 으로 잡히는지 보이지 않으면 사용자가 감으로 눌러야 한다.
+       * WebHID 권한은 사용자 제스처가 있어야 물어볼 수 있는데, 이 클릭이 그것이다.
+       */
+      const beginCal = async (e: React.MouseEvent) => {
+        blur(e);
+        if (!tracking) await start().catch(() => {});
+        return heCalStart(send)
+          .then((c) => {
+            setCal(c);
+            dispatch(setCalKeys(c.keys));
+          })
+          .catch((e) => setErr(String(e)));
+      };
+
+      const finish = (e: React.MouseEvent, save: boolean) => {
+        blur(e);
+        return (save ? heCalSave(send) : heCalCancel(send))
+          .then((c) => {
+            setCal(c);
+            dispatch(setCalKeys(null));   /* 그림을 선택 표시로 되돌린다 */
+          })
+          .catch((x) => setErr(String(x)));
+      };
+
+      return (
+        <>
+          {/*
+            * ★ 보정이 두 가지라는 것부터 말한다.
+            *
+            *   무압 기준값은 펌웨어가 늘 자동으로 따라가므로 사용자가 할 일이 없다.
+            *   여기서 모으는 것은 **바닥값**뿐이고, 그건 실제로 끝까지 눌러야만
+            *   알 수 있다. 안 해도 동작하지만 하면 mm 가 정확해진다는 것을 먼저
+            *   알려야 "왜 63번을 눌러야 하나" 가 납득된다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.cal')}>{t('Bottom-out calibration')}</Hint>
+            </Label>
+            <Detail>
+              {!active ? (
+                <SelBtn onClick={beginCal}>{t('Start')}</SelBtn>
+              ) : (
+                <>
+                  <SelBtn onClick={(e: React.MouseEvent) => finish(e, true)}>
+                    {t('Save')}
+                  </SelBtn>
+                  <SelBtn onClick={(e: React.MouseEvent) => finish(e, false)}>
+                    {t('Cancel')}
+                  </SelBtn>
+                </>
+              )}
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>{t('Progress')}</Label>
+            <Detail>
+              {/*
+                * ★ 저장 뒤에는 `n / 63` 을 쓰지 않는다.
+                *
+                *   그렇게 쓰면 "63개 중 5개만 보정됨" 으로 읽히는데, 실제로는
+                *   이번에 5개를 **갱신**했고 나머지는 기존 보정이 그대로 있다.
+                *   부분 저장을 허용하므로 이 오해가 자주 난다.
+                */}
+              {active
+                ? `${done} / ${total}`
+                : cal?.saveOk
+                ? `${t('Saved')} — ${done} ${t('keys updated')}`
+                : '—'}
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * 지금 얼마나 눌렸는지. 여기서는 값을 바꾸는 자가 아니라 보는 자다 —
+            * 끝까지 눌렀는지 눈으로 확인하라고 둔다.
+            *
+            * ★ 눈금은 **설정한 스위치 행정이 아니라 표에서 가장 긴 것**을 쓴다.
+            *
+            *   보정은 그 공칭 행정이 맞는지를 재는 일이다. 3.4mm 로 눈금을 그으면
+            *   실제로 더 깊이 들어가는 키가 있어도 꼭대기에 붙어 안 보인다.
+            *   펌웨어도 같은 이유로 자르지 않게 고쳤다.
+            */}
+          <ControlRow>
+            <Label>{t('Live Depth')}</Label>
+            <Detail>
+              <DepthSlider
+                value={calScale}
+                travelUm={calScale}
+                depthUm={tracking ? deepest.um : null}
+                pressed={deepest.pressed}
+                onChange={() => {}}
+                readOnly
+              />
+              <Val>
+                {tracking && deepest.pressed
+                  ? fmtMm(deepest.um)
+                  : '—'}
+              </Val>
+            </Detail>
+          </ControlRow>
+
+          <Note>
+            {active
+              ? t(
+                  'Press every key all the way down once. Keys that are done light up on the board above.',
+                )
+              : t(
+                  'Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate.',
+                )}
+          </Note>
+        </>
+      );
     }
 
     if (section === 'actuation') {
@@ -866,7 +1041,7 @@ export const HePane: React.FC = () => {
                 *   상자로 감싸도 250px 로 잘리던 이유다.
                 */}
               <AccentSelect
-                width={SELECT_W}
+                width={330}
                 value={switchOptions(switches)[cfg?.switchType ?? 0]}
                 options={switchOptions(switches)}
                 onChange={(o: any) => {
@@ -898,7 +1073,16 @@ export const HePane: React.FC = () => {
         <MenuCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
             {RAILS.map((r) => (
-              <Row key={r.key} $selected={true}>
+              <Row
+                key={r.key}
+                $selected={rail === r.key}
+                onClick={() => {
+                  setRail(r.key);
+                  /* 갈래를 바꾸면 그 갈래의 첫 항목으로 간다 */
+                  const first = SECTIONS.find((x) => x.rail === r.key);
+                  if (first) setSection(first.key);
+                }}
+              >
                 <IconContainer>
                   <FontAwesomeIcon icon={r.icon} />
                   <MenuTooltip>{t(r.title)}</MenuTooltip>
@@ -909,7 +1093,7 @@ export const HePane: React.FC = () => {
         </MenuCell>
         <SubmenuOverflowCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
-            {SECTIONS.map((s) => (
+            {SECTIONS.filter((s) => s.rail === rail).map((s) => (
               <SubmenuRow
                 key={s.key}
                 $selected={section === s.key}
@@ -927,6 +1111,13 @@ export const HePane: React.FC = () => {
               * 선택 도구는 섹션 위에 공통으로 둔다. 어느 탭에서든 "지금 몇 개를
               * 고쳤는가"가 보여야 실수가 줄어든다.
               */}
+            {/*
+              * ★ 보정 갈래에서는 감춘다.
+              *
+              *   보정은 언제나 전 키가 대상이라 고를 것이 없다. 남겨 두면
+              *   "보정도 고른 키만 하나" 로 읽힌다.
+              */}
+            {rail !== 'cal' && (
             <ControlRow>
               <Label>
                 <Hint tip={t('he.tip.selection')}>
@@ -955,6 +1146,7 @@ export const HePane: React.FC = () => {
                 </SelBtn>
               </Detail>
             </ControlRow>
+            )}
             {renderSection()}
           </Content>
         </OverflowCell>

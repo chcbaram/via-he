@@ -416,3 +416,71 @@ export async function heWriteKeyCfg(
     c.switchType,
   ]);
 }
+
+
+/*
+ * 보정 — HID 0xC7.
+ *
+ * ★ 보정은 두 가지인데 여기서 다루는 것은 **바닥값 하나뿐이다.**
+ *
+ *   무압 기준값(안 누른 상태)은 펌웨어의 러닝 최대값이 늘 추적하므로 손댈 일이
+ *   없다. 누른 채 전원을 넣어도 손을 떼면 제 값을 찾는다. 반면 바닥값은 실제로
+ *   끝까지 눌러야만 알 수 있어서 사람이 한 번씩 눌러 줘야 한다.
+ *
+ *   안 해도 키보드는 동작한다 — 스위치 종류표의 공칭 행정으로 돈다. 하면 키별
+ *   실측으로 바뀌어 mm 표시가 정확해진다 (이 보드 키별 편차가 13% 였다).
+ */
+export const HE_CMD_CAL = 0xc7;
+
+export const HE_CAL_STATUS = 0;
+export const HE_CAL_START = 1;
+export const HE_CAL_SAVE = 2;
+export const HE_CAL_CANCEL = 3;
+
+const HE_CAL_MAP_OFF = 8;
+
+export type HeCalState = {
+  active: boolean;
+  done: number;
+  total: number;
+  saveOk: number;
+  skipped: number;
+  keys: number[];      /* 끝난 키의 매트릭스 인덱스 */
+};
+
+function parseCal(r: number[]): HeCalState {
+  const keys: number[] = [];
+  for (let i = 0; i < 64; i++) {
+    if (r[HE_CAL_MAP_OFF + (i >> 3)] & (1 << (i & 7))) keys.push(i);
+  }
+  return {
+    active: r[2] === 1,
+    done: r[3],
+    total: r[4],
+    saveOk: r[5],
+    skipped: r[6],
+    keys,
+  };
+}
+
+export async function heCalStatus(send: HidSender): Promise<HeCalState> {
+  return parseCal(await send(HE_CMD_CAL, [HE_CAL_STATUS]));
+}
+
+export async function heCalStart(send: HidSender): Promise<HeCalState> {
+  return parseCal(await send(HE_CMD_CAL, [HE_CAL_START]));
+}
+
+export async function heCalCancel(send: HidSender): Promise<HeCalState> {
+  return parseCal(await send(HE_CMD_CAL, [HE_CAL_CANCEL]));
+}
+
+/*
+ * 저장은 플래시를 쓴다. 펌웨어가 ISR 이 아니라 메인 루프에서 처리하므로 요청 직후
+ * 응답에는 결과가 아직 안 들어 있다 — 한 번 더 물어야 saveOk 가 채워진다.
+ */
+export async function heCalSave(send: HidSender): Promise<HeCalState> {
+  await send(HE_CMD_CAL, [HE_CAL_SAVE]);
+  await new Promise((r) => setTimeout(r, 60));
+  return heCalStatus(send);
+}

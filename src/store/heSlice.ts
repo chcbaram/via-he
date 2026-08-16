@@ -15,10 +15,20 @@ import type {RootState} from '.';
 
 type HeState = {
   selectedKeys: number[];
+
+  /*
+   * 보정 중일 때 **끝난 키**.
+   *
+   * 키보드 그림에 진행 상황을 칠하려고 둔다. 선택과 같은 통로를 쓰지만 뜻이
+   * 다르므로 따로 둔다 — 보정 중에는 선택이 아니라 이쪽이 그려진다.
+   * null 이면 보정 중이 아니다.
+   */
+  calKeys: number[] | null;
 };
 
 const initialState: HeState = {
   selectedKeys: [],
+  calKeys: null,
 };
 
 const heSlice = createSlice({
@@ -42,11 +52,17 @@ const heSlice = createSlice({
     clearKeys: (state) => {
       state.selectedKeys = [];
     },
+    /* 보정 진행 상황. null 을 넣으면 보정이 끝난 것이다. */
+    setCalKeys: (state, action: PayloadAction<number[] | null>) => {
+      state.calKeys = action.payload;
+    },
   },
 });
 
-export const {toggleKey, addKey, setKeys, clearKeys} = heSlice.actions;
+export const {toggleKey, addKey, setKeys, clearKeys, setCalKeys} =
+  heSlice.actions;
 
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
+export const getHeCalKeys = (state: RootState) => state.he.calKeys;
 
 export default heSlice.reducer;

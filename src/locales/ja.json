@@ -430,5 +430,14 @@
   "HE Depth Ripple": "HE · 深さ波紋",
   "Key Handling": "キー処理",
   "Hold On Other Key Press": "他キー押下でホールド",
-  "NKRO": "NKRO (Nキーロールオーバー)"
+  "NKRO": "NKRO (Nキーロールオーバー)",
+  "Bottom-out calibration": "底値キャリブレーション",
+  "Progress": "進捗",
+  "Start": "開始",
+  "Saved": "保存済み",
+  "Press every key all the way down once. Keys that are done light up on the board above.": "すべてのキーを一度ずつ最後まで押してください。完了したキーは上の図に表示されます。",
+  "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate.": "任意です。行わない場合はスイッチの公称ストロークを使い、行うとキーごとの実測値を使うため mm 表示が正確になります。",
+  "he.tip.cal": "押していない状態の基準値はファームウェアが常に自動追従します。ここで集めるのは底値 — 最後まで押さないと分からない値です。",
+  "BOTTOM-OUT": "底値",
+  "keys updated": "キー更新"
 }

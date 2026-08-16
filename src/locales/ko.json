@@ -431,5 +431,14 @@
   "Key Handling": "키 처리",
   "Hold On Other Key Press": "다른 키 누를 때 홀드",
   "NKRO": "NKRO (전체 키 롤오버)",
-  "QMK": "QMK"
+  "QMK": "QMK",
+  "Bottom-out calibration": "바닥값 보정",
+  "Progress": "진행",
+  "Start": "시작",
+  "Saved": "저장됨",
+  "Press every key all the way down once. Keys that are done light up on the board above.": "모든 키를 한 번씩 끝까지 눌러 주세요. 끝난 키는 위 그림에 표시됩니다.",
+  "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate.": "선택 사항입니다. 안 하면 스위치의 공칭 행정을 쓰고, 하면 키마다 실측한 값을 써서 mm 표시가 정확해집니다.",
+  "he.tip.cal": "안 누른 상태의 기준값은 펌웨어가 늘 자동으로 따라갑니다. 여기서 모으는 것은 바닥값 — 끝까지 눌러야만 알 수 있는 값입니다.",
+  "BOTTOM-OUT": "바닥값",
+  "keys updated": "키 갱신"
 }

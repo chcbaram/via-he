@@ -30,7 +30,12 @@ import {
 } from 'src/store/definitionsSlice';
 import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {getSelectedKeymap} from 'src/store/keymapSlice';
-import {addKey, getHeSelectedKeys, toggleKey} from 'src/store/heSlice';
+import {
+  addKey,
+  getHeCalKeys,
+  getHeSelectedKeys,
+  toggleKey,
+} from 'src/store/heSlice';
 import {DisplayMode, NDimension} from 'src/types/keyboard-rendering';
 import {getKeyboardCanvas} from './configure';
 
@@ -49,6 +54,7 @@ export const HeKeyboard = (props: {
   );
   const definition = useAppSelector(getSelectedDefinition);
   const selected = useAppSelector(getHeSelectedKeys);
+  const calKeys = useAppSelector(getHeCalKeys);
 
   /*
    * 키 정의 순서 -> 매트릭스 인덱스.
@@ -59,13 +65,20 @@ export const HeKeyboard = (props: {
   const cols = definition && typeof definition !== 'string' ? definition.matrix.cols : 8;
   const idxOf = (k: {row: number; col: number}) => k.row * cols + k.col;
 
-  /* 고른 키만 테마의 강조색으로 — 색칠은 테마가 한다 */
+  /*
+   * 고른 키만 테마의 강조색으로 — 색칠은 테마가 한다.
+   *
+   * 보정 중에는 선택 대신 **끝난 키**를 칠한다. 어느 키가 남았는지 그림에서
+   * 바로 보이는 것이 CLI 의 격자 뷰보다 낫다. 같은 통로를 쓰므로 키캡 렌더는
+   * 손대지 않는다.
+   */
+  const marked = calKeys ?? selected;
   const shownKeys = useMemo(
     () =>
       keys.map((k) =>
-        selected.includes(idxOf(k)) ? {...k, color: KeyColorType.Accent} : k,
+        marked.includes(idxOf(k)) ? {...k, color: KeyColorType.Accent} : k,
       ),
-    [keys, selected, cols],
+    [keys, marked, cols],
   );
 
   if (!definition || !props.dimensions) {
