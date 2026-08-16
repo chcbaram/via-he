@@ -960,6 +960,9 @@ export async function heWriteBackup(
  */
 export const HE_CMD_STAT = 0xc9;
 
+export const HE_STAT_READ = 0;
+export const HE_STAT_CLEAR = 1;
+
 const HE_STAT_OFF = 4;
 
 export type HeStat = {
@@ -979,8 +982,15 @@ export type HeStat = {
   rgbUsAvg: number;
 };
 
-export async function heReadStat(send: HidSender): Promise<HeStat> {
-  const r = await send(HE_CMD_STAT, []);
+/*
+ * clear 를 주면 누적값을 0 부터 다시 세고, **지운 뒤의 값**을 돌려준다.
+ * 따로 물으면 그 사이에 몇 회가 더 쌓여 "지웠는데 0 이 아닌" 화면이 나온다.
+ */
+export async function heReadStat(
+  send: HidSender,
+  clear = false,
+): Promise<HeStat> {
+  const r = await send(HE_CMD_STAT, clear ? [HE_STAT_CLEAR] : []);
   const u32 = (i: number) => {
     const o = HE_STAT_OFF + i * 4;
     return (

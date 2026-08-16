@@ -1525,6 +1525,23 @@ export const HePane: React.FC = () => {
         ['he.dbg.fps', t('Live frames'), tracking ? `${fps} / s` : t('off')],
       ];
 
+      /*
+       * ★ 누적값을 지우는 버튼.
+       *
+       *   "최대 650us" 가 부팅 직후 한 번인지 지금도 나는지는 눌러 봐야 안다.
+       *   무언가 고친 뒤 "나아졌나" 를 보려면 옛 기록이 지워져야 한다.
+       *
+       *   지금 값(마지막 한 바퀴)은 안 지운다 — 누적이 아니라서 지워도 다음 스캔에
+       *   바로 채워지고, 0 으로 잠깐 보이는 것이 오히려 거짓말이다.
+       */
+      const doClear = async () => {
+        try {
+          setStat(await heReadStat(send, true));
+        } catch (e) {
+          setErr(String(e));
+        }
+      };
+
       return (
         <>
           {rows.map(([tip, label, value]) => (
@@ -1537,6 +1554,15 @@ export const HePane: React.FC = () => {
               </Detail>
             </ControlRow>
           ))}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.dbg.clear')}>{t('Counters')}</Hint>
+            </Label>
+            <Detail>
+              <SelBtn onClick={doClear}>{t('Clear')}</SelBtn>
+            </Detail>
+          </ControlRow>
+
           <Note>{t('he.note.debug')}</Note>
         </>
       );

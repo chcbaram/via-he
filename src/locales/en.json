@@ -470,5 +470,7 @@
   "he.dbg.timeout": "ADC conversions that did not finish in time. Should stay at zero.",
   "he.dbg.boot": "Time spent measuring the resting baseline at power-on, and whether it finished.",
   "he.dbg.fps": "Depth frames arriving per second while live depth is on.",
-  "he.note.debug": "Read straight from the board twice a second, and only while this screen is open. Counters run since power-on — unplug and replug to reset them."
+  "he.note.debug": "Read straight from the board twice a second, and only while this screen is open. Counters run since power-on — unplug and replug to reset them.",
+  "Counters": "Counters",
+  "he.dbg.clear": "Starts the counters and maxima over from zero. Use it after changing something to see whether it helped — old records would otherwise hide the answer. The current pass time is not cleared; it is not a counter."
 }
