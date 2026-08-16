@@ -32,6 +32,7 @@ export type KeyboardCanvasContentProps<T> = {
   showMatrix?: boolean;
   selectedKey?: number;
   keyColors?: number[][];
+  keyLabels?: (string | undefined)[];
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;
   width: number;
@@ -54,6 +55,15 @@ export type KeyGroupProps<T> = {
   mode: DisplayMode;
   pressedKeys?: TestKeyState[];
   keyColors?: number[][];
+  /*
+   * 키캡에 찍을 글자를 밖에서 갈아 끼운다 (키 정의 순서, undefined 면 원래 각인).
+   *
+   * ★ 색칠과 다른 통로다.
+   *
+   *   칠하기는 "칠한다/안 한다" 두 값이라 키 색으로 보낼 수 있지만 스트로크나
+   *   입력지점은 값이 연속이다. 같은 통로로 못 보낸다.
+   */
+  keyLabels?: (string | undefined)[];
   selectedKey?: number;
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;

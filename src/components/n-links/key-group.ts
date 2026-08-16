@@ -76,8 +76,26 @@ export function getLabels<T>(
 ) {
   return !props.matrixKeycodes.length
     ? []
-    : props.keys.map((k, i) =>
-        getLabel(
+    : props.keys.map((k, i) => {
+        /*
+         * 밖에서 준 글자가 있으면 각인 대신 그것을 찍는다.
+         *
+         * centerLabel 로 준다 — 가운데 줄에 13px 로 그려지는 길이라 "3.85" 같은
+         * 짧은 숫자가 어느 키캡 폭에서든 들어간다. label 만 주면 22px 로 그려져
+         * 1u 키에서 넘친다.
+         */
+        const over = props.keyLabels?.[i];
+        if (over !== undefined) {
+          return {
+            label: over,
+            centerLabel: over,
+            tooltipLabel: over,
+            key: `ov-${over}`,
+            size: 1.0,
+            offset: [0, 0] as [number, number],
+          };
+        }
+        return getLabel(
           props.matrixKeycodes[i],
           k.w,
           macroExpressions,
@@ -85,8 +103,8 @@ export function getLabels<T>(
           basicKeyToByte,
           byteToKey,
           keycodeLUT,
-        ),
-      );
+        );
+      });
 }
 
 export function getKeysKeys<T>(

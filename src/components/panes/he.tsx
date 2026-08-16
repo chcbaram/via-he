@@ -75,6 +75,7 @@ import {
   clearKeys,
   getHeSelectedKeys,
   setOverlayKeys,
+  setOverlayText,
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
@@ -629,18 +630,21 @@ export const HePane: React.FC = () => {
      *
      *   지금 정한 것 —
      *
-     *     설정 갈래     null      선택 표시를 보여준다
-     *     보정 (쉴 때)   안 된 키   무엇이 남았는지가 알고 싶은 것이다
-     *     보정 (도는 중) 끝난 키    채워지는 것이 진행 상황이다 (아래 폴링에서)
-     *     장치 갈래     []        칠할 것이 없다
+     *                     칠하기          키캡 글자
+     *     설정 갈래        null(선택)      null(각인)
+     *     보정 (쉴 때)      안 된 키        보정된 키의 스트로크 mm
+     *     보정 (도는 중)    끝난 키         null — 지금은 누르는 일에 집중한다
+     *     장치 갈래        []              null
      *
      *   화면이 늘면 여기에 한 줄 더한다.
      */
     if (rail === 'tune') {
       dispatch(setOverlayKeys(null));
+      dispatch(setOverlayText(null));
       return;
     }
     dispatch(setOverlayKeys([]));
+    dispatch(setOverlayText(null));
     if (!api || section !== 'calibrate' || cal?.active) return;
 
     let alive = true;
@@ -673,6 +677,28 @@ export const HePane: React.FC = () => {
             .filter((i) => !out[i]?.calibrated),
         ),
       );
+
+      /*
+       * 보정된 키에는 **잰 스트로크**를 키캡에 찍는다.
+       *
+       * ★ 이 숫자가 보정을 하는 이유 자체다.
+       *
+       *   칠하기로는 "됐다/안 됐다" 까지만 안다. 이 보드는 키별 스트로크가 13%
+       *   흩어져 있고(실측), 그래서 공칭값을 쓰면 mm 가 그만큼 어긋난다. 흩어진
+       *   정도는 숫자를 늘어놓아야 보인다.
+       *
+       *   안 된 키는 빈칸이 아니라 각인을 그대로 둔다 — 어차피 칠해져 있어 구분이
+       *   되고, 전부 숫자로 덮으면 어느 키인지 알 수 없어진다.
+       */
+      const text: Record<number, string> = {};
+      for (const g of layout) {
+        const i = g.row * MATRIX_COLS + g.col;
+        const c = out[i];
+        if (c?.calibrated && c.travelUm > 0) {
+          text[i] = (c.travelUm / 1000).toFixed(2);
+        }
+      }
+      dispatch(setOverlayText(text));
     })();
     return () => {
       alive = false;
@@ -1252,6 +1278,40 @@ export const HePane: React.FC = () => {
           </ControlRow>
 
           {/*
+            * 저장돼 있는 보정을 요약한다.
+            *
+            * ★ 흩어진 정도가 여기서 처음 숫자로 보인다.
+            *
+            *   키캡의 값은 하나씩 읽어야 하지만 최소~최대는 한눈에 들어온다.
+            *   이 폭이 곧 공칭 행정을 쓸 때 나는 오차다 — 그게 보정을 하는 이유다.
+            */}
+          {!active && calAll && (
+            <ControlRow>
+              <Label>
+                <Hint tip={t('he.tip.calDone')}>{t('Calibrated')}</Hint>
+              </Label>
+              <Detail>
+                <Val>
+                  {(() => {
+                    const um = layout
+                      .map((g) => calAll[g.row * MATRIX_COLS + g.col])
+                      .filter((c) => c?.calibrated && c.travelUm > 0)
+                      .map((c) => c.travelUm);
+                    if (um.length === 0) return `0 / ${layout.length}`;
+                    const lo = Math.min(...um);
+                    const hi = Math.max(...um);
+                    /* 폭을 최소값 기준 %로 — "13% 흩어져 있다" 가 바로 읽힌다 */
+                    const spread = Math.round(((hi - lo) / lo) * 100);
+                    return `${um.length} / ${layout.length}  ·  ${fmtMm(
+                      lo,
+                    )} ~ ${fmtMm(hi)}  (${spread}%)`;
+                  })()}
+                </Val>
+              </Detail>
+            </ControlRow>
+          )}
+
+          {/*
             * 지금 얼마나 눌렸는지. 여기서는 값을 바꾸는 자가 아니라 보는 자다 —
             * 끝까지 눌렀는지 눈으로 확인하라고 둔다.
             *
@@ -1286,7 +1346,7 @@ export const HePane: React.FC = () => {
                   'Press every key all the way down once. Keys that are done light up on the board above.',
                 )
               : t(
-                  'Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate.',
+                  'Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.',
                 )}
           </Note>
         </>

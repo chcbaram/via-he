@@ -437,7 +437,6 @@
   "Start": "시작",
   "Saved": "저장됨",
   "Press every key all the way down once. Keys that are done light up on the board above.": "모든 키를 한 번씩 끝까지 눌러 주세요. 끝난 키는 위 그림에 표시됩니다.",
-  "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate.": "선택 사항입니다. 안 하면 스위치의 공칭 행정을 쓰고, 하면 키마다 실측한 값을 써서 mm 표시가 정확해집니다.",
   "he.tip.cal": "안 누른 상태의 기준값은 펌웨어가 늘 자동으로 따라갑니다. 여기서 모으는 것은 바닥값 — 끝까지 눌러야만 알 수 있는 값입니다.",
   "BOTTOM-OUT": "바닥값",
   "keys updated": "키 갱신",
@@ -464,7 +463,9 @@
   "Calibrated keys": "보정된 키",
   "stroke": "스트로크",
   "avg": "평균",
-  "he.tip.calDone": "위 그림에 칠해진 키가 아직 보정 안 된 키입니다. 보정을 시작하면 반대로 끝난 키가 칠해집니다.",
+  "he.tip.calDone": "위 그림에 칠해진 키가 아직 보정 안 된 키이고, 보정된 키는 잰 스트로크가 mm 로 찍힙니다. 폭은 공칭 행정을 쓸 때 나는 오차입니다. 보정을 시작하면 반대로 끝난 키가 칠해집니다.",
   "he.fw.flash": "굽기",
-  "he.fw.reflash": "다시 굽기"
+  "he.fw.reflash": "다시 굽기",
+  "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.": "보정 안 해도 동작합니다. 안 하면 공칭 행정을 쓰고, 하면 키마다 실제로 재므로 mm 가 정확해집니다. 보정된 키는 잰 스트로크를 mm 로 보여주고, 나머지는 위 그림에 칠해집니다.",
+  "Calibrated": "보정됨"
 }

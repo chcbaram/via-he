@@ -33,6 +33,7 @@ import {getSelectedKeymap} from 'src/store/keymapSlice';
 import {
   addKey,
   getHeOverlayKeys,
+  getHeOverlayText,
   getHeSelectedKeys,
   toggleKey,
 } from 'src/store/heSlice';
@@ -55,6 +56,7 @@ export const HeKeyboard = (props: {
   const definition = useAppSelector(getSelectedDefinition);
   const selected = useAppSelector(getHeSelectedKeys);
   const overlay = useAppSelector(getHeOverlayKeys);
+  const overlayText = useAppSelector(getHeOverlayText);
 
   /*
    * 키 정의 순서 -> 매트릭스 인덱스.
@@ -78,6 +80,20 @@ export const HeKeyboard = (props: {
         marked.includes(idxOf(k)) ? {...k, color: KeyColorType.Accent} : k,
       ),
     [keys, marked, cols],
+  );
+
+  /*
+   * 키캡 글자. 렌더는 **키 정의 순서**로 받으므로 매트릭스 인덱스에서 옮겨 담는다.
+   *
+   * 값이 없는 키는 undefined 로 남겨 원래 각인이 나오게 한다 — 빈 문자열을 주면
+   * 각인이 사라진 빈 키캡이 되어 어느 키인지 알 수 없다.
+   */
+  const keyLabels = useMemo(
+    () =>
+      overlayText
+        ? keys.map((k) => overlayText[idxOf(k)])
+        : undefined,
+    [keys, overlayText, cols],
   );
 
   if (!definition || !props.dimensions) {
@@ -108,6 +124,7 @@ export const HeKeyboard = (props: {
        *   나타내므로 이 표시는 쓸 자리가 없다.
        */
       selectedKey={-1}
+      keyLabels={keyLabels}
       definition={definition}
       containerDimensions={props.dimensions}
       mode={DisplayMode.Configure}

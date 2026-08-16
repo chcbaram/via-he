@@ -421,5 +421,7 @@
   "he.tip.cal": "The resting baseline is tracked automatically by the firmware. What this collects is the bottom — it can only be known by pressing each key all the way down. Without it the nominal switch travel is used; with it every key is measured, so the mm values are accurate.",
   "he.tip.fw": "Pick the build output build/wish60-he.bin. If the app is running it switches to the bootloader on its own.",
   "he.tip.boot": "Switches to the bootloader without flashing. Use it to grant bootloader permission ahead of time, or to get there by hand if the app misbehaves.",
-  "he.tip.calDone": "The keys painted above are the ones not calibrated yet. Once calibration starts it flips — the finished keys are painted instead."
+  "he.tip.calDone": "Keys painted on the board above are not calibrated yet; calibrated ones show their measured stroke in mm. The spread is how far off the nominal travel would be. Once calibration starts it flips — finished keys get painted instead.",
+  "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.": "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.",
+  "Calibrated": "Calibrated"
 }

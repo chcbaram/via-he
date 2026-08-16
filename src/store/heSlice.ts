@@ -32,11 +32,24 @@ type HeState = {
    *   빈 배열은 "칠할 것이 없다" 이다.
    */
   overlayKeys: number[] | null;
+
+  /*
+   * 키캡에 각인 대신 찍을 글자 — **매트릭스 인덱스**로 넣는다.
+   *
+   * 칠하기(overlayKeys)와 같은 규칙이다. 화면에 들어갈 때 자기 것을 넣고, 보여줄
+   * 것이 없으면 null 로 되돌린다. 다만 이쪽은 값이라 통로가 따로다 — 칠하기는
+   * 두 값이고 스트로크·입력지점은 연속이라 색으로는 못 보낸다.
+   *
+   * 값이 없는 키는 빈칸으로 둔다 (undefined). 0 을 찍으면 "0mm 로 보정됨" 으로
+   * 읽힌다.
+   */
+  overlayText: Record<number, string> | null;
 };
 
 const initialState: HeState = {
   selectedKeys: [],
   overlayKeys: null,
+  overlayText: null,
 };
 
 const heSlice = createSlice({
@@ -64,13 +77,28 @@ const heSlice = createSlice({
     setOverlayKeys: (state, action: PayloadAction<number[] | null>) => {
       state.overlayKeys = action.payload;
     },
+
+    /* 지금 화면이 키캡에 찍을 값. null 이면 원래 각인으로 되돌린다. */
+    setOverlayText: (
+      state,
+      action: PayloadAction<Record<number, string> | null>,
+    ) => {
+      state.overlayText = action.payload;
+    },
   },
 });
 
-export const {toggleKey, addKey, setKeys, clearKeys, setOverlayKeys} =
-  heSlice.actions;
+export const {
+  toggleKey,
+  addKey,
+  setKeys,
+  clearKeys,
+  setOverlayKeys,
+  setOverlayText,
+} = heSlice.actions;
 
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
 export const getHeOverlayKeys = (state: RootState) => state.he.overlayKeys;
+export const getHeOverlayText = (state: RootState) => state.he.overlayText;
 
 export default heSlice.reducer;

@@ -436,7 +436,6 @@
   "Start": "開始",
   "Saved": "保存済み",
   "Press every key all the way down once. Keys that are done light up on the board above.": "すべてのキーを一度ずつ最後まで押してください。完了したキーは上の図に表示されます。",
-  "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate.": "任意です。行わない場合はスイッチの公称ストロークを使い、行うとキーごとの実測値を使うため mm 表示が正確になります。",
   "he.tip.cal": "押していない状態の基準値はファームウェアが常に自動追従します。ここで集めるのは底値 — 最後まで押さないと分からない値です。",
   "BOTTOM-OUT": "底値",
   "keys updated": "キー更新",
@@ -463,7 +462,9 @@
   "Calibrated keys": "キャリブレーション済み",
   "stroke": "ストローク",
   "avg": "平均",
-  "he.tip.calDone": "上図で色が付いているキーは未キャリブレーションです。開始すると逆に完了したキーが色付きになります。",
+  "he.tip.calDone": "上図で色が付いているキーは未キャリブレーションで、完了したキーは実測ストロークが mm で表示されます。幅は公称ストロークを使ったときの誤差です。開始すると逆に完了したキーが色付きになります。",
   "he.fw.flash": "書き込み",
-  "he.fw.reflash": "再書き込み"
+  "he.fw.reflash": "再書き込み",
+  "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.": "キャリブレーションなしでも動作します。しない場合は公称ストロークを使い、すると各キーを実測するので mm が正確になります。完了したキーは実測ストロークを mm で表示し、残りは上図に色が付きます。",
+  "Calibrated": "完了"
 }
