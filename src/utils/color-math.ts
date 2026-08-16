@@ -67,6 +67,34 @@ export const getColorByte = (color: string) => {
   return [r, g, b];
 };
 
+/*
+ * 실시간 표시(깊이·원시값)의 색.
+ *
+ * ★ 키캡 색에 따라 두 가지 파랑 중에 고른다.
+ *
+ *   하나로 박아 두면 반드시 한쪽에서 안 보인다. 밝은 파랑은 어두운 기본 키캡에서
+ *   잘 보이지만, 고른 키는 키캡이 밝은 강조색으로 바뀌어 그 위에서 묻는다.
+ *   실제로 고른 키에서만 숫자가 안 보였다.
+ *
+ *   밝기로 갈라 어두운 키캡에는 밝은 파랑, 밝은 키캡에는 진한 파랑을 준다. 파랑을
+ *   유지하는 것은 "지금 이 순간" 표시라는 뜻이 색에 실려 있기 때문이다 — 검정으로
+ *   바꾸면 그 키에서만 설정값과 같은 부류로 읽힌다.
+ *
+ *   0.6 은 sRGB 밝기 기준이다 (사람 눈이 초록에 가장 민감하다).
+ */
+export const LIVE_COLOR_ON_DARK = '#4da3ff';
+export const LIVE_COLOR_ON_LIGHT = '#0b4da2';
+
+export const getLiveColor = (bg: string) => {
+  try {
+    const [r, g, b] = getColorByte(bg);
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.6 ? LIVE_COLOR_ON_LIGHT : LIVE_COLOR_ON_DARK;
+  } catch {
+    return LIVE_COLOR_ON_DARK;
+  }
+};
+
 export const getDarkenedColor = (color: string, multiplier = 0.8) => {
   const [r, g, b] = getColorByte(color);
   const hr = Math.round(r * multiplier).toString(16);

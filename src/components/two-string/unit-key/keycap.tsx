@@ -1,7 +1,11 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {shallowEqual} from 'react-redux';
 import {TestKeyState} from 'src/types/types';
-import {getDarkenedColor} from 'src/utils/color-math';
+import {
+  getDarkenedColor,
+  getLiveColor,
+  LIVE_COLOR_ON_DARK,
+} from 'src/utils/color-math';
 import {CSSVarObject} from 'src/utils/keyboard-rendering';
 import styled from 'styled-components';
 import {Keycap2DTooltip} from '../../inputs/tooltip';
@@ -22,9 +26,11 @@ import {
 /*
  * 눌림 테두리 색.
  *
- * 키캡 색·강조색과 겹치지 않는 것으로 박는다. 자세한 까닭은 아래 쓰는 자리에 적었다.
+ * 키캡 색·강조색과 겹치지 않는 것으로 박는다. 테두리는 키캡 **바깥**에 그려져 늘
+ * 어두운 바탕 위에 얹히므로 하나로 족하다 — 키캡 위에 얹히는 글자만 색을 고른다
+ * (getLiveColor).
  */
-const PRESSED_COLOR = '#4da3ff';
+const PRESSED_COLOR = LIVE_COLOR_ON_DARK;
 
 /*
  * 키캡 아래 실시간 값.
@@ -48,7 +54,6 @@ const Foot = styled.div`
   text-align: center;
   font-size: 9px;
   line-height: 1;
-  color: ${PRESSED_COLOR};
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 `;
@@ -575,7 +580,11 @@ export const Keycap: React.FC<TwoStringKeycapProps> = React.memo((props) => {
           >
             <canvas ref={canvasRef} style={{}} />
           </CanvasContainer>
-          {label?.foot ? <Foot>{label.foot}</Foot> : null}
+          {label?.foot ? (
+            <Foot style={{color: getLiveColor(props.color.c)}}>
+              {label.foot}
+            </Foot>
+          ) : null}
         </GlowContainer>
         {(macroData || overflowsTexture) && (
           <TooltipContainer $rotate={rotation[2]}>

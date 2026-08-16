@@ -9,6 +9,7 @@ import {
   ThreeFiberKeycapProps,
 } from 'src/types/keyboard-rendering';
 import {TestKeyState} from 'src/types/types';
+import {getLiveColor, LIVE_COLOR_ON_DARK} from 'src/utils/color-math';
 import * as THREE from 'three';
 import {KeycapTooltip} from '../../inputs/tooltip';
 
@@ -63,7 +64,7 @@ const paintEncoder = (
 };
 
 /* 눌림 테두리 색 — 2D 쪽과 같아야 한다 (two-string/unit-key/keycap.tsx) */
-const PRESSED_COLOR = '#4da3ff';
+const PRESSED_COLOR = LIVE_COLOR_ON_DARK;
 
 type Point = {
   x: number;
@@ -390,7 +391,8 @@ const paintKeycap = (
     const f = textureRects.faceRect;
     const fontSize = 26;
 
-    context.fillStyle = PRESSED_COLOR;
+    /* 키캡 위에 얹히는 글자라 바탕 밝기에 따라 파랑을 고른다 */
+    context.fillStyle = getLiveColor(bgColor);
     context.font = `${fontSize}px Fira Sans, Arial`;
     context.textAlign = 'center';
     context.fillText(
