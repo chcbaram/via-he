@@ -62,6 +62,9 @@ const paintEncoder = (
   }
 };
 
+/* 눌림 테두리 색 — 2D 쪽과 같아야 한다 (two-string/unit-key/keycap.tsx) */
+const PRESSED_COLOR = '#4da3ff';
+
 type Point = {
   x: number;
   y: number;
@@ -351,13 +354,13 @@ const paintKeycap = (
    *   keycapRect 가 키캡 바깥 모서리라 여기가 맞다. 라벨을 그리기 **전**에 긋는다 —
    *   라벨 쪽은 윗면으로 클리핑을 걸어 두므로 그 뒤에는 바깥에 못 그린다.
    *
-   * ★ 색이 아니라 테두리인 이유는 2D 쪽 주석에 적었다.
+   * ★ 색이 아니라 테두리인 것도, 키캡 색을 안 따라가는 것도 2D 쪽 주석에 적었다.
    */
   if (label && label.pressed) {
     const r = textureRects.keycapRect;
     const w = 6;
 
-    context.strokeStyle = legendColor;
+    context.strokeStyle = PRESSED_COLOR;
     context.lineWidth = w;
     context.strokeRect(
       r.bl.x * canvas.width + w / 2,

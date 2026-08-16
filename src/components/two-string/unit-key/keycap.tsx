@@ -19,6 +19,13 @@ import {
   DisplayMode,
 } from 'src/types/keyboard-rendering';
 
+/*
+ * 눌림 테두리 색.
+ *
+ * 키캡 색·강조색과 겹치지 않는 것으로 박는다. 자세한 까닭은 아래 쓰는 자리에 적었다.
+ */
+const PRESSED_COLOR = '#4da3ff';
+
 const getMacroData = ({
   macroExpression,
   label,
@@ -485,13 +492,22 @@ export const Keycap: React.FC<TwoStringKeycapProps> = React.memo((props) => {
              *   키 색은 이미 선택 표시가 쓴다. 같은 통로에 얹으면 고른 키인지 눌린
              *   키인지 구분이 안 된다.
              *
+             * ★ 테두리 색은 키캡을 따라가면 안 된다.
+             *
+             *   처음에는 각인 색을 썼다. 고른 키는 키캡이 강조색으로 바뀌면서 각인이
+             *   어두워지는데, 그러면 테두리도 같이 어두워져 **고른 키에서만 눌림이
+             *   안 보였다.** 정작 만지고 있는 키가 안 보이는 셈이다.
+             *
+             *   키캡 색과 무관한 색을 박는다. 파랑은 이 앱의 강조색(선택)과도,
+             *   기본 키캡 색과도 겹치지 않는다.
+             *
              * ★ 캔버스가 아니라 여기다.
              *
              *   캔버스는 키캡 **윗면**만 덮는다. 거기에 그리면 키캡 안쪽에 줄이
              *   하나 더 그어진 꼴이라 각인과 겹쳐 지저분하다. 이 요소가 키캡 몸통
              *   자체라 outline 이 곧 바깥 테두리가 된다.
              */
-            outline: label?.pressed ? `2px solid ${props.color.t}` : undefined,
+            outline: label?.pressed ? `2px solid ${PRESSED_COLOR}` : undefined,
             outlineOffset: 1,
             width:
               textureWidth * CSSVarObject.keyXPos - CSSVarObject.keyXSpacing,
