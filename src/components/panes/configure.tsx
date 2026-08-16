@@ -23,7 +23,7 @@ import * as RotaryEncoder from './configure-panes/custom/satisfaction75';
 import {makeCustomMenus} from './configure-panes/custom/menu-generator';
 import {LayerControl} from './configure-panes/layer-control';
 import {Badge} from './configure-panes/badge';
-import {HostKeyboardLayoutBadge} from './configure-panes/host-keyboard-layout-badge';
+import {ProfileSelect} from 'src/components/menus/profile-select';
 import {AccentButtonLarge} from '../inputs/accent-button';
 import {useAppSelector} from 'src/store/hooks';
 import {getSelectedDefinition} from 'src/store/definitionsSlice';
@@ -250,7 +250,7 @@ const ConfigureGrid = () => {
         <div style={{pointerEvents: 'all'}}>
           <LayerControl />
           <Badge />
-          <HostKeyboardLayoutBadge />
+          <ProfileSelect />
         </div>
       </ConfigureFlexCell>
       <Grid style={{pointerEvents: 'none'}}>

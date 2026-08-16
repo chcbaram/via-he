@@ -627,3 +627,33 @@ export async function heProfCopy(
 ): Promise<HeProf> {
   return parseProf(await send(HE_CMD_PROF, [HE_PROF_COPY, dst]));
 }
+
+
+/*
+ * ── HID 왕복을 한 줄로 세운다 ────────────────────────────────────────────
+ *
+ * ★ 화면 하나가 아니라 **앱 전체**가 한 줄이어야 한다.
+ *
+ *   HID 는 요청 하나에 응답 하나다. 두 곳에서 동시에 보내면 응답이 엇갈려 VIA 가
+ *   "Receiving incorrect response" 로 잡고, 그 오류가 쌓이면 진짜 오류를 못 본다.
+ *
+ *   HE 화면 안에서만 세워 두었더니, 상단의 프로파일 선택처럼 화면 밖에서 말하는
+ *   자리가 생기자 곧바로 겹칠 수 있게 됐다. 줄 세우기를 이 파일로 올려 누가 부르든
+ *   같은 줄에 서게 한다.
+ *
+ *   앞이 실패해도 뒤는 돈다 — 한 번의 실패로 앱이 멎으면 안 된다.
+ */
+let heGate: Promise<unknown> = Promise.resolve();
+
+export function heMakeSend(api: {
+  hidCommand: (cmd: number, bytes: number[]) => Promise<any>;
+}): HidSender {
+  return (cmd: number, bytes: number[]) => {
+    const run = heGate.then(
+      () => api.hidCommand(cmd, bytes),
+      () => api.hidCommand(cmd, bytes),
+    );
+    heGate = run.catch(() => {});
+    return run;
+  };
+}

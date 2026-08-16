@@ -484,5 +484,6 @@
   "he.note.prof": "고른 프로파일은 전원을 껐다 켜도 유지됩니다. 보정값은 네 벌이 함께 쓰므로 바닥값 보정은 한 번만 하면 됩니다.",
   "Copy {{cur}} to": "{{cur}}번을 복사",
   "Copied to profile {{n}}": "{{n}}번에 복사했습니다",
-  "Overwrite profile {{n}} with profile {{cur}}?": "{{n}}번을 {{cur}}번 내용으로 덮어씁니다. {{n}}번에 맞춰 둔 값은 사라집니다."
+  "Overwrite profile {{n}} with profile {{cur}}?": "{{n}}번을 {{cur}}번 내용으로 덮어씁니다. {{n}}번에 맞춰 둔 값은 사라집니다.",
+  "Host layout": "호스트 자판 배열"
 }

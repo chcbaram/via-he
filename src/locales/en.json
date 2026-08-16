@@ -440,5 +440,6 @@
   "he.note.prof": "The board remembers which profile is active across power cycles. Calibration is shared by all four — you only bottom-out once.",
   "Copy {{cur}} to": "Copy {{cur}} to",
   "Copied to profile {{n}}": "Copied to profile {{n}}",
-  "Overwrite profile {{n}} with profile {{cur}}?": "Overwrite profile {{n}} with profile {{cur}}? Its settings are lost."
+  "Overwrite profile {{n}} with profile {{cur}}?": "Overwrite profile {{n}} with profile {{cur}}? Its settings are lost.",
+  "Host layout": "Host layout"
 }

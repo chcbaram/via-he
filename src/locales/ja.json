@@ -483,5 +483,6 @@
   "he.note.prof": "選んだプロファイルは電源を切っても保持されます。キャリブレーション値は4つで共有するので、底打ち測定は一度で済みます。",
   "Copy {{cur}} to": "{{cur}} をコピー",
   "Copied to profile {{n}}": "プロファイル {{n}} にコピーしました",
-  "Overwrite profile {{n}} with profile {{cur}}?": "プロファイル {{n}} を {{cur}} の内容で上書きします。{{n}} の設定は失われます。"
+  "Overwrite profile {{n}} with profile {{cur}}?": "プロファイル {{n}} を {{cur}} の内容で上書きします。{{n}} の設定は失われます。",
+  "Host layout": "ホストのキー配列"
 }

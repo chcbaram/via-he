@@ -81,6 +81,8 @@ import {
   setOverlayBars,
   setOverlayPressed,
   setOverlayLive,
+  setProfile,
+  getHeProfile,
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
@@ -115,6 +117,7 @@ import {
   heWriteKeyCfg,
   heMakeBackup,
   heCheckBackup,
+  heMakeSend,
   heProfGet,
   heProfSet,
   heProfCopy,
@@ -526,8 +529,14 @@ export const HePane: React.FC = () => {
   const [showRaw, setShowRaw] = useState(false);
 
   /* 내보내기·가져오기 진행 상황 한 줄 */
-  /* 지금 프로파일 */
-  const [prof, setProf] = useState<HeProf | null>(null);
+  /*
+   * 지금 프로파일 — 리덕스에서 본다.
+   *
+   * 키보드 이름 배지 옆에서도 바꿀 수 있다. 이 화면이 자기 상태로 들고 있으면
+   * 거기서 바꾼 것을 모르고, 옛 프로파일의 숫자를 새 것인 척 보여주다가 그 위에
+   * 덮어쓴다.
+   */
+  const prof = useAppSelector(getHeProfile);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   const [bkMsg, setBkMsg] = useState<string | null>(null);
@@ -588,29 +597,13 @@ export const HePane: React.FC = () => {
   const frames = useRef(0);
 
   /*
-   * ★ 이 화면의 HID 왕복을 한 줄로 세운다.
-   *
-   *   HID 는 요청 하나에 응답 하나다. 두 곳에서 동시에 보내면 응답이 엇갈려
-   *   VIA 가 "Receiving incorrect response" 로 잡고, 그 오류가 로그에 쌓이면
-   *   진짜 오류를 못 본다.
-   *
-   *   이 화면은 겹칠 자리가 여럿이다 — 라이브 트래킹, 보정 폴링, 전 키 읽기,
-   *   슬라이더를 끌 때의 쓰기. 부르는 쪽마다 조심하게 하면 반드시 하나를 놓친다.
-   *   통로 자체를 한 줄로 만들면 그럴 일이 없다.
-   *
-   *   앞이 실패해도 뒤는 돈다 — 한 번의 실패로 화면이 멎으면 안 된다.
+   * HID 왕복은 한 줄로 세운다 — 줄 세우기는 he-api 가 앱 전체 몫으로 들고 있다.
+   * (상단 프로파일 선택처럼 이 화면 밖에서 말하는 자리가 있다)
    */
-  const gate = useRef<Promise<unknown>>(Promise.resolve());
-
   const send = useCallback(
     async (cmd: number, bytes: number[]) => {
       if (!api) throw new Error('no device');
-      const run = gate.current.then(
-        () => api.hidCommand(cmd, bytes),
-        () => api.hidCommand(cmd, bytes),
-      );
-      gate.current = run.catch(() => {});
-      return run;
+      return heMakeSend(api)(cmd, bytes);
     },
     [api],
   );
@@ -755,7 +748,7 @@ export const HePane: React.FC = () => {
       .then((i) => alive && setFwInfo(i))
       .catch(() => {});
     heProfGet(send)
-      .then((p) => alive && setProf(p))
+      .then((p) => alive && dispatch(setProfile(p)))
       .catch(() => {});
     fwList()
       .then((l) => alive && setFwList(l))
@@ -1028,6 +1021,27 @@ export const HePane: React.FC = () => {
     dispatch(setOverlayPressed(pressed));
     dispatch(setOverlayLive(live));
   }, [state, tracking, rail, layout, info?.travel, showRaw, dispatch]);
+
+  /*
+   * 프로파일이 바뀌면 읽어 둔 것을 전부 버린다.
+   *
+   * ★ 어디서 바뀌든 여기서 받는다.
+   *
+   *   배지 옆에서 바꿀 수도 있고 이 화면에서 바꿀 수도 있다. 바꾼 자리마다 치우게
+   *   하면 한쪽을 빠뜨린다 — 그러면 옛 프로파일의 숫자가 새 것인 척 남고, 그
+   *   상태에서 슬라이더를 건드리면 옛 값이 새 프로파일에 써진다.
+   */
+  useEffect(() => {
+    if (!api || prof === null) return;
+    setKeyCfgs({});
+    let alive = true;
+    heGetSettings(send)
+      .then((c) => alive && setCfg(c))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [api, send, prof?.active]);
 
   /*
    * 설정 갈래에 들어오면 전 키 값을 채운다.
@@ -1322,11 +1336,8 @@ export const HePane: React.FC = () => {
        */
       const pick = async (i: number) => {
         try {
-          const r = await heProfSet(send, i);
-          setProf(r);
+          dispatch(setProfile(await heProfSet(send, i)));
           setCopyMsg(null);
-          setKeyCfgs({});
-          setCfg(await heGetSettings(send));
         } catch (e) {
           setErr(String(e));
         }
@@ -1346,7 +1357,7 @@ export const HePane: React.FC = () => {
         if (!window.confirm(ask)) return;
 
         try {
-          setProf(await heProfCopy(send, i));
+          dispatch(setProfile(await heProfCopy(send, i)));
           setCopyMsg(t('Copied to profile {{n}}', {n: i + 1}));
         } catch (e) {
           setErr(String(e));

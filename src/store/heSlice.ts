@@ -63,6 +63,15 @@ type HeState = {
    * 이쪽은 누르는 동안 계속 바뀐다 — 같은 자리에 겹치면 둘 다 안 읽힌다.
    */
   overlayLive: Record<number, string> | null;
+
+  /*
+   * 지금 프로파일. **화면 밖에서도 본다.**
+   *
+   * 프로파일은 보드 전체의 상태라 상단 막대에 늘 떠 있다. HE 화면이 자기 상태로
+   * 들고 있으면 상단에서 바꿨을 때 화면이 모른다 — 옛 프로파일의 숫자를 새 것인
+   * 척 보여주게 된다.
+   */
+  profile: {active: number; count: number} | null;
 };
 
 const initialState: HeState = {
@@ -72,6 +81,7 @@ const initialState: HeState = {
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
+  profile: null,
 };
 
 const heSlice = createSlice({
@@ -113,6 +123,14 @@ const heSlice = createSlice({
       state.overlayPressed = action.payload;
     },
 
+    /* 지금 프로파일. */
+    setProfile: (
+      state,
+      action: PayloadAction<{active: number; count: number} | null>,
+    ) => {
+      state.profile = action.payload;
+    },
+
     /* 키캡 아래에 찍을 실시간 값. */
     setOverlayLive: (
       state,
@@ -141,6 +159,7 @@ export const {
   setOverlayBars,
   setOverlayPressed,
   setOverlayLive,
+  setProfile,
 } = heSlice.actions;
 
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
@@ -150,5 +169,6 @@ export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;
 export const getHeOverlayLive = (state: RootState) => state.he.overlayLive;
+export const getHeProfile = (state: RootState) => state.he.profile;
 
 export default heSlice.reducer;
