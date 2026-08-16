@@ -111,19 +111,10 @@ import {
   HeProf,
   HeStat,
   HeHwInfo,
-  HeSettings,
   HeTrackChannel,
   HeTrackInfo,
-  heGetSettings,
   heReadLayout,
-  heSetPress,
-  heSetRelease,
   heSetTracking,
-  heSetRtPress,
-  heSetRtRelease,
-  heSetBottom,
-  heSetDead,
-  heSetRtFlags,
   heReadKeyCfg,
   heWriteKeyCfg,
   heCheckBackup,
@@ -362,6 +353,9 @@ const Summary = styled.span`
 /* 고른 키들의 값이 서로 다르면 숫자 대신 이걸 보여준다 */
 const fmtMm = (v: number | null) =>
   v === null ? '—' : `${(v / 100).toFixed(2)} mm`;
+
+/* 이 항목을 바꾸면 장치가 계산하는 값(travelUm·strokeCnt)도 따라 바뀐다 */
+const REFRESH_KEYS: (keyof HeKeyCfg)[] = ['switchType', 'genTravelUm'];
 
 /*
  * 설명 말풍선.
@@ -614,7 +608,15 @@ export const HePane: React.FC = () => {
    */
   const keyRail = rail === 'tune' || rail === 'switch';
 
-  const [cfg, setCfg] = useState<HeSettings | null>(null);
+  /*
+   * ★ 프로파일 전역값(HeSettings)은 이 화면이 더 이상 들고 있지 않다.
+   *
+   *   그건 "고른 키가 없을 때 보여줄 값" 이었다. 이제 고른 키가 없으면 보여줄 값도
+   *   없으므로, 읽어 봐야 아무도 안 읽는 상태만 남는다. 게다가 슬라이더를 끌 때마다
+   *   낙관적으로 그 상태를 갱신하고 있어서, 화면 전체가 스텝마다 한 번 더 그려졌다.
+   *
+   *   화면의 값은 전부 keyCfgs(키별) 에서 나온다 — 출처가 하나다.
+   */
   const [switches, setSwitches] = useState<HeSwitchTable | null>(null);
   const [cal, setCal] = useState<HeCalState | null>(null);
   /* 보정 화면에서 읽는 전 키 상태 — 어느 키가 이미 보정됐나 */
@@ -751,34 +753,50 @@ export const HePane: React.FC = () => {
     [api],
   );
 
-  /*
-   * 고른 키들의 값.
-   *
-   * ★ 아무것도 안 고르면 전역이다.
-   *
-   *   "전역"과 "키별"을 따로 두면 어느 쪽이 이기는지가 계속 문제가 된다. 그래서
-   *   선택이 비면 전 키(HE_KEY_ALL)에 쓰고, 표시는 이미 읽어 둔 전역 값을 쓴다.
-   */
+  /* 키별 설정 — 화면의 모든 값이 여기서 나온다 */
   const [keyCfgs, setKeyCfgs] = useState<Record<number, HeKeyCfg>>({});
 
+  /*
+   * 고른 키의 값은 반드시 갖고 있게 한다.
+   *
+   * ★ **덮어쓰지 않고 더한다.**
+   *
+   *   예전에는 고른 키만 읽어서 setKeyCfgs(out) 으로 통째로 갈아 끼웠다. 그러면 키를
+   *   하나 고르는 순간 나머지 62개의 값이 캐시에서 사라진다 —
+   *
+   *     1. 키캡에서 숫자가 한꺼번에 없어진다 (= 온 판이 깜빡인다)
+   *     2. 미리읽기가 62개를 하나씩 HID 로 다시 읽어 채운다
+   *     3. 그 사이에 또 고르면 처음부터 되풀이된다
+   *
+   *   "키를 개별 선택할 때도 전체 키가 깜빡인다" 가 이것이었다. 고른 키를 알고
+   *   싶었을 뿐인데 알고 있던 것까지 버렸다.
+   *
+   * ★ 이미 아는 키는 다시 읽지 않는다. 캐시가 차 있으면 클릭은 왕복이 아예 없다.
+   */
   useEffect(() => {
-    if (!api || selectedKeys.length === 0) return;
+    if (!api) return;
+    const missing = selectedKeys.filter((i) => !keyCfgs[i]);
+    if (missing.length === 0) return;
+
     let alive = true;
     (async () => {
       const out: Record<number, HeKeyCfg> = {};
-      for (const i of selectedKeys) {
+      for (const i of missing) {
         try {
           out[i] = await heReadKeyCfg(send, i);
         } catch {
           /* 한 키가 실패해도 나머지는 읽는다 */
         }
+        if (!alive) return;
       }
-      if (alive) setKeyCfgs(out);
+      if (alive && Object.keys(out).length) {
+        setKeyCfgs((m) => ({...m, ...out}));
+      }
     })();
     return () => {
       alive = false;
     };
-  }, [api, send, selectedKeys]);
+  }, [api, send, selectedKeys, keyCfgs]);
 
   /*
    * 고른 키들이 같은 값을 가지면 그 값, 다르면 null.
@@ -793,9 +811,16 @@ export const HePane: React.FC = () => {
     return vals.every((v) => v === vals[0]) ? (vals[0] as HeKeyCfg[K]) : null;
   };
 
-  /* 고른 키가 있으면 그 값, 없으면 전역 값 */
-  const num = (k: keyof HeKeyCfg, global: number) => {
-    if (selectedKeys.length === 0) return global;
+  /*
+   * 고른 키들의 공통 값. 없거나 서로 다르면 null — 화면은 `—` 로 비운다.
+   *
+   * ★ 예전에는 선택이 비면 프로파일 전역값을 돌려줬다.
+   *
+   *   그때는 빈 선택이 곧 "전 키" 였으니 맞는 값이었다. 이제 빈 선택은 **대상이
+   *   없다** 는 뜻이라, 전역값을 보여주면 그게 지금 걸려 있는 값인 것처럼 읽힌다.
+   *   대상이 없으면 보여줄 값도 없다.
+   */
+  const num = (k: keyof HeKeyCfg) => {
     const v = pick(k);
     return typeof v === 'number' ? v : null;
   };
@@ -804,6 +829,20 @@ export const HePane: React.FC = () => {
   const allKeyIndexes = useMemo(
     () => layout.map((g) => g.row * MATRIX_COLS + g.col),
     [layout],
+  );
+
+  /*
+   * 이 둘을 바꾸면 장치가 계산해 주는 값(travelUm·strokeCnt)이 같이 바뀐다.
+   * 그때만 다시 읽어야 한다.
+   */
+  const refreshTimer = useRef<number | undefined>(undefined);
+  useEffect(
+    () => () => {
+      if (refreshTimer.current !== undefined) {
+        clearTimeout(refreshTimer.current);
+      }
+    },
+    [],
   );
 
   /*
@@ -822,19 +861,45 @@ export const HePane: React.FC = () => {
    *
    *   63키를 하나씩 쓰면 슬라이더를 끌 때마다 63 왕복이다. 펌웨어가 범위를 넘는
    *   인덱스를 "전 키"로 받으므로 한 번이면 된다.
+   *
+   * ★ 값이 나가는 길은 **이것 하나뿐이다.**
+   *
+   *   he-api 에 프로파일 전역 setter(heSetPress 등)가 아직 있지만 이 화면은 안 쓴다.
+   *   두 길을 두면 하나는 반드시 낡는다 — 실제로 스위치 종류가 그렇게 됐다. 전역
+   *   setter 를 부르면 선택을 무시하고 전 키에 뿌려진다.
    */
   const putMany = useCallback(
     async (patch: Partial<HeKeyCfg>) => {
+      /*
+       * ★ 고른 키가 없으면 **아무 데도 쓰지 않는다.**
+       *
+       *   예전에는 빈 선택을 "전부" 로 읽었다. 아무것도 안 고른 채로 슬라이더를
+       *   건드리면 63키가 한꺼번에 바뀌었고, 그건 되돌릴 수도 없다.
+       *
+       *   화면에서만 막으면 반드시 하나가 샌다 — 값 컨트롤이 열두 개인데 전부 이
+       *   한 길로 지나므로, 마지막 방어선은 여기다. 전 키에 쓰려면 "모두 선택" 을
+       *   **명시해야** 한다.
+       */
+      if (selectedKeys.length === 0) return;
+
       const all =
-        selectedKeys.length === 0 ||
-        (allKeyIndexes.length > 0 &&
-          allKeyIndexes.every((i) => selectedKeys.includes(i)));
+        allKeyIndexes.length > 0 &&
+        allKeyIndexes.every((i) => selectedKeys.includes(i));
       const targets = all ? [HE_KEY_ALL] : selectedKeys;
       const done: Record<number, HeKeyCfg> = {};
 
+      /* 장치가 계산하는 값까지 흔드는 항목인가 */
+      const derived = REFRESH_KEYS.some((k) => k in patch);
+
       for (const i of targets) {
-        const base =
-          keyCfgs[i] ?? (await heReadKeyCfg(send, i === HE_KEY_ALL ? 0 : i));
+        /*
+         * 브로드캐스트는 키 0 을 대표로 삼는다 — 캐시에 있으면 그걸 쓴다.
+         *
+         * keyCfgs[HE_KEY_ALL] 은 있을 리가 없으므로, 그냥 keyCfgs[i] 로 찾으면
+         * 브로드캐스트마다 왕복이 하나씩 더 붙는다. 슬라이더를 끌면 스텝마다다.
+         */
+        const rep = i === HE_KEY_ALL ? 0 : i;
+        const base = keyCfgs[rep] ?? (await heReadKeyCfg(send, rep));
         const next = {...base, ...patch} as HeKeyCfg;
 
         /* 해제가 입력보다 깊으면 펌웨어가 잘라내지만, 화면 값도 맞춰 둔다 */
@@ -844,27 +909,27 @@ export const HePane: React.FC = () => {
         await heWriteKeyCfg(send, i, next);
 
         /*
-         * ★ 쓴 뒤 다시 읽는다. **파생 값이 있다.**
+         * ★ 파생 값을 바꿨을 때만 다시 읽는다.
          *
-         *   travelUm·strokeCnt 는 장치가 계산해 주는 읽기 전용이다. 우리가 보낸
-         *   patch 를 그대로 캐시에 넣으면 그 둘이 옛 값으로 남아, 전 행정을 바꿔도
-         *   키캡 숫자가 안 변한다 — 실제로 그렇게 보였다.
+         *   travelUm·strokeCnt 는 장치가 계산해 주는 읽기 전용이다. 그 둘이 낡는 것은
+         *   스위치 종류나 전 행정을 바꿨을 때뿐이라(REFRESH_KEYS), 입력지점을 끌 때까지
+         *   왕복을 하나씩 더 붙일 이유가 없다.
          *
-         *   한 키에 왕복 하나가 더 붙지만, 값을 바꿀 때만이라 부담이 없다.
+         *   예전에는 늘 읽었다. 슬라이더 한 번 끌면 스텝마다 쓰기+읽기 두 왕복이고,
+         *   키캡은 읽기가 돌아와야 움직였다.
          */
         if (i !== HE_KEY_ALL) {
-          done[i] = await heReadKeyCfg(send, i).catch(() => next);
+          done[i] = derived
+            ? await heReadKeyCfg(send, i).catch(() => next)
+            : next;
         }
       }
 
       /*
        * 브로드캐스트였으면 **알고 있는 전 키**의 표시값을 맞춰 둔다.
        *
-       * ★ 고른 키만 맞추면 안 된다.
-       *
-       *   선택이 비어 있을 때가 곧 브로드캐스트다 — 그때 고른 키는 하나도 없다.
-       *   그 자리에서 고른 키만 돌면 아무것도 안 맞춰지고, 장치는 바뀌었는데
-       *   키캡의 숫자는 옛 값으로 남는다.
+       * 장치에는 한 번만 썼지만 화면에는 63개가 걸려 있다. 여기서 같은 patch 를
+       * 캐시에도 얹어 두면 다시 읽지 않고도 키캡이 맞는다.
        */
       if (all) {
         for (const k of Object.keys(keyCfgs)) {
@@ -875,12 +940,37 @@ export const HePane: React.FC = () => {
           }
         }
       }
+
       /*
-       * 브로드캐스트는 캐시를 비운다. 전 키를 하나씩 다시 읽는 것보다, 미리 읽기
-       * 효과가 필요한 것만 채우게 두는 편이 싸다.
+       * ★ 캐시를 **버리지 않는다.**
+       *
+       *   예전에는 브로드캐스트 뒤에 setKeyCfgs({}) 로 통째로 비웠다. 바로 위에서
+       *   전 키 값을 다 만들어 놓고 그걸 버린 셈인데, 그 대가가 컸다 —
+       *
+       *     1. 키캡이 값을 잃어 빈칸이 된다 (= 깜빡임)
+       *     2. 미리읽기 effect 가 63키를 하나씩 HID 로 다시 읽는다
+       *     3. 슬라이더는 끄는 동안 스텝마다 onChange 를 낸다. 스텝마다 1~2 가
+       *        되풀이되고, effect 의 정리 함수가 매번 중간에 끊는다 — 끌고 있는
+       *        내내 다 못 채운다 (= 느린 갱신)
+       *     4. 캐시가 비면 pick 이 null 이라 슬라이더 값이 끌던 중에 기본값으로 튄다
+       *
+       *   "전체 선택하고 슬라이더를 끌면 키캡이 깜빡이며 느리게 따라온다" 가 이것이다.
        */
-      if (all) setKeyCfgs({});
-      else if (Object.keys(done).length) setKeyCfgs((m) => ({...m, ...done}));
+      if (Object.keys(done).length) setKeyCfgs((m) => ({...m, ...done}));
+
+      /*
+       * 파생 값만 예외다.
+       *
+       * travelUm·strokeCnt 는 장치가 계산한다. patch 를 그대로 얹으면 그 둘이 낡는데,
+       * 낡는 경우는 스위치 종류나 전 행정을 바꿀 때뿐이다. 그때만 **손을 뗀 뒤 한 번**
+       * 캐시를 비워 미리읽기가 채우게 한다 — 끄는 동안은 타이머가 계속 밀린다.
+       */
+      if (all && derived) {
+        if (refreshTimer.current !== undefined) {
+          clearTimeout(refreshTimer.current);
+        }
+        refreshTimer.current = window.setTimeout(() => setKeyCfgs({}), 250);
+      }
     },
     [selectedKeys, allKeyIndexes, keyCfgs, send],
   );
@@ -898,9 +988,6 @@ export const HePane: React.FC = () => {
     heReadLayout(send)
       .then((l) => alive && setLayout(l))
       .catch((e) => alive && setErr(String(e)));
-    heGetSettings(send)
-      .then((c) => alive && setCfg(c))
-      .catch(() => {});
     heReadSwitches(send)
       .then((t) => alive && setSwitches(t))
       .catch(() => {});
@@ -1032,18 +1119,22 @@ export const HePane: React.FC = () => {
    * 읽기는 없다. 이미 읽어 둔 keyCfgs 에서 뽑을 뿐이라 화면을 옮겨도 공짜다.
    * 슬라이더로 값을 바꾸면 putMany 가 keyCfgs 를 갱신하므로 키캡도 같이 따라간다.
    */
+  const textSig = useRef('');
+
   useEffect(() => {
     /*
      * ★ 스위치 갈래도 여기서 그린다.
      *
-     *   OVERLAY_FIELDS 에 switch 항목은 처음부터 있었는데 이 조건에 막혀 안 나왔다.
      *   OVERLAY_FIELDS 에 switch 항목은 처음부터 있었는데 조건에 막혀 안 나왔다.
      */
     if (!keyRail) return;
 
     const fields = OVERLAY_FIELDS[section];
     if (!fields) {
-      dispatch(setOverlayText(null));
+      if (textSig.current !== '') {
+        textSig.current = '';
+        dispatch(setOverlayText(null));
+      }
       return;
     }
 
@@ -1063,6 +1154,18 @@ export const HePane: React.FC = () => {
         .map((f) => (((c[f] as number) ?? 0) / 100).toFixed(2))
         .join('\n');
     }
+
+    /*
+     * 같은 내용이면 보내지 않는다.
+     *
+     * 새 객체를 보내면 key-group 이 라벨을 다시 만들고 키캡 63개를 통째로 다시
+     * 그린다. keyCfgs 는 다른 이유로도 갱신되므로(값 하나만 바뀌어도, 새 키를 읽어
+     * 담아도), 내용이 같은데 다시 그리는 일이 실제로 잦다. 아래 막대 쪽이 이미
+     * 같은 방식으로 막고 있다.
+     */
+    const sig = JSON.stringify(text);
+    if (sig === textSig.current) return;
+    textSig.current = sig;
     dispatch(setOverlayText(text));
   }, [rail, section, keyCfgs, layout, dispatch]);
 
@@ -1082,9 +1185,14 @@ export const HePane: React.FC = () => {
    *
    * RT 화면에서만 그린다. 다른 화면에서는 지금 만지는 값과 관계없는 표시라 방해다.
    */
+  const badgeSig = useRef('');
+
   useEffect(() => {
     if (rail !== 'tune' || section !== 'rapid') {
-      dispatch(setOverlayBadge(null));
+      if (badgeSig.current !== '') {
+        badgeSig.current = '';
+        dispatch(setOverlayBadge(null));
+      }
       return;
     }
 
@@ -1096,6 +1204,11 @@ export const HePane: React.FC = () => {
       if (!(f & HE_RT_ON)) continue;
       badge[i] = f & HE_RT_CONT ? 2 : 1;
     }
+
+    /* 여기도 마찬가지다 — 배지는 거의 안 바뀌는데 keyCfgs 는 자주 바뀐다 */
+    const sig = JSON.stringify(badge);
+    if (sig === badgeSig.current) return;
+    badgeSig.current = sig;
     dispatch(setOverlayBadge(badge));
   }, [rail, section, keyCfgs, layout, dispatch]);
 
@@ -1267,14 +1380,7 @@ export const HePane: React.FC = () => {
   useEffect(() => {
     if (!api || prof === null) return;
     setKeyCfgs({});
-    let alive = true;
-    heGetSettings(send)
-      .then((c) => alive && setCfg(c))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [api, send, prof?.active]);
+  }, [api, prof?.active]);
 
   /*
    * 설정 갈래에 들어오면 전 키 값을 채운다.
@@ -1606,6 +1712,24 @@ export const HePane: React.FC = () => {
   };
 
   const renderSection = () => {
+    /*
+     * 고를 것이 없으면 고칠 것도 없다.
+     *
+     * ★ 컨트롤마다 자기 disabled 를 받는다 — 감싸는 상자를 두지 않는다.
+     *
+     *   예전에 `pointer-events: none !important` 를 뿌리는 래퍼로 한 번에 막아 본
+     *   적이 있다. 그물이 넓어서 다른 갈래의 컨트롤까지 먹었고, 그 그물은 DOM 검사기에
+     *   안 보여서 "왜 아무것도 안 눌리지" 를 한참 찾았다. 게다가 `display: contents`
+     *   래퍼가 바깥 flex 정렬과 줄 구분선까지 흔들었다.
+     *
+     *   컨트롤이 스스로 꺼지면 그런 일이 없다. 넷 중 셋(AccentRange·AccentSelect·
+     *   AccentButton)은 이미 disabled 를 받고, 나머지 둘에만 prop 을 붙였다.
+     *
+     * ★ **보는 도구는 잠그지 않는다** — 라이브 깊이·원시 ADC 토글, Now 줄, 그래프,
+     *   눈금과 라이브 막대. 선택이 없어도 눌러 보는 것은 되어야 한다.
+     */
+    const locked = selectedKeys.length === 0;
+
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
       return <Note>{t('Not yet')} — {t(todo.todo)}</Note>;
@@ -1981,9 +2105,6 @@ export const HePane: React.FC = () => {
            * 키맵은 버리지 않고 덮어쓴다 (버리면 화면이 그릴 것이 없어진다).
            */
           setKeyCfgs({});
-          heGetSettings(send)
-            .then((c) => setCfg(c))
-            .catch(() => {});
           if (device) await dispatch(loadKeymapFromDevice(device, true));
 
           setBkMsg(`${t('Applied')} — ${n} ${t('keys')}`);
@@ -2540,17 +2661,6 @@ export const HePane: React.FC = () => {
 
     if (section === 'actuation') {
       const applyPreset = (p: (typeof PRESETS)[number]) => {
-        setCfg((c) =>
-          c
-            ? {
-                ...c,
-                pressUm: p.press,
-                releaseUm: p.release,
-                rtPressUm: p.rt,
-                rtReleaseUm: p.rt,
-              }
-            : c,
-        );
         /*
          * 프리셋도 선택을 따른다 — 고른 키가 있으면 그 키들만 바뀐다.
          * 해제가 입력보다 얕아야 하므로 해제를 먼저 내린다.
@@ -2576,7 +2686,7 @@ export const HePane: React.FC = () => {
           {PRESETS.map((p) => (
             <ControlRow key={p.label}>
               <Label>
-                <PresetButton onClick={() => applyPreset(p)}>
+                <PresetButton disabled={locked} onClick={() => applyPreset(p)}>
                   {t(p.label)}
                 </PresetButton>
               </Label>
@@ -2637,7 +2747,7 @@ export const HePane: React.FC = () => {
             </Label>
             <Detail>
               <DepthSlider
-                value={num('pressUm', cfg?.pressUm ?? 100) ?? 100}
+                value={num('pressUm') ?? 100}
                 travelUm={travel}
                 /*
                  * 눈금은 온전한 mm 로 끝나게 올려 잡는다.
@@ -2650,13 +2760,12 @@ export const HePane: React.FC = () => {
                 depthUm={tracking ? deepest.um : null}
                 pressed={deepest.pressed}
                 showValues
+                blank={locked}
                 onChange={(v: number) => {
-                  setCfg((c) => (c ? {...c, pressUm: v} : c));
                   put('pressUm', v).catch(() => {});
                 }}
-                value2={num('releaseUm', cfg?.releaseUm ?? 50) ?? 50}
+                value2={num('releaseUm') ?? 50}
                 onChange2={(v: number) => {
-                  setCfg((c) => (c ? {...c, releaseUm: v} : c));
                   put('releaseUm', v).catch(() => {});
                 }}
               />
@@ -2715,10 +2824,9 @@ export const HePane: React.FC = () => {
     }
 
     if (section === 'rapid') {
-      const flags = num('rtFlags', cfg?.rtFlags ?? 0) ?? 0;
+      const flags = num('rtFlags') ?? 0;
       const setFlag = (bit: number, on: boolean) => {
         const next = on ? flags | bit : flags & ~bit;
-        setCfg((c) => (c ? {...c, rtFlags: next} : c));
         put('rtFlags', next).catch(() => {});
       };
 
@@ -2731,6 +2839,7 @@ export const HePane: React.FC = () => {
             <Detail>
               <AccentSlider
                 isChecked={(flags & HE_RT_ON) !== 0}
+                disabled={locked}
                 onChange={(v: boolean) => setFlag(HE_RT_ON, v)}
               />
             </Detail>
@@ -2742,6 +2851,7 @@ export const HePane: React.FC = () => {
             <Detail>
               <AccentSlider
                 isChecked={(flags & HE_RT_CONT) !== 0}
+                disabled={locked}
                 onChange={(v: boolean) => setFlag(HE_RT_CONT, v)}
               />
             </Detail>
@@ -2754,14 +2864,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={10}
                 max={100}
-                value={num('rtReleaseUm', cfg?.rtReleaseUm ?? 50) ?? 50}
+                disabled={locked}
+                value={num('rtReleaseUm') ?? 50}
                 onChange={(v: number) => {
-                  setCfg((c) => (c ? {...c, rtReleaseUm: v} : c));
                   put('rtReleaseUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {fmtMm(num('rtReleaseUm', cfg?.rtReleaseUm ?? 50))}
+                {fmtMm(num('rtReleaseUm'))}
               </Val>
             </Detail>
           </ControlRow>
@@ -2773,14 +2883,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={10}
                 max={100}
-                value={num('rtPressUm', cfg?.rtPressUm ?? 50) ?? 50}
+                disabled={locked}
+                value={num('rtPressUm') ?? 50}
                 onChange={(v: number) => {
-                  setCfg((c) => (c ? {...c, rtPressUm: v} : c));
                   put('rtPressUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {fmtMm(num('rtPressUm', cfg?.rtPressUm ?? 50))}
+                {fmtMm(num('rtPressUm'))}
               </Val>
             </Detail>
           </ControlRow>
@@ -2791,6 +2901,7 @@ export const HePane: React.FC = () => {
             <Detail>
               <AccentSlider
                 isChecked={(flags & HE_RT_BOTTOM) !== 0}
+                disabled={locked}
                 onChange={(v: boolean) => setFlag(HE_RT_BOTTOM, v)}
               />
             </Detail>
@@ -2803,14 +2914,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={0}
                 max={50}
-                value={num('bottomUm', cfg?.bottomUm ?? 10) ?? 10}
+                disabled={locked}
+                value={num('bottomUm') ?? 10}
                 onChange={(v: number) => {
-                  setCfg((c) => (c ? {...c, bottomUm: v} : c));
                   put('bottomUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {fmtMm(num('bottomUm', cfg?.bottomUm ?? 10))}
+                {fmtMm(num('bottomUm'))}
               </Val>
             </Detail>
           </ControlRow>
@@ -2843,7 +2954,7 @@ export const HePane: React.FC = () => {
        *   더 큰 데드존이 필요하면 해제지점을 먼저 올리면 된다. 두 값의 관계가 화면에서
        *   그대로 보이므로 무엇을 해야 하는지도 같이 보인다.
        */
-      const deadMax = num('releaseUm', cfg?.releaseUm ?? 50) ?? 50;
+      const deadMax = num('releaseUm') ?? 50;
 
       return (
         <>
@@ -2855,14 +2966,14 @@ export const HePane: React.FC = () => {
               <AccentRange
                 min={0}
                 max={deadMax}
-                value={Math.min(num('deadUm', cfg?.deadUm ?? 0) ?? 0, deadMax)}
+                disabled={locked}
+                value={Math.min(num('deadUm') ?? 0, deadMax)}
                 onChange={(v: number) => {
-                  setCfg((c) => (c ? {...c, deadUm: v} : c));
                   put('deadUm', v).catch(() => {});
                 }}
               />
               <Val>
-                {fmtMm(num('deadUm', cfg?.deadUm ?? 0))}
+                {fmtMm(num('deadUm'))}
               </Val>
             </Detail>
           </ControlRow>
@@ -2873,7 +2984,19 @@ export const HePane: React.FC = () => {
     }
 
     if (section === 'switch') {
-      const cur = switches?.list[cfg?.switchType ?? 0];
+      /*
+       * ★ 종류도 **고른 키의 값**이다.
+       *
+       *   한 보드에 여러 종류를 꽂을 수 있어 sw_type 은 키별 값인데, 여기서만
+       *   프로파일 전역값(cfg.switchType)을 직접 읽고 있었다 — 다른 줄은 다 선택을
+       *   따르는데 이 줄만 아니어서, 한 키를 골라도 전역값이 뜬다.
+       *
+       *   고른 키가 없거나 서로 다르면 null 이다. 그때는 고를 것을 모르는 것이므로
+       *   빈 칸으로 두고 행정도 `—` 로 둔다.
+       */
+      const swType = num('switchType');
+      const known = swType !== null;
+      const cur = known ? switches?.list[swType] : undefined;
 
       /*
        * ★ 일반형은 행정을 사용자가 정한다.
@@ -2884,10 +3007,13 @@ export const HePane: React.FC = () => {
        *
        *   genericCnt 앞쪽이 일반형이다 — 장치가 알려 준다.
        */
-      const isGeneric = (cfg?.switchType ?? 0) < (switches?.genericCnt ?? 1);
-      const genUm = num('genTravelUm', cfg?.genTravelUm ?? 0) ?? 0;
-      const travelUm =
-        (isGeneric ? genUm : 0) || cur?.travelUm || travel;
+      const isGeneric = known && swType < (switches?.genericCnt ?? 1);
+      const genUm = num('genTravelUm') ?? 0;
+      /*
+       * 그림은 그릴 것이 있어야 하므로 모를 때도 공칭값으로 떨어진다. 대신 아래
+       * 행정 줄은 known 일 때만 숫자를 찍는다 — 그림은 보는 것이고, 그 줄은 값이다.
+       */
+      const travelUm = (isGeneric ? genUm : 0) || cur?.travelUm || travel;
       const travelMm = travelUm / 100;
 
       /*
@@ -2920,7 +3046,8 @@ export const HePane: React.FC = () => {
             <Detail>
               <AccentSelect
                 width={selRowW}
-                value={switchOptions(switches)[cfg?.switchType ?? 0]}
+                isDisabled={locked}
+                value={known ? switchOptions(switches)[swType] : null}
                 options={switchOptions(switches)}
                 /*
                  * ★ 종류도 **선택을 따른다.**
@@ -2935,7 +3062,6 @@ export const HePane: React.FC = () => {
                  */
                 onChange={(o: any) => {
                   const v = o?.value ?? 0;
-                  setCfg((c) => (c ? {...c, switchType: v} : c));
                   put('switchType', v).catch(() => {});
                 }}
               />
@@ -2951,14 +3077,16 @@ export const HePane: React.FC = () => {
           <ControlRow>
             <Label>{t('Travel')}</Label>
             <Detail>
-              {isGeneric ? (
+              {!known ? (
+                <Summary>—</Summary>
+              ) : isGeneric ? (
                 <>
                   <AccentRange
                     min={200}
                     max={500}
+                    disabled={locked}
                     value={Math.round(travelMm * 100)}
                     onChange={(v: number) => {
-                      setCfg((c) => (c ? {...c, genTravelUm: v} : c));
                       put('genTravelUm', v).catch(() => {});
                     }}
                   />
@@ -3122,8 +3250,13 @@ export const HePane: React.FC = () => {
             <ControlRow>
               <Label>
                 <Hint tip={t('he.tip.selection')}>
+                  {/*
+                    * 예전 라벨은 "전체 키" 였다. 빈 선택이 곧 전 키였을 때는 맞는
+                    * 말이었지만, 이제는 **거짓말**이다 — 그 상태에서는 아무 데도
+                    * 안 쓴다.
+                    */}
                   {selectedKeys.length === 0
-                    ? t('All keys')
+                    ? t('No keys selected')
                     : `${selectedKeys.length} ${t('keys selected')}`}
                 </Hint>
               </Label>

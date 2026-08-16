@@ -229,6 +229,20 @@ type Props = {
   readOnly?: boolean;
 
   /*
+   * 잡을 대상이 아예 없다 — 고른 키가 하나도 없을 때.
+   *
+   * ★ readOnly 로는 모자란다.
+   *
+   *   readOnly 는 손잡이만 숨긴다. 값 숫자와 채움과 막대의 표시는 그대로 남아서,
+   *   대상이 없는데 "1.00 mm" 라는 **거짓 숫자**가 뜬다. 옆 줄의 다른 값들은 이미
+   *   `—` 로 비어 있는데 이 자만 값이 있는 척한다.
+   *
+   *   대상이 없으면 손잡이·숫자·채움이 **함께** 사라져야 한다. 눈금과 라이브 막대는
+   *   남긴다 — 그건 설정하는 것이 아니라 보는 것이다.
+   */
+  blank?: boolean;
+
+  /*
    * 같은 자에 올리는 둘째 값 — 해제지점. 없으면 손잡이 하나짜리 자다.
    *
    * 항상 value 보다 얕아야 한다 (펌웨어도 그렇게 자른다). 여기서도 막아 둔다 —
@@ -249,6 +263,7 @@ export const DepthSlider: React.FC<Props> = ({
   depthUm,
   pressed,
   readOnly,
+  blank,
   value2,
   onChange2,
   showValues,
@@ -258,6 +273,9 @@ export const DepthSlider: React.FC<Props> = ({
   const toY = (um: number) => (Math.min(um, full) / full) * H;
 
   const dual = value2 !== undefined && onChange2 !== undefined;
+
+  /* 대상이 없으면 끌 수도 없다 — 둘을 따로 두면 반드시 한쪽만 고친다 */
+  const frozen = readOnly || blank;
 
   /*
    * 끄는 동안 손잡이를 바꾸지 않는다.
@@ -300,13 +318,13 @@ export const DepthSlider: React.FC<Props> = ({
   };
 
   const onDown = (e: React.PointerEvent) => {
-    if (readOnly) return;
+    if (frozen) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     grabbed.current = nearest(e.clientY);
     pick(e.clientY, grabbed.current);
   };
   const onMove = (e: React.PointerEvent) => {
-    if (readOnly) return;
+    if (frozen) return;
     if (e.buttons & 1) pick(e.clientY, grabbed.current);
   };
 
@@ -345,29 +363,31 @@ export const DepthSlider: React.FC<Props> = ({
     <Wrap>
       {showValues && (
         <Readouts>
-          {dual && (
+          {!blank && dual && (
             <Readout $y={readoutY.b} $dim>
               {(value2! / 100).toFixed(2)} mm
             </Readout>
           )}
-          <Readout $y={readoutY.a}>{(value / 100).toFixed(2)} mm</Readout>
+          {!blank && (
+            <Readout $y={readoutY.a}>{(value / 100).toFixed(2)} mm</Readout>
+          )}
         </Readouts>
       )}
       <Track
         ref={ref}
         onPointerDown={onDown}
         onPointerMove={onMove}
-        style={readOnly ? {cursor: 'default', opacity: 0.35} : undefined}
+        style={frozen ? {cursor: 'default', opacity: 0.35} : undefined}
       >
-        <Fill $h={toY(value)} />
-        {!readOnly && dual && <Knob $y={toY(value2 as number)} $hollow />}
-        {!readOnly && <Knob $y={toY(value)} />}
+        {!blank && <Fill $h={toY(value)} />}
+        {!frozen && dual && <Knob $y={toY(value2 as number)} $hollow />}
+        {!frozen && <Knob $y={toY(value)} />}
       </Track>
 
       <Bar>
         <BarFill $h={depthUm === null ? 0 : toY(depthUm)} $on={!!pressed} />
-        {dual && <BarMark $y={toY(value2 as number)} />}
-        <BarMark $y={toY(value)} />
+        {!blank && dual && <BarMark $y={toY(value2 as number)} />}
+        {!blank && <BarMark $y={toY(value)} />}
       </Bar>
 
       <Ruler>

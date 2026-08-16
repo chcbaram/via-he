@@ -13,9 +13,10 @@ const Switch = styled.label`
   width: 60px;
   height: 34px;
 `;
-const Slider = styled.span<{$ischecked?: boolean}>`
+const Slider = styled.span<{$ischecked?: boolean; $disabled?: boolean}>`
   position: absolute;
-  cursor: pointer;
+  cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
+  opacity: ${(props) => (props.$disabled ? 0.4 : 1)};
   top: 0;
   left: 0;
   right: 0;
@@ -44,10 +45,18 @@ const Slider = styled.span<{$ischecked?: boolean}>`
 type Props = {
   isChecked: boolean;
   onChange: (val: boolean) => void;
+  /*
+   * 끌 수 있게 한다.
+   *
+   * 라벨 안의 체크박스를 disabled 로 두면 라벨을 눌러도 아무 일도 일어나지 않는다
+   * (HTML 규격 — 비활성 컨트롤은 라벨의 활성화를 받지 않는다). 부모에서
+   * pointer-events 로 덮지 않는 것이 중요하다 — 그 그물은 넓어서 옆 것까지 먹는다.
+   */
+  disabled?: boolean;
 };
 
 export function AccentSlider(props: Props) {
-  const {isChecked, onChange} = props;
+  const {isChecked, onChange, disabled} = props;
 
   const [isHiddenChecked, setIsHiddenChecked] = React.useState(isChecked);
   const ref = useRef<HTMLInputElement>(null);
@@ -58,6 +67,7 @@ export function AccentSlider(props: Props) {
   }, [isChecked]);
 
   const hiddenOnChange = () => {
+    if (disabled) return;
     const newIsChecked = !isChecked;
     setIsHiddenChecked(newIsChecked);
     onChange(newIsChecked);
@@ -72,9 +82,10 @@ export function AccentSlider(props: Props) {
         ref={ref}
         type="checkbox"
         checked={isHiddenChecked}
+        disabled={disabled}
         onChange={hiddenOnChange}
       />
-      <Slider $ischecked={isHiddenChecked} />
+      <Slider $ischecked={isHiddenChecked} $disabled={disabled} />
     </Switch>
   );
 }
