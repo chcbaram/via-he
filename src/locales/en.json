@@ -435,8 +435,10 @@
   "he.bk.load": "Load",
   "PROFILE": "PROFILE",
   "Profile": "Profile",
-  "Copy to": "Copy to",
   "he.tip.prof": "Which set of settings the board is using. Everything on the screens below lives inside the selected profile. Calibration is shared — it measures the board, not your taste.",
-  "he.tip.profCopy": "Copies the current profile over another one. Set one up the way you like, then copy it and change a value or two.",
-  "he.note.prof": "The board remembers which profile is active across power cycles. Calibration is shared by all four — you only bottom-out once."
+  "he.tip.profCopy": "Copies the current profile over another number. Set one up the way you like, then copy it and change a value or two. The target's settings are lost.",
+  "he.note.prof": "The board remembers which profile is active across power cycles. Calibration is shared by all four — you only bottom-out once.",
+  "Copy {{cur}} to": "Copy {{cur}} to",
+  "Copied to profile {{n}}": "Copied to profile {{n}}",
+  "Overwrite profile {{n}} with profile {{cur}}?": "Overwrite profile {{n}} with profile {{cur}}? Its settings are lost."
 }

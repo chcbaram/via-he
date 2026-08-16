@@ -528,6 +528,7 @@ export const HePane: React.FC = () => {
   /* 내보내기·가져오기 진행 상황 한 줄 */
   /* 지금 프로파일 */
   const [prof, setProf] = useState<HeProf | null>(null);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   const [bkMsg, setBkMsg] = useState<string | null>(null);
   const [bkBusy, setBkBusy] = useState(false);
@@ -1323,6 +1324,7 @@ export const HePane: React.FC = () => {
         try {
           const r = await heProfSet(send, i);
           setProf(r);
+          setCopyMsg(null);
           setKeyCfgs({});
           setCfg(await heGetSettings(send));
         } catch (e) {
@@ -1330,9 +1332,22 @@ export const HePane: React.FC = () => {
         }
       };
 
+      /*
+       * ★ 되돌릴 수 없으므로 한 번 묻는다.
+       *
+       *   대상 프로파일에 맞춰 둔 값이 통째로 사라진다. 숫자 버튼 하나가 그런 일을
+       *   하는데 아무 말 없이 끝나면, 누른 사람은 무슨 일이 일어났는지도 모른다.
+       */
       const copyTo = async (i: number) => {
+        const ask = t('Overwrite profile {{n}} with profile {{cur}}?', {
+          n: i + 1,
+          cur: now + 1,
+        });
+        if (!window.confirm(ask)) return;
+
         try {
           setProf(await heProfCopy(send, i));
+          setCopyMsg(t('Copied to profile {{n}}', {n: i + 1}));
         } catch (e) {
           setErr(String(e));
         }
@@ -1359,7 +1374,16 @@ export const HePane: React.FC = () => {
             */}
           <ControlRow>
             <Label>
-              <Hint tip={t('he.tip.profCopy')}>{t('Copy to')}</Hint>
+              {/*
+                * ★ 지금 번호를 이름에 넣는다.
+                *
+                *   "복사 대상" 만 적어 두었더니 무엇을 어디로 옮기는지가 안 보였다.
+                *   같은 1~4 버튼이 두 줄로 놓여 위는 고르기, 아래는 복사라는 것도
+                *   구분되지 않았다. 이름에 출처를 넣으면 줄 하나로 읽힌다.
+                */}
+              <Hint tip={t('he.tip.profCopy')}>
+                {t('Copy {{cur}} to', {cur: now + 1})}
+              </Hint>
             </Label>
             <Detail>
               {Array.from({length: cnt}, (_, i) => (
@@ -1374,6 +1398,15 @@ export const HePane: React.FC = () => {
               ))}
             </Detail>
           </ControlRow>
+
+          {copyMsg && (
+            <ControlRow>
+              <Label>{t('Result')}</Label>
+              <Detail>
+                <Summary>{copyMsg}</Summary>
+              </Detail>
+            </ControlRow>
+          )}
 
           <Note>{t('he.note.prof')}</Note>
         </>
@@ -2364,12 +2397,13 @@ export const HePane: React.FC = () => {
               * 고쳤는가"가 보여야 실수가 줄어든다.
               */}
             {/*
-              * ★ 보정 갈래에서는 감춘다.
+              * ★ 키와 무관한 화면에서는 감춘다.
               *
-              *   보정은 언제나 전 키가 대상이고 펌웨어 굽기는 키와 무관하다.
-              *   남겨 두면 "보정도 고른 키만 하나" 로 읽힌다.
+              *   보정은 언제나 전 키가 대상이고, 펌웨어 굽기는 키와 무관하며,
+              *   프로파일은 **보드 전체**의 상태다. 남겨 두면 "프로파일도 고른
+              *   키만 바뀌나" 로 읽힌다 — 실제로 그렇게 읽혔다.
               */}
-            {rail === 'tune' && (
+            {rail === 'tune' && section !== 'profile' && (
             <ControlRow>
               <Label>
                 <Hint tip={t('he.tip.selection')}>
