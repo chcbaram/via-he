@@ -603,12 +603,28 @@ export type HeBackup = {
 export function heCheckBackup(o: any, board: string): string | null {
   if (!o || typeof o !== 'object') return 'not a settings file';
   if (o.kind !== HE_BACKUP_KIND) return 'not a settings file';
-  if (o.version !== HE_BACKUP_VER) return `unsupported version ${o.version}`;
   if (board && o.board && o.board !== board) {
     return `saved from ${o.board}, this is ${board}`;
   }
-  if (!o.keys || typeof o.keys !== 'object') return 'no keys in the file';
-  return null;
+
+  /*
+   * ★ 옛 파일도 받는다.
+   *
+   *   1 은 HE 설정만 담았다(keys). 그때 받아 둔 파일을 못 쓰게 만들 이유가 없다 —
+   *   담긴 것을 지금 프로파일에 넣어 주면 된다. 파일을 버리라고 하는 것은 사용자가
+   *   잃는 쪽이 크다.
+   */
+  if (o.version === 1) {
+    if (!o.keys || typeof o.keys !== 'object') return 'no keys in the file';
+    return null;
+  }
+  if (o.version === HE_BACKUP_VER) {
+    if (!Array.isArray(o.profiles) || o.profiles.length === 0) {
+      return 'no profiles in the file';
+    }
+    return null;
+  }
+  return `unsupported version ${o.version}`;
 }
 
 
@@ -833,6 +849,25 @@ export async function heWriteBackup(
   onStep?: (msg: string) => void,
 ): Promise<number> {
   const {active, count} = await heProfGet(send);
+
+  /*
+   * 옛 파일(1) — HE 설정뿐이다. 지금 프로파일에 넣는다.
+   *
+   * 어느 프로파일에 넣을지 물을 것도 없다. 그 파일이 만들어질 때는 프로파일이라는
+   * 것이 없었으므로, "지금 쓰는 것" 이 그때의 그것이다.
+   */
+  if ((b as any).version === 1) {
+    const keys = (b as any).keys ?? {};
+    let m = 0;
+    for (const i of idxOf) {
+      const c = keys[i] ?? keys[String(i)];
+      if (!c) continue;
+      await heWriteKeyCfg(send, i, c as HeKeyCfg);
+      m++;
+    }
+    return m;
+  }
+
   const total = Math.min(count, b.profiles.length);
   let n = 0;
 
