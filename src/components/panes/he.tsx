@@ -139,7 +139,7 @@ const U = 62;
  * 여기 없는 화면은 값을 안 얹는다. 화면이 늘면 한 줄 더한다.
  */
 const OVERLAY_FIELDS: Record<string, (keyof HeKeyCfg)[] | undefined> = {
-  actuation: ['pressUm', 'releaseUm'],
+  actuation: ['releaseUm', 'pressUm'],
   rapid: ['rtReleaseUm', 'rtPressUm'],
   deadzone: ['deadUm'],
 };
@@ -1745,10 +1745,21 @@ export const HePane: React.FC = () => {
             *   지켜진다.
             */}
           <ControlRow>
+            {/*
+              * ★ 얕은 것이 위다 — 자와 같은 순서로.
+              *
+              *   같은 두 값이 자에서는 해제가 위, 이름과 키캡에서는 입력이 위로
+              *   나왔다. 볼 때마다 머릿속에서 뒤집어야 한다.
+              *
+              *   기준은 자다. 이 화면의 전제가 "자가 사실이고 숫자는 거기서 읽는
+              *   것" 이고, 자의 순서는 고를 수 있는 것이 아니다 — 해제는 입력보다
+              *   얕아야 하므로 물리적으로 위에 있을 수밖에 없다. 고를 수 있는 쪽을
+              *   고정된 쪽에 맞춘다.
+              */}
             <Label>
-              <Hint tip={t('he.tip.press')}>{t('Press Point')}</Hint>
+              <Hint tip={t('he.tip.release')}>{t('Release Point')}</Hint>
               <SecondLabel>
-                <Hint tip={t('he.tip.release')}>{t('Release Point')}</Hint>
+                <Hint tip={t('he.tip.press')}>{t('Press Point')}</Hint>
               </SecondLabel>
             </Label>
             <Detail>
