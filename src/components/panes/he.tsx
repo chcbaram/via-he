@@ -1458,7 +1458,7 @@ export const HePane: React.FC = () => {
        */
       const keymapIo = async () => {
         const kb = api as KeyboardAPI;
-        const layers = await heLock(() => kb.getLayerCount());
+        const layers = await heLock(() => kb.getLayerCount(), 'layer count');
         const m = {rows: MATRIX_COLS, cols: MATRIX_COLS};   /* 8 x 8 */
         return {
           layers,

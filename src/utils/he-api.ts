@@ -675,8 +675,42 @@ let heGate: Promise<unknown> = Promise.resolve();
  *
  *   그 일도 같은 줄에 세운다.
  */
-export function heLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = heGate.then(fn, fn);
+/*
+ * ★ 응답이 안 오면 기다리다 말고 실패한다.
+ *
+ *   HID 는 요청 하나에 응답 하나인데, 장치가 대답을 못 하면 약속(Promise)이 영영
+ *   안 풀린다. 그러면 화면은 버튼이 회색인 채로 굳고, 사용자는 무엇이 잘못됐는지도
+ *   모른다 — 실제로 그렇게 두 번 굳었다.
+ *
+ *   기다림에 끝을 둔다. 실패로 끝나면 적어도 어디서 멈췄는지가 화면에 남고, 다시
+ *   눌러 볼 수도 있다. 3초는 넉넉하다 — 한 번의 왕복은 밀리초 단위다.
+ */
+const HE_TIMEOUT_MS = 3000;
+
+function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(
+      () => reject(new Error(`no response from the keyboard (${what})`)),
+      HE_TIMEOUT_MS,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
+}
+
+export function heLock<T>(fn: () => Promise<T>, what = 'task'): Promise<T> {
+  const run = heGate.then(
+    () => withTimeout(fn(), what),
+    () => withTimeout(fn(), what),
+  );
   heGate = run.catch(() => {});
   return run;
 }
@@ -685,10 +719,9 @@ export function heMakeSend(api: {
   hidCommand: (cmd: number, bytes: number[]) => Promise<any>;
 }): HidSender {
   return (cmd: number, bytes: number[]) => {
-    const run = heGate.then(
-      () => api.hidCommand(cmd, bytes),
-      () => api.hidCommand(cmd, bytes),
-    );
+    const go = () =>
+      withTimeout(api.hidCommand(cmd, bytes), `cmd 0x${cmd.toString(16)}`);
+    const run = heGate.then(go, go);
     heGate = run.catch(() => {});
     return run;
   };
@@ -771,7 +804,8 @@ export async function heReadBackup(
     for (const i of idxOf) keys[i] = await heReadKeyCfg(send, i);
 
     const keymap: number[][] = [];
-    for (let l = 0; l < km.layers; l++) keymap.push(await heLock(() => km.read(l)));
+    for (let l = 0; l < km.layers; l++)
+      keymap.push(await heLock(() => km.read(l), `keymap layer ${l}`));
 
     profiles.push({keys, keymap, rgb: await readRgb(send)});
   }
@@ -786,7 +820,7 @@ export async function heReadBackup(
       holdOkp: await get1(send, QMK_CHANNEL, VAL_HOLD_OKP),
       nkro: await get1(send, NKRO_CHANNEL, VAL_NKRO_EN),
     },
-    macros: await heLock(() => km.readMacros()),
+    macros: await heLock(() => km.readMacros(), 'macros'),
     profiles,
   } as HeBackup;
 }
@@ -815,7 +849,7 @@ export async function heWriteBackup(
       await heWriteKeyCfg(send, i, c as HeKeyCfg);
       n++;
     }
-    if (pb.keymap?.length) await heLock(() => km.write(pb.keymap));
+    if (pb.keymap?.length) await heLock(() => km.write(pb.keymap), 'keymap');
     if (pb.rgb) await writeRgb(send, pb.rgb);
   }
 
@@ -825,7 +859,7 @@ export async function heWriteBackup(
     await set1(send, QMK_CHANNEL, VAL_HOLD_OKP, b.qmk.holdOkp);
     await set1(send, NKRO_CHANNEL, VAL_NKRO_EN, b.qmk.nkro);
   }
-  if (b.macros?.length) await heLock(() => km.writeMacros(b.macros));
+  if (b.macros?.length) await heLock(() => km.writeMacros(b.macros), 'macros');
 
   return n;
 }
