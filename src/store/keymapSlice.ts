@@ -77,18 +77,6 @@ const keymapSlice = createSlice({
         isLoaded: true,
       };
     },
-    /*
-     * 그 장치의 읽어 둔 키맵을 버린다.
-     *
-     * ★ 프로파일을 바꾸면 같은 장치가 다른 키맵을 갖는다.
-     *
-     *   loadKeymapFromDevice() 는 이미 다 읽었으면 그냥 돌아간다(getLoadProgress).
-     *   장치가 바뀔 때만 다시 읽으면 되던 시절의 규칙인데, 프로파일이 생기면서
-     *   **같은 장치가 다른 키맵을 갖는 경우**가 생겼다. 버리고 나서 부르면 다시 읽는다.
-     */
-    clearDeviceKeymap: (state, action: PayloadAction<string>) => {
-      delete state.rawDeviceMap[action.payload];
-    },
     setLayer: (state, action: PayloadAction<number>) => {
       state.selectedLayerIndex = action.payload;
     },
@@ -128,7 +116,6 @@ const keymapSlice = createSlice({
 });
 
 export const {
-  clearDeviceKeymap,
   setNumberOfLayers,
   setLayer,
   loadLayerSuccess,
@@ -142,12 +129,23 @@ export const {
 
 export default keymapSlice.reducer;
 
+/*
+ * force 는 **이미 다 읽었어도 다시 읽으라**는 뜻이다.
+ *
+ * ★ 버리고 읽으면 안 된다.
+ *
+ *   프로파일이 바뀌면 같은 장치가 다른 키맵을 갖는다. 처음에는 읽어 둔 것을 버리고
+ *   다시 불렀는데, 버린 순간 화면이 그릴 것이 없어져 **까맣게 죽었다.**
+ *
+ *   덮어쓰면 된다. 읽는 동안에는 옛 키맵이 보이고 레이어가 하나씩 새 값으로
+ *   바뀐다 — 빈 화면을 거치지 않는다.
+ */
 export const loadKeymapFromDevice =
-  (connectedDevice: ConnectedDevice): AppThunk =>
+  (connectedDevice: ConnectedDevice, force = false): AppThunk =>
   async (dispatch, getState) => {
     const state = getState();
 
-    if (getLoadProgress(state) === 1) {
+    if (!force && getLoadProgress(state) === 1) {
       return;
     }
 
