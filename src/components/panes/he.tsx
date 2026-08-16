@@ -86,6 +86,7 @@ import {
   clearKeys,
   getHeSelectedKeys,
   setOverlayKeys,
+  setOverlayBadge,
   setOverlayText,
   setOverlayBars,
   setOverlayPressed,
@@ -996,6 +997,39 @@ export const HePane: React.FC = () => {
   }, [rail, section, keyCfgs, layout, dispatch]);
 
   /*
+   * 래피드 트리거가 켜진 키를 키캡 우측 위에 표시한다.
+   *
+   * ★ 숫자로는 알 수 없는 것이다.
+   *
+   *   RT 화면의 키캡 숫자는 되돌림 거리(0.30 같은)를 보여준다. 그런데 그 값은 RT 를
+   *   꺼 둔 키에도 저장되어 있어서, **숫자만 보면 어느 키에 실제로 걸려 있는지
+   *   알 수 없다.** 켜짐/꺼짐은 값이 아니라 상태라 자리도 표현도 달라야 한다.
+   *
+   * ★ 세 플래그를 다 보여주지 않는다.
+   *
+   *   바닥 보호는 기본으로 켜져 있어 전 키에 붙는다 — 그러면 표시가 신호가 아니라
+   *   배경이 된다. 켜짐(점 하나)과 연속(점 둘)만 남긴다.
+   *
+   * RT 화면에서만 그린다. 다른 화면에서는 지금 만지는 값과 관계없는 표시라 방해다.
+   */
+  useEffect(() => {
+    if (rail !== 'tune' || section !== 'rapid') {
+      dispatch(setOverlayBadge(null));
+      return;
+    }
+
+    const badge: Record<number, number> = {};
+    for (const g of layout) {
+      const i = g.row * MATRIX_COLS + g.col;
+      const f = keyCfgs[i]?.rtFlags ?? 0;
+
+      if (!(f & HE_RT_ON)) continue;
+      badge[i] = f & HE_RT_CONT ? 2 : 1;
+    }
+    dispatch(setOverlayBadge(badge));
+  }, [rail, section, keyCfgs, layout, dispatch]);
+
+  /*
    * 설정 갈래에서는 라이브 깊이를 **알아서 켠다.**
    *
    * ★ 이 화면의 값은 전부 "얼마나 눌렀을 때" 를 정하는 것이다.
@@ -1088,11 +1122,17 @@ export const HePane: React.FC = () => {
      *   오히려 알고 싶은 것이다 — 기준선이 키마다 얼마나 다른지가 거기서 보인다.
      *   눌린 키만 찍으면 켜 놓고도 대부분 빈 화면이다.
      *
-     * ★ mm 는 **실제로 움직일 때만** 찍는다.
+     * ★ mm 는 **움직일 때만** 찍는다.
      *
-     *   안 누른 키도 깊이가 딱 0 이 아니다. 잡음이 몇 카운트 떠 있어 0.00 이
-     *   붙었다 떨어지기를 반복했다 — 옵션을 꺼 둔 화면에서 온 키캡이 깜빡였다.
-     *   잡음 폭(실측 p-p 40 카운트, 0.06mm 쯤)보다 위에서 자른다.
+     *   한 번 늘 찍어 봤다. 장치가 쉬는 구간을 딱 0 으로 주니(R29 스퀄치) 깜빡이지도
+     *   않아서 문제가 없을 줄 알았는데, **63개가 전부 0.00 을 달고 있으니 판이
+     *   꽉 차서 읽히지 않았다.** 깜빡임과 별개의 문제였다.
+     *
+     *   숫자가 뜬다는 것 자체가 신호다 — 지금 움직이는 키가 어느 것인지 판 전체에서
+     *   한눈에 짚인다. 다 뜨면 그 신호가 사라진다.
+     *
+     *   자리마다 늘 값이 필요하면 그건 "지금" 줄이 맡는다. 거기는 튜닝 중인 키
+     *   하나만 크게 보여주므로 꽉 차지 않는다.
      *
      * ★ mm 는 0.05 단위로 끊는다.
      *
@@ -2522,6 +2562,36 @@ export const HePane: React.FC = () => {
           </ControlRow>
 
           {/*
+            * 지금 눌린 거리 — 늘 보인다.
+            *
+            * ★ 키캡 숫자와 **역할이 다르다.**
+            *
+            *   키캡 쪽은 63개가 한꺼번에 보이는 지도라, 어느 키가 얼마나 눌렸는지를
+            *   훑는 데 쓴다. 이 줄은 지금 튜닝 중인 키 하나를 **자와 같은 자리에서**
+            *   읽는다 — 손잡이를 옮겨 가며 "1.00mm 가 내 손가락으로 어느 정도인가"를
+            *   맞춰 보는 것이 이 화면의 일이다.
+            *
+            * ★ 고른 키가 있으면 그 키들만 본다 (deepest 가 선택을 따른다). 튜닝
+            *   중인 키가 아니라 옆 키를 눌러서 값이 뜨면 헷갈린다.
+            *
+            * ★ 눌림 여부를 같이 찍는다. 거리만 보면 "이 깊이에서 실제로 입력이
+            *   됐나" 를 모르는데, 입력지점을 맞추는 화면에서는 그게 핵심이다.
+            *
+            * 장치가 쉬는 구간을 0 으로 주므로 여기서 따로 자르지 않는다.
+            */}
+          <ControlRow>
+            <Label>{t('Now')}</Label>
+            <Detail>
+              <Summary>
+                {!tracking
+                  ? t('press a key with live depth on')
+                  : `${(deepest.um / 100).toFixed(2)} mm` +
+                    (deepest.pressed ? `   ${t('pressed')}` : '')}
+              </Summary>
+            </Detail>
+          </ControlRow>
+
+          {/*
             * 키캡 아래 값은 늘 mm 다. 이 스위치를 켜면 원시 ADC 값으로 바뀐다.
             *
             * ★ 자리를 나누지 않고 **같은 자리에서 바꾼다.**
@@ -2642,6 +2712,14 @@ export const HePane: React.FC = () => {
               </Val>
             </Detail>
           </ControlRow>
+
+          {/*
+            * 키캡 표시가 무슨 뜻인지 한 줄 적어 둔다.
+            *
+            * 점 하나는 설명 없이 못 읽는다 — 글자 대신 모양을 고른 값을 여기서
+            * 치른다. 대신 한 번 읽으면 63개를 한눈에 훑을 수 있다.
+            */}
+          <Note>{t('he.note.rtBadge')}</Note>
         </>
       );
     }

@@ -36,6 +36,20 @@ export type KeyboardCanvasContentProps<T> = {
   keyBars?: (number | undefined)[];
   keyPressed?: (boolean | undefined)[];
   keyFoot?: (string | undefined)[];
+  /*
+   * 키캡 **우측 위 구석**에 찍을 표시. 값이 아니라 상태다.
+   *
+   * ★ 글자가 아니라 점인 이유.
+   *
+   *   키캡에서 이 자리는 6~8px 다. 그 크기의 글자는 3D 텍스처에서 뭉개지고, 무엇보다
+   *   **또 하나의 각인처럼 읽힌다.** 여기서 하려는 일은 63개를 훑어 "어디에 켜져
+   *   있나" 를 잡는 것인데, 색과 모양은 눈이 한 번에 묶어 보고 글자는 하나씩 읽어야
+   *   한다.
+   *
+   *   값은 **점의 개수**다. 채움과 테두리로 갈라 봤더니 이 크기에서는 구멍이 2px 라
+   *   구분이 안 갔다. 개수는 크기를 안 키우고도 갈린다 — 실루엣이 아예 다르다.
+   */
+  keyBadge?: (number | undefined)[];
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;
   width: number;
@@ -88,6 +102,20 @@ export type KeyGroupProps<T> = {
    * 안 읽힌다. 아래 치마 자리가 비어 있으므로 거기 쓴다.
    */
   keyFoot?: (string | undefined)[];
+  /*
+   * 키캡 **우측 위 구석**에 찍을 표시. 값이 아니라 상태다.
+   *
+   * ★ 글자가 아니라 점인 이유.
+   *
+   *   키캡에서 이 자리는 6~8px 다. 그 크기의 글자는 3D 텍스처에서 뭉개지고, 무엇보다
+   *   **또 하나의 각인처럼 읽힌다.** 여기서 하려는 일은 63개를 훑어 "어디에 켜져
+   *   있나" 를 잡는 것인데, 색과 모양은 눈이 한 번에 묶어 보고 글자는 하나씩 읽어야
+   *   한다.
+   *
+   *   값은 **점의 개수**다. 채움과 테두리로 갈라 봤더니 이 크기에서는 구멍이 2px 라
+   *   구분이 안 갔다. 개수는 크기를 안 키우고도 갈린다 — 실루엣이 아예 다르다.
+   */
+  keyBadge?: (number | undefined)[];
   selectedKey?: number;
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;

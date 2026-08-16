@@ -83,6 +83,20 @@ export const getColorByte = (color: string) => {
  *   0.6 은 sRGB 밝기 기준이다 (사람 눈이 초록에 가장 민감하다).
  */
 export const LIVE_COLOR_ON_DARK = '#4da3ff';
+
+/*
+ * 키캡 우측 위 배지 색 — 2D 와 3D 가 반드시 같아야 한다.
+ *
+ * 3D 는 키캡을 캔버스 텍스처로 그리므로 CSS 변수를 못 쓴다. 한쪽만 테마를 따르면
+ * 2D 와 3D 에서 다른 색이 나오므로, 눌림 테두리(LIVE_COLOR_ON_DARK)와 같이
+ * 리터럴 하나로 못 박는다.
+ *
+ * 파랑은 못 쓴다 — 눌림 테두리와 그래프의 "지금" 이 이미 파랑이라 뜻이 겹친다.
+ * 빨강도 안 된다 — 거의 모든 UI 에서 오류·경고라 정상 설정을 문제처럼 읽게 된다.
+ * 호박색은 어두운 키캡과 밝은 키캡 양쪽에서 읽히고 파랑과 가장 멀다.
+ */
+export const BADGE_COLOR = '#ffb020';
+
 export const LIVE_COLOR_ON_LIGHT = '#0b4da2';
 
 export const getLiveColor = (bg: string) => {

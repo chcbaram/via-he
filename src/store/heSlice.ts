@@ -63,6 +63,7 @@ type HeState = {
    * 이쪽은 누르는 동안 계속 바뀐다 — 같은 자리에 겹치면 둘 다 안 읽힌다.
    */
   overlayLive: Record<number, string> | null;
+  overlayBadge: Record<number, number> | null;
 
   /*
    * 지금 프로파일. **화면 밖에서도 본다.**
@@ -93,6 +94,7 @@ const initialState: HeState = {
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
+  overlayBadge: null,
   profile: null,
   switching: false,
 };
@@ -157,6 +159,19 @@ const heSlice = createSlice({
       state.overlayLive = action.payload;
     },
 
+    /*
+     * 키캡 우측 위 구석의 상태 표시. null 이면 안 그린다.
+     *
+     * 값이 아니라 켜졌나 꺼졌나다 — 숫자는 찍을 점의 개수다. 실시간 값(overlayLive)과
+     * 자리도 성격도 다르다. 이쪽은 설정이라 안 바뀌고, 저쪽은 매 프레임 바뀐다.
+     */
+    setOverlayBadge: (
+      state,
+      action: PayloadAction<Record<number, number> | null>,
+    ) => {
+      state.overlayBadge = action.payload;
+    },
+
     /* 지금 화면이 키캡에 찍을 값. null 이면 원래 각인으로 되돌린다. */
     setOverlayText: (
       state,
@@ -172,6 +187,7 @@ export const {
   addKey,
   setKeys,
   clearKeys,
+  setOverlayBadge,
   setOverlayKeys,
   setOverlayText,
   setOverlayBars,
@@ -188,6 +204,7 @@ export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;
 export const getHeOverlayLive = (state: RootState) => state.he.overlayLive;
+export const getHeOverlayBadge = (state: RootState) => state.he.overlayBadge;
 export const getHeProfile = (state: RootState) => state.he.profile;
 export const getHeSwitching = (state: RootState) => state.he.switching;
 

@@ -9,7 +9,7 @@ import {
   ThreeFiberKeycapProps,
 } from 'src/types/keyboard-rendering';
 import {TestKeyState} from 'src/types/types';
-import {getLiveColor, LIVE_COLOR_ON_DARK} from 'src/utils/color-math';
+import {getLiveColor, LIVE_COLOR_ON_DARK, BADGE_COLOR} from 'src/utils/color-math';
 import * as THREE from 'three';
 import {KeycapTooltip} from '../../inputs/tooltip';
 
@@ -403,6 +403,51 @@ const paintKeycap = (
         fontSize / 3,
     );
     context.textAlign = 'start';
+  }
+
+  /*
+   * 우측 위 구석의 상태 표시 — 값이 아니라 켜졌나 꺼졌나다.
+   *
+   * ★ 실시간 값과 달리 윗면(faceRect) **안**에 그린다.
+   *
+   *   실시간 값은 윗면 밖 치마에 그렸다. 계속 바뀌는 값이라 각인과 겹치면 둘 다 안
+   *   읽히기 때문이다. 이건 설정이라 안 바뀌고, 각인이 안 쓰는 구석이 윗면 안에
+   *   있으므로 거기가 맞다 — 치마에 두면 실시간 값과 같은 띠를 나눠 쓰게 된다.
+   *
+   *   색·모양을 이렇게 고른 근거는 2D 키캡 쪽 Badge 주석에 적었다.
+   */
+  if (label && label.badge) {
+    const f = textureRects.faceRect;
+    const r = 9;
+    const step = 24; /* 한 단계 늘 때마다 길어지는 양 — 2D 의 8px 에 해당한다 */
+    /* 구석에 딱 붙이지 않는다 — 2D 쪽 Badge 의 여백과 같은 이유다 */
+    const inset = r + 12;
+    const cy = (1 - f.tr.y) * canvas.height + inset;
+    /* 오른쪽 끝을 고정하고 왼쪽으로 늘린다 — 하나든 둘이든 오른쪽이 같은 자리다 */
+    const xr = f.tr.x * canvas.width - inset;
+    const xl = xr - (label.badge - 1) * step;
+
+    /* 알약 — 양 끝 반원을 직선으로 이은 하나의 길 */
+    const pill = () => {
+      context.beginPath();
+      context.arc(xl, cy, r, Math.PI / 2, -Math.PI / 2);
+      context.arc(xr, cy, r, -Math.PI / 2, Math.PI / 2);
+      context.closePath();
+    };
+
+    /*
+     * 어두운 선을 한 겹 두른다 — 고른 키는 키캡이 크림색이라 호박색이 묻는다.
+     * 키캡 색이 화면 상태를 따라 바뀌므로 배지 색 하나로는 어느 바탕에서도
+     * 보이게 할 수 없다. 2D 쪽 box-shadow 와 같은 일이다.
+     */
+    pill();
+    context.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+    context.lineWidth = 3;
+    context.stroke();
+
+    pill();
+    context.fillStyle = BADGE_COLOR;
+    context.fill();
   }
 
   return paintKeycapLabel(canvas, textureRects.faceRect, legendColor, label);

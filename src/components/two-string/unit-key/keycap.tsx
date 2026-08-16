@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {shallowEqual} from 'react-redux';
 import {TestKeyState} from 'src/types/types';
 import {
+  BADGE_COLOR,
   getDarkenedColor,
   getLiveColor,
   LIVE_COLOR_ON_DARK,
@@ -56,6 +57,63 @@ const Foot = styled.div`
   line-height: 1;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+`;
+
+/*
+ * 우측 위 구석의 상태 표시 — 값이 아니라 켜졌나 꺼졌나다.
+ *
+ * ★ 자리 — 각인은 좌측·중앙, 실시간 값은 하단 중앙, 막대는 아래를 쓴다. 우측 위는
+ *   모든 화면에서 비어 있는 유일한 구석이고, 눈이 마지막에 닿는 자리라 각인과
+ *   싸우지 않는다.
+ *
+ * ★ 글자가 아니라 점 — 이 자리는 6~8px 라 그 크기의 글자는 뭉개지고 무엇보다 또
+ *   하나의 각인처럼 읽힌다. 63개를 훑어 "어디에 켜져 있나" 를 잡는 일이라 색과
+ *   모양이 맞다. 눈은 그것을 한 번에 묶어 보고 글자는 하나씩 읽는다.
+ *
+ * ★ 색 — 강조색이다. 빨강은 거의 모든 UI 에서 오류·경고라 정상 설정을 문제처럼
+ *   읽게 만들고, 어두운 키캡 위에서 대비도 가장 나쁘며, 적록 색각이상이 남성의 8%다.
+ *   파랑도 안 된다 — 눌림 테두리와 그래프의 "지금" 이 이미 파랑이라 뜻이 겹친다.
+ *
+ * ★ 어두운 선을 한 겹 두른다.
+ *
+ *   고른 키는 키캡이 크림색(강조색)으로 바뀌는데 거기서 호박색이 묻어 안 보였다.
+ *   키캡 색은 화면 상태를 따라 바뀌므로 **배지 색 하나로는 어느 바탕에서도 보이게
+ *   할 수 없다.** 바깥에 어두운 선을 두르면 밝은 바탕이든 어두운 바탕이든 윤곽이
+ *   산다 — 눌림 테두리를 키캡 색과 무관한 색으로 박은 것과 같은 생각이다.
+ *
+ * ★ 한 단계 더 나누는 것은 **길이로** 한다.
+ *
+ *   채움과 테두리로 갈라 봤다. 6px 에서는 테두리 원의 가운데 구멍이 2px 라 채운
+ *   원과 구분이 안 갔고, 9px 로 키우니 이번엔 키캡에서 너무 컸다.
+ *
+ *   그래서 옆으로 늘린다. 점 하나는 원, 연속은 그 둘을 이은 **알약 모양**이다.
+ *   높이가 같고 길이만 다르므로 크기를 안 건드리고도 갈리고, 떨어진 점 둘보다
+ *   덩어리 하나가 훑는 중에 더 잘 잡힌다 — 눈은 이어진 것을 먼저 묶는다.
+ *
+ * ★ 자리는 키캡 몸통이 아니라 **얼굴** 기준이다.
+ *
+ *   이 요소는 키캡 몸통 안에 얹히는데, 눈에 보이는 네모는 그보다 안쪽의 얼굴이다
+ *   (위 2px, 오른쪽 6px 만큼 들어가 있다). 몸통 기준으로 같은 값을 주면 위아래는
+ *   맞는데 오른쪽만 얼굴 밖으로 나간다 — 실제로 그렇게 보였다.
+ *
+ *   얼굴 여백을 더해서 잡는다. 숫자를 손으로 적지 않고 CSSVarObject 에서 가져오므로
+ *   키캡 모양이 바뀌어도 따라간다.
+ */
+const BADGE_INSET = 3;
+const BADGE_DOT = 6;
+const BADGE_STEP = 8; /* 점 하나가 늘어날 때마다 붙는 길이 */
+
+const Badge = styled.div<{$n: number}>`
+  position: absolute;
+  top: ${CSSVarObject.faceYPadding[0] + BADGE_INSET}px;
+  right: ${CSSVarObject.faceXPadding[1] + BADGE_INSET}px;
+  z-index: 1;
+  height: ${BADGE_DOT}px;
+  width: ${(p) => BADGE_DOT + (p.$n - 1) * BADGE_STEP}px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: ${BADGE_COLOR};
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
 `;
 
 const getMacroData = ({
@@ -585,6 +643,7 @@ export const Keycap: React.FC<TwoStringKeycapProps> = React.memo((props) => {
               {label.foot}
             </Foot>
           ) : null}
+          {label?.badge ? <Badge $n={label.badge} /> : null}
         </GlowContainer>
         {(macroData || overflowsTexture) && (
           <TooltipContainer $rotate={rotation[2]}>
