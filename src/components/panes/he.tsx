@@ -118,7 +118,6 @@ import {
   heReadLayout,
   heSetPress,
   heSetRelease,
-  heSetSwitch,
   heSetTracking,
   heSetRtPress,
   heSetRtRelease,
@@ -271,9 +270,22 @@ type SectionKey = (typeof SECTIONS)[number]['key'];
  * ★ 목록은 **장치에서 읽는다** (heReadSwitches). 여기 박아 두면 펌웨어에 스위치를
  *   하나 추가할 때 번호가 밀려, 사용자가 고른 것과 다른 스위치가 걸린다.
  */
+/*
+ * ★ 일반형에는 행정을 안 적는다.
+ *
+ *   제품은 행정이 제원이라 목록에 적어 두면 고를 때 도움이 된다. 그런데 일반형은
+ *   사용자가 슬라이더로 정하는 값이라, 목록의 숫자와 실제 값이 달라진다 —
+ *   "GENERIC (4.0 mm)" 라고 적혀 있는데 실제로는 3.4mm 인 상황이 생긴다.
+ *
+ *   고칠 수 있는 값을 두 군데에 보여주면 반드시 한쪽이 거짓말을 한다. 바로 아래
+ *   전 행정 줄이 진짜 값을 들고 있으므로 목록에서는 뺀다.
+ */
 const switchOptions = (tbl: HeSwitchTable | null) =>
   (tbl?.list ?? []).map((s, value) => ({
-    label: `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
+    label:
+      value < (tbl?.genericCnt ?? 0)
+        ? s.name
+        : `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
     value,
   }));
 
@@ -588,6 +600,20 @@ export const HePane: React.FC = () => {
   const [info, setInfo] = useState<HeTrackInfo | null>(null);
   const [state, setState] = useState<HeKeyState[]>([]);
   const [tracking, setTracking] = useState(false);
+  /*
+   * ★ **키를 만지는 갈래인가.** 흩어진 rail 조건을 여기 하나로 모은다.
+   *
+   *   스위치를 별도 갈래로 빼면서 `rail === 'tune'` 을 보는 자리를 네 군데 빠뜨렸다 —
+   *   선택 표시, 선택 줄, 키별 설정 읽기, 키캡 값 표시. 네 번에 나눠 발견됐다.
+   *
+   *   조건이 흩어져 있으면 갈래를 늘릴 때마다 같은 일이 반복된다. 뜻으로 이름을
+   *   붙여 두면 다음에는 이 한 줄만 고치면 된다.
+   *
+   *   기준은 "그 화면이 **키별 값**을 다루나" 다. 설정 갈래는 입력지점·RT·데드존이,
+   *   스위치 갈래는 종류·전 행정이 전부 키별이다. 보정과 장치 갈래는 아니다.
+   */
+  const keyRail = rail === 'tune' || rail === 'switch';
+
   const [cfg, setCfg] = useState<HeSettings | null>(null);
   const [switches, setSwitches] = useState<HeSwitchTable | null>(null);
   const [cal, setCal] = useState<HeCalState | null>(null);
@@ -799,7 +825,19 @@ export const HePane: React.FC = () => {
           next.releaseUm = next.pressUm - 1;
         }
         await heWriteKeyCfg(send, i, next);
-        if (i !== HE_KEY_ALL) done[i] = next;
+
+        /*
+         * ★ 쓴 뒤 다시 읽는다. **파생 값이 있다.**
+         *
+         *   travelUm·strokeCnt 는 장치가 계산해 주는 읽기 전용이다. 우리가 보낸
+         *   patch 를 그대로 캐시에 넣으면 그 둘이 옛 값으로 남아, 전 행정을 바꿔도
+         *   키캡 숫자가 안 변한다 — 실제로 그렇게 보였다.
+         *
+         *   한 키에 왕복 하나가 더 붙지만, 값을 바꿀 때만이라 부담이 없다.
+         */
+        if (i !== HE_KEY_ALL) {
+          done[i] = await heReadKeyCfg(send, i).catch(() => next);
+        }
       }
 
       /*
@@ -820,7 +858,12 @@ export const HePane: React.FC = () => {
           }
         }
       }
-      if (Object.keys(done).length) setKeyCfgs((m) => ({...m, ...done}));
+      /*
+       * 브로드캐스트는 캐시를 비운다. 전 키를 하나씩 다시 읽는 것보다, 미리 읽기
+       * 효과가 필요한 것만 채우게 두는 편이 싸다.
+       */
+      if (all) setKeyCfgs({});
+      else if (Object.keys(done).length) setKeyCfgs((m) => ({...m, ...done}));
     },
     [selectedKeys, allKeyIndexes, keyCfgs, send],
   );
@@ -878,13 +921,17 @@ export const HePane: React.FC = () => {
      *
      *                     칠하기          키캡 글자
      *     설정 갈래        null(선택)      null(각인)
+     *     스위치 갈래       null(선택)      null(각인)   ← 종류·행정이 키별이다
      *     보정 (쉴 때)      안 된 키        보정된 키의 스트로크 mm
      *     보정 (도는 중)    끝난 키         null — 지금은 누르는 일에 집중한다
      *     장치 갈래        []              null
      *
      *   화면이 늘면 여기에 한 줄 더한다.
+     *
+     * ★ 스위치를 별도 갈래로 빼면서 이 줄을 빠뜨렸다. 선택 버튼은 보이는데 키를
+     *   눌러도 색이 안 바뀌었다 — 고른 것이 화면에 안 나타나면 고를 수가 없다.
      */
-    if (rail === 'tune') {
+    if (keyRail) {
       dispatch(setOverlayKeys(null));
       return;                    /* 값은 아래 효과가 따로 맡는다 */
     }
@@ -969,7 +1016,13 @@ export const HePane: React.FC = () => {
    * 슬라이더로 값을 바꾸면 putMany 가 keyCfgs 를 갱신하므로 키캡도 같이 따라간다.
    */
   useEffect(() => {
-    if (rail !== 'tune') return;
+    /*
+     * ★ 스위치 갈래도 여기서 그린다.
+     *
+     *   OVERLAY_FIELDS 에 switch 항목은 처음부터 있었는데 이 조건에 막혀 안 나왔다.
+     *   OVERLAY_FIELDS 에 switch 항목은 처음부터 있었는데 조건에 막혀 안 나왔다.
+     */
+    if (!keyRail) return;
 
     const fields = OVERLAY_FIELDS[section];
     if (!fields) {
@@ -1075,7 +1128,7 @@ export const HePane: React.FC = () => {
       return;
     }
 
-    if (rail !== 'tune' || autoTried.current) return;
+    if (!keyRail || autoTried.current) return;
 
     autoTried.current = true;
     start(true);
@@ -1106,7 +1159,14 @@ export const HePane: React.FC = () => {
         dispatch(setOverlayLive(null));
       }
     };
-    if (rail !== 'tune' || !tracking) {
+    /*
+     * ★ 스위치 갈래도 설정 갈래와 똑같이 그린다.
+     *
+     *   거기서도 눌러 보면서 정하는 화면이다 (그래프가 지금 자리를 보여준다).
+     *   막대·눌림 테두리·실시간 값이 같이 있어야 "이 스위치로 읽으면 내 손가락이
+     *   어디쯤인가" 가 한 화면에서 끝난다. 키캡의 고정 숫자만 전 행정으로 다르다.
+     */
+    if (!keyRail || !tracking) {
       clear();
       return;
     }
@@ -1207,7 +1267,14 @@ export const HePane: React.FC = () => {
    * 열어도 다시 읽지 않는다.
    */
   useEffect(() => {
-    if (!api || rail !== 'tune' || layout.length === 0) return;
+    /*
+     * ★ 스위치 갈래도 키별 설정이 필요하다.
+     *
+     *   스위치 종류와 전 행정이 키별이라(한 보드에 여러 종류를 꽂을 수 있다) 고른
+     *   키의 값을 보여주려면 여기서 읽어 둬야 한다. 갈래를 늘릴 때 이 줄을 같이
+     *   안 고치면 "선택은 되는데 값이 안 뜬다" 가 된다.
+     */
+    if (!api || !keyRail || layout.length === 0) return;
 
     const missing = layout
       .map((g) => g.row * MATRIX_COLS + g.col)
@@ -2790,7 +2857,21 @@ export const HePane: React.FC = () => {
 
     if (section === 'switch') {
       const cur = switches?.list[cfg?.switchType ?? 0];
-      const travelMm = (cur?.travelUm ?? travel) / 100;
+
+      /*
+       * ★ 일반형은 행정을 사용자가 정한다.
+       *
+       *   제원을 아는 제품은 종류가 행정을 갖고 있지만, "제원을 모르는 스위치를
+       *   꽂았다" 는 것은 사용자만 안다. 예전에는 4.0 / 3.5 / 3.0 세 칸을 미리
+       *   만들어 뒀는데 그 사이 값(3.4 같은)은 못 고르고 목록만 길어졌다.
+       *
+       *   genericCnt 앞쪽이 일반형이다 — 장치가 알려 준다.
+       */
+      const isGeneric = (cfg?.switchType ?? 0) < (switches?.genericCnt ?? 1);
+      const genUm = num('genTravelUm', cfg?.genTravelUm ?? 0) ?? 0;
+      const travelUm =
+        (isGeneric ? genUm : 0) || cur?.travelUm || travel;
+      const travelMm = travelUm / 100;
 
       /*
        * 곡선은 데이터시트 두 점에서 계산한다. 제원을 모르는 스위치면 null 이고, 그때는
@@ -2824,22 +2905,51 @@ export const HePane: React.FC = () => {
                 width={selRowW}
                 value={switchOptions(switches)[cfg?.switchType ?? 0]}
                 options={switchOptions(switches)}
+                /*
+                 * ★ 종류도 **선택을 따른다.**
+                 *
+                 *   한 보드에 여러 종류를 꽂을 수 있어 sw_type 은 키별 값이다. 그런데
+                 *   여기서 VIA 전역 값(heSetSwitch)을 쓰고 있었고, 그 setter 는 전
+                 *   키에 뿌린다 — 특정 키만 골라 놓고 종류를 바꿔도 63키가 전부
+                 *   바뀌었다.
+                 *
+                 *   다른 설정과 같은 길(putMany)로 보낸다. 고른 키가 없으면 그때
+                 *   브로드캐스트가 되므로 예전 동작도 그대로 남는다.
+                 */
                 onChange={(o: any) => {
                   const v = o?.value ?? 0;
                   setCfg((c) => (c ? {...c, switchType: v} : c));
-                  /* 전 행정이 바뀌므로 읽어 둔 키 설정을 버린다 */
-                  heSetSwitch(send, v)
-                    .then(() => setKeyCfgs({}))
-                    .catch(() => {});
+                  put('switchType', v).catch(() => {});
                 }}
               />
             </Detail>
           </ControlRow>
 
+          {/*
+            * 전 행정 — 일반형이면 직접 정하고, 제품이면 제원을 보여준다.
+            *
+            * ★ 같은 자리를 쓴다. 줄을 나누면 "지금 어느 쪽이 실제 값인가" 를 다시
+            *   설명해야 한다. 고칠 수 있을 때만 손잡이가 생긴다.
+            */}
           <ControlRow>
             <Label>{t('Travel')}</Label>
             <Detail>
-              <Summary>{travelMm.toFixed(2)} mm</Summary>
+              {isGeneric ? (
+                <>
+                  <AccentRange
+                    min={200}
+                    max={500}
+                    value={Math.round(travelMm * 100)}
+                    onChange={(v: number) => {
+                      setCfg((c) => (c ? {...c, genTravelUm: v} : c));
+                      put('genTravelUm', v).catch(() => {});
+                    }}
+                  />
+                  <Val>{travelMm.toFixed(2)} mm</Val>
+                </>
+              ) : (
+                <Summary>{travelMm.toFixed(2)} mm</Summary>
+              )}
             </Detail>
           </ControlRow>
 
@@ -2984,7 +3094,14 @@ export const HePane: React.FC = () => {
               *   프로파일은 **보드 전체**의 상태다. 남겨 두면 "프로파일도 고른
               *   키만 바뀌나" 로 읽힌다 — 실제로 그렇게 읽혔다.
               */}
-            {rail === 'tune' && section !== 'profile' && (
+            {/*
+              * ★ 스위치 갈래도 키를 고른다.
+              *
+              *   스위치를 별도 갈래로 빼면서 이 줄이 같이 빠졌다. 그런데 스위치 종류와
+              *   전 행정은 **키별 설정**이라(한 보드에 여러 종류를 꽂을 수 있다) 고를
+              *   수단이 없으면 전 키에만 쓸 수 있다.
+              */}
+            {keyRail && section !== 'profile' && (
             <ControlRow>
               <Label>
                 <Hint tip={t('he.tip.selection')}>

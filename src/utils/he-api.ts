@@ -245,6 +245,8 @@ export const HE_VAL_RT_RELEASE = 5;  /* RT 입력 해제 */
 export const HE_VAL_BOTTOM = 6;      /* 바닥 보호 */
 export const HE_VAL_DEAD = 7;        /* 데드존 */
 export const HE_VAL_RT_FLAGS = 8;
+/* 일반형 전 행정 — 키별 명령에만 두면 화면이 프로파일 전역을 못 읽는다 */
+export const HE_VAL_GEN_TRAVEL = 9;
 
 /* keys.c 의 KEYS_RT_* 와 같은 비트 */
 export const HE_RT_ON = 1 << 0;
@@ -260,6 +262,8 @@ export type HeSettings = {
   bottomUm: number;
   deadUm: number;
   rtFlags: number;
+  /* 일반형(GENERIC) 전 행정의 프로파일 기본값 */
+  genTravelUm: number;
 };
 
 export async function heGetSettings(send: HidSender): Promise<HeSettings> {
@@ -281,6 +285,7 @@ export async function heGetSettings(send: HidSender): Promise<HeSettings> {
     bottomUm: await rd16(HE_VAL_BOTTOM),
     deadUm: await rd16(HE_VAL_DEAD),
     rtFlags: await rd8(HE_VAL_RT_FLAGS),
+    genTravelUm: await rd16(HE_VAL_GEN_TRAVEL),
   };
 }
 
@@ -407,7 +412,13 @@ export type HeKeyCfg = {
   deadUm: number;
   rtFlags: number;
   switchType: number;
-  /* 읽기 전용 — 이 키의 mm 환산 기준 */
+  /*
+   * 일반형(GENERIC)을 골랐을 때 이 키의 전 행정. 0 = 프로파일 기본값을 따른다.
+   *
+   * 제원을 아는 제품은 종류가 행정을 갖고 있으므로 이 값을 안 본다.
+   */
+  genTravelUm: number;
+  /* 읽기 전용 — 이 키의 mm 환산 기준 (일반형이면 genTravelUm 이 반영된 값) */
   strokeCnt: number;
   travelUm: number;
   calibrated: boolean;
@@ -432,6 +443,7 @@ export async function heReadKeyCfg(
     strokeCnt: le16(r, KC_OFF + 14),
     travelUm: le16(r, KC_OFF + 16),
     calibrated: (r[KC_OFF + 18] & 1) !== 0,
+    genTravelUm: le16(r, KC_OFF + 19),
   };
 }
 
@@ -452,6 +464,13 @@ export async function heWriteKeyCfg(
     ...w(c.deadUm),
     c.rtFlags,
     c.switchType,
+    /*
+     * ★ 새 값은 늘 **끝에** 붙인다.
+     *
+     *   앞 배치를 건드리면 옛 펌웨어가 엉뚱한 바이트를 읽는다. 펌웨어도 짧게 온
+     *   요청은 있는 만큼만 처리하므로, 이 값을 모르는 펌웨어에서도 나머지는 돈다.
+     */
+    ...w(c.genTravelUm ?? 0),
   ]);
 }
 

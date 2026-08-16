@@ -170,12 +170,28 @@ export const HeKeyboard = (props: {
       definition={definition}
       containerDimensions={props.dimensions}
       mode={DisplayMode.Configure}
+      /*
+       * ★ **선택을 보여주는 화면에서만** 클릭이 선택을 바꾼다.
+       *
+       *   보정 화면은 선택을 안 쓰고 보여주지도 않는데(대신 "보정 안 된 키" 를
+       *   칠한다) 클릭은 그대로 먹고 있었다. 그래서 보정하려고 키를 누른 것이
+       *   **조용히 선택으로 쌓였다가** 입력지점 화면으로 가면 그 키들만 골라진
+       *   상태로 나타났다. 고른 적이 없는데 골라져 있으면 다음 슬라이더 조작이
+       *   엉뚱한 범위에 먹는다.
+       *
+       *   overlay 가 그 판단을 이미 갖고 있다 — null 이면 "선택을 보여줘라" 이고,
+       *   배열이면 화면이 제 것을 칠하는 중이다. 조건을 새로 만들지 않는다.
+       */
       onKeycapPointerDown={(evt: any, i: number) => {
-        if (evt?.buttons === 1) dispatch(toggleKey(idxOf(keys[i])));
+        if (overlay === null && evt?.buttons === 1) {
+          dispatch(toggleKey(idxOf(keys[i])));
+        }
       }}
       /* 끌면 지나간 키를 켜기만 한다 — 토글하면 왕복할 때 꺼진다 */
       onKeycapPointerOver={(evt: any, i: number) => {
-        if (evt?.buttons === 1) dispatch(addKey(idxOf(keys[i])));
+        if (overlay === null && evt?.buttons === 1) {
+          dispatch(addKey(idxOf(keys[i])));
+        }
       }}
     />
   );
