@@ -51,6 +51,7 @@ import {
   faBolt,
   faCircleHalfStroke,
   faMicrochip,
+  faFileArrowDown,
   faRulerVertical,
   faToggleOn,
   faWaveSquare,
@@ -110,6 +111,8 @@ import {
   heSetRtFlags,
   heReadKeyCfg,
   heWriteKeyCfg,
+  heMakeBackup,
+  heCheckBackup,
   HeKeyCfg,
   HE_KEY_ALL,
   HE_RT_ON,
@@ -179,6 +182,7 @@ const SECTIONS = [
    *   같은 말을 두 군데 쓰면 어느 쪽인지 헷갈린다.
    */
   {rail: 'device', key: 'firmware', label: 'FIRMWARE', icon: faMicrochip},
+  {rail: 'device', key: 'backup', label: 'BACKUP', icon: faFileArrowDown},
 ] as const;
 
 /*
@@ -493,6 +497,11 @@ export const HePane: React.FC = () => {
    * 더할 것이 없다.
    */
   const [showRaw, setShowRaw] = useState(false);
+
+  /* 내보내기·가져오기 진행 상황 한 줄 */
+  const [bkMsg, setBkMsg] = useState<string | null>(null);
+  const [bkBusy, setBkBusy] = useState(false);
+  const bkInput = useRef<HTMLInputElement>(null);
 
   /*
    * 선택 버튼 줄의 실제 폭. 스위치 목록이 이 폭을 따른다.
@@ -1264,6 +1273,154 @@ export const HePane: React.FC = () => {
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
       return <Note>{t('Not yet')} — {t(todo.todo)}</Note>;
+    }
+
+    if (section === 'backup') {
+      /*
+       * ★ 내보낼 때 장치에서 다시 읽는다.
+       *
+       *   화면이 들고 있는 값을 쓰면, 이 갈래에 바로 들어온 경우 읽어 둔 것이
+       *   없거나 낡았을 수 있다. 파일은 **장치에 실제로 들어 있는 것**이어야 한다.
+       */
+      const doExport = async () => {
+        setBkBusy(true);
+        setBkMsg(null);
+        try {
+          const keys: Record<number, HeKeyCfg> = {};
+          for (const g of layout) {
+            const i = g.row * MATRIX_COLS + g.col;
+            keys[i] = await heReadKeyCfg(send, i);
+          }
+
+          const board = fwInfo?.board ?? 'wish60-he';
+          const stamp = new Date();
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const day = `${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(
+            stamp.getDate(),
+          )}`;
+
+          const blob = new Blob(
+            [
+              JSON.stringify(
+                heMakeBackup(
+                  board,
+                  fwInfo?.version ?? '',
+                  stamp.toISOString(),
+                  keys,
+                ),
+                null,
+                2,
+              ),
+            ],
+            {type: 'application/json'},
+          );
+
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${board}-${day}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+
+          setBkMsg(`${t('Saved')} — ${Object.keys(keys).length} ${t('keys')}`);
+        } catch (e) {
+          setBkMsg(String(e));
+        }
+        setBkBusy(false);
+      };
+
+      const doImport = async (file: File) => {
+        setBkBusy(true);
+        setBkMsg(null);
+        try {
+          const obj = JSON.parse(await file.text());
+          const bad = heCheckBackup(obj, fwInfo?.board ?? '');
+          if (bad) {
+            setBkMsg(bad);
+            setBkBusy(false);
+            return;
+          }
+
+          /*
+           * 파일에 있는 키만 쓴다.
+           *
+           * 배치가 조금 다른 판(옵션 소켓)에서 만든 파일이라도 겹치는 키는 살린다.
+           * 없는 키를 기본값으로 덮으면 사용자가 잃는 쪽이 더 크다.
+           */
+          let n = 0;
+          for (const g of layout) {
+            const i = g.row * MATRIX_COLS + g.col;
+            const c = obj.keys[i] ?? obj.keys[String(i)];
+            if (!c) continue;
+            await heWriteKeyCfg(send, i, c as HeKeyCfg);
+            n++;
+          }
+
+          /* 읽어 둔 것이 낡았다 — 다음 렌더에서 다시 읽는다 */
+          setKeyCfgs({});
+          heGetSettings(send)
+            .then((c) => setCfg(c))
+            .catch(() => {});
+
+          setBkMsg(`${t('Applied')} — ${n} ${t('keys')}`);
+        } catch (e) {
+          setBkMsg(String(e));
+        }
+        setBkBusy(false);
+      };
+
+      return (
+        <>
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.backup')}>{t('Settings file')}</Hint>
+            </Label>
+            <Detail>
+              <FwBtn disabled={bkBusy} onClick={doExport}>
+                {t('Save to file')}
+              </FwBtn>
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label />
+            <Detail>
+              <FwBtn
+                disabled={bkBusy}
+                onClick={(e: React.MouseEvent) => {
+                  (e.currentTarget as HTMLElement).blur();
+                  setBkMsg(null);
+                  bkInput.current?.click();
+                }}
+              >
+                {t('Load from file')}
+              </FwBtn>
+              <input
+                ref={bkInput}
+                type="file"
+                accept=".json,application/json"
+                style={{display: 'none'}}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) doImport(f);
+                }}
+              />
+            </Detail>
+          </ControlRow>
+
+          {bkMsg && (
+            <ControlRow>
+              <Label>{t('Result')}</Label>
+              <Detail>
+                <Summary>{bkMsg}</Summary>
+              </Detail>
+            </ControlRow>
+          )}
+
+          <Note>{t('he.note.backup')}</Note>
+        </>
+      );
     }
 
     if (section === 'firmware') {

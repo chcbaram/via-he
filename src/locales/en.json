@@ -425,5 +425,12 @@
   "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.": "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.",
   "Calibrated": "Calibrated",
   "Show raw ADC": "Show raw ADC",
-  "he.tip.raw": "Swaps the number under each key from mm to the raw sensor count while a key is down. Useful for checking what the sensor actually sees; the mm reading is what you normally want."
+  "he.tip.raw": "Swaps the number under each key from mm to the raw sensor count while a key is down. Useful for checking what the sensor actually sees; the mm reading is what you normally want.",
+  "Settings file": "Settings file",
+  "Save to file": "Save to file",
+  "Load from file": "Load from file",
+  "Result": "Result",
+  "Applied": "Applied",
+  "he.tip.backup": "Saves every key's press point, rapid trigger and dead zone to a file, or writes a saved file back. Calibration is not included — it measures this board's own switches and would be wrong on another board.",
+  "he.note.backup": "Calibration stays with the board. It measures this board's own switches, so copying it elsewhere would silently skew every mm reading — recalibrate instead. Only keys present in the file are written; the rest are left alone."
 }

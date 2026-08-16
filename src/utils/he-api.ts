@@ -536,3 +536,59 @@ export async function heCalSave(send: HidSender): Promise<HeCalState> {
   await new Promise((r) => setTimeout(r, 60));
   return heCalStatus(send);
 }
+
+
+/*
+ * 설정 내보내기·가져오기.
+ *
+ * ★ 키별 설정만 담는다. 보정값은 담지 않는다.
+ *
+ *   보정은 **이 보드의 이 스위치를 잰 값**이다. 다른 보드에 부어 넣으면 그 보드가
+ *   자기 것이 아닌 기울기로 mm 를 계산한다 — 눈에 안 보이면서 모든 값이 틀어지는
+ *   가장 나쁜 종류의 오류다. 보정은 그 보드에서 다시 해야 한다.
+ *
+ *   설정(입력지점·RT·데드존)은 취향이라 옮겨도 된다. 그것을 옮기려고 만드는 것이다.
+ *
+ * ★ 보드 이름을 같이 적는다.
+ *
+ *   키 인덱스가 곧 매트릭스 자리라 배치가 다른 보드에 부으면 엉뚱한 키에 들어간다.
+ *   막을 수 있는 것은 막는다.
+ */
+export const HE_BACKUP_KIND = 'wish60-he/settings';
+export const HE_BACKUP_VER = 1;
+
+export type HeBackup = {
+  kind: string;
+  version: number;
+  board: string;
+  firmware: string;
+  date: string;
+  /* 매트릭스 인덱스 -> 그 키의 설정. 없는 키는 건드리지 않는다 */
+  keys: Record<number, HeKeyCfg>;
+};
+
+export function heMakeBackup(
+  board: string,
+  firmware: string,
+  date: string,
+  keys: Record<number, HeKeyCfg>,
+): HeBackup {
+  return {kind: HE_BACKUP_KIND, version: HE_BACKUP_VER, board, firmware, date, keys};
+}
+
+/*
+ * 받은 것이 우리 파일이 맞는지 본다.
+ *
+ * 틀리면 무엇이 틀렸는지 말한다 — "잘못된 파일" 하나로 뭉뚱그리면 사용자가 고칠
+ * 길이 없다.
+ */
+export function heCheckBackup(o: any, board: string): string | null {
+  if (!o || typeof o !== 'object') return 'not a settings file';
+  if (o.kind !== HE_BACKUP_KIND) return 'not a settings file';
+  if (o.version !== HE_BACKUP_VER) return `unsupported version ${o.version}`;
+  if (board && o.board && o.board !== board) {
+    return `saved from ${o.board}, this is ${board}`;
+  }
+  if (!o.keys || typeof o.keys !== 'object') return 'no keys in the file';
+  return null;
+}

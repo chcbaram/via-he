@@ -468,5 +468,12 @@
   "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.": "キャリブレーションなしでも動作します。しない場合は公称ストロークを使い、すると各キーを実測するので mm が正確になります。完了したキーは実測ストロークを mm で表示し、残りは上図に色が付きます。",
   "Calibrated": "完了",
   "Show raw ADC": "生の ADC 値を表示",
-  "he.tip.raw": "キーを押している間、キーキャップ下の数値を mm からセンサーの生値に切り替えます。センサーが実際に何を見ているかを確認するためのもので、普段は mm で十分です。"
+  "he.tip.raw": "キーを押している間、キーキャップ下の数値を mm からセンサーの生値に切り替えます。センサーが実際に何を見ているかを確認するためのもので、普段は mm で十分です。",
+  "Settings file": "設定ファイル",
+  "Save to file": "ファイルに保存",
+  "Load from file": "ファイルから読み込み",
+  "Result": "結果",
+  "Applied": "適用しました",
+  "he.tip.backup": "全キーのアクチュエーションポイント・ラピッドトリガー・デッドゾーンをファイルに保存し、保存したファイルを書き戻します。キャリブレーション値は含みません — このボードのスイッチを実測した値なので、別のボードでは正しくありません。",
+  "he.note.backup": "キャリブレーション値はボードに残ります。このボードのスイッチを実測した値なので、他のボードに書き込むと mm 表示が気づかないうちにずれます — そのボードで取り直してください。ファイルにあるキーだけを書き、残りは触りません。"
 }
