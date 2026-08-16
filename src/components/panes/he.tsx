@@ -679,13 +679,18 @@ export const HePane: React.FC = () => {
       );
 
       /*
-       * 보정된 키에는 **잰 스트로크**를 키캡에 찍는다.
+       * 보정된 키에는 **잰 스트로크를 카운트로** 찍는다.
        *
-       * ★ 이 숫자가 보정을 하는 이유 자체다.
+       * ★ mm 로 찍으면 안 된다 — 전부 같은 값이 나온다.
        *
-       *   칠하기로는 "됐다/안 됐다" 까지만 안다. 이 보드는 키별 스트로크가 13%
-       *   흩어져 있고(실측), 그래서 공칭값을 쓰면 mm 가 그만큼 어긋난다. 흩어진
-       *   정도는 숫자를 늘어놓아야 보인다.
+       *   처음에 travelUm 을 mm 로 바꿔 찍었는데 한 글자도 다르지 않았다.
+       *   travelUm 은 스위치 **표의 공칭 행정**이라 같은 스위치면 전 키가 같다
+       *   (keys.c 의 keys_switch[type].travel_um).
+       *
+       *   그리고 펌웨어의 깊이 환산이 `d * travel / stroke` 다. 즉 **mm 는 공칭
+       *   행정에 묶여 있다** — 보정된 키는 정의상 전부 3.40mm 다. 키마다 다른 것은
+       *   그 3.40mm 를 몇 카운트로 나누느냐이고, 실측 13% 편차가 바로 이 카운트의
+       *   편차다. mm 로는 애초에 볼 수 없는 값이다.
        *
        *   안 된 키는 빈칸이 아니라 각인을 그대로 둔다 — 어차피 칠해져 있어 구분이
        *   되고, 전부 숫자로 덮으면 어느 키인지 알 수 없어진다.
@@ -694,8 +699,8 @@ export const HePane: React.FC = () => {
       for (const g of layout) {
         const i = g.row * MATRIX_COLS + g.col;
         const c = out[i];
-        if (c?.calibrated && c.travelUm > 0) {
-          text[i] = (c.travelUm / 1000).toFixed(2);
+        if (c?.calibrated && c.strokeCnt > 0) {
+          text[i] = String(c.strokeCnt);
         }
       }
       dispatch(setOverlayText(text));
@@ -1283,7 +1288,10 @@ export const HePane: React.FC = () => {
             * ★ 흩어진 정도가 여기서 처음 숫자로 보인다.
             *
             *   키캡의 값은 하나씩 읽어야 하지만 최소~최대는 한눈에 들어온다.
-            *   이 폭이 곧 공칭 행정을 쓸 때 나는 오차다 — 그게 보정을 하는 이유다.
+            *   이 폭이 곧 보정을 안 했을 때 나는 오차다 — 그게 보정을 하는 이유다.
+            *
+            *   단위는 카운트다. mm 는 공칭 행정에 묶여 있어(keys.c 의 깊이 환산)
+            *   보정된 키가 전부 같은 mm 로 나온다 — 편차는 카운트로만 보인다.
             */}
           {!active && calAll && (
             <ControlRow>
@@ -1293,18 +1301,16 @@ export const HePane: React.FC = () => {
               <Detail>
                 <Val>
                   {(() => {
-                    const um = layout
+                    const cnt = layout
                       .map((g) => calAll[g.row * MATRIX_COLS + g.col])
-                      .filter((c) => c?.calibrated && c.travelUm > 0)
-                      .map((c) => c.travelUm);
-                    if (um.length === 0) return `0 / ${layout.length}`;
-                    const lo = Math.min(...um);
-                    const hi = Math.max(...um);
+                      .filter((c) => c?.calibrated && c.strokeCnt > 0)
+                      .map((c) => c.strokeCnt);
+                    if (cnt.length === 0) return `0 / ${layout.length}`;
+                    const lo = Math.min(...cnt);
+                    const hi = Math.max(...cnt);
                     /* 폭을 최소값 기준 %로 — "13% 흩어져 있다" 가 바로 읽힌다 */
                     const spread = Math.round(((hi - lo) / lo) * 100);
-                    return `${um.length} / ${layout.length}  ·  ${fmtMm(
-                      lo,
-                    )} ~ ${fmtMm(hi)}  (${spread}%)`;
+                    return `${cnt.length} / ${layout.length}  ·  ${lo} ~ ${hi}  (${spread}%)`;
                   })()}
                 </Val>
               </Detail>
