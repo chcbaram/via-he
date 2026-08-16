@@ -331,7 +331,13 @@ export async function heSetSwitch(send: HidSender, type: number) {
  */
 export const HE_CMD_SWITCH = 0xc6;
 
-export type HeSwitch = {name: string; travelUm: number};
+export type HeSwitch = {
+  name: string;
+  travelUm: number;
+  /* 데이터시트 두 점 (Gs). 0 이면 모른다 — 곡선을 못 그린다 */
+  fluxRestGs: number;
+  fluxBottomGs: number;
+};
 
 export type HeSwitchTable = {
   list: HeSwitch[];
@@ -353,12 +359,25 @@ export async function heReadSwitches(
     for (let k = HE_SWITCH_NAME_OFF; k < r.length && r[k]; k++) {
       name += String.fromCharCode(r[k]);
     }
-    list.push({name, travelUm: r[4] | (r[5] << 8)});
+    list.push({
+      name,
+      travelUm: r[4] | (r[5] << 8),
+      /* 0 = 제원을 모르는 스위치. 그때는 곡선을 못 그린다 */
+      fluxRestGs: r[HE_SWITCH_FLUX_OFF] | (r[HE_SWITCH_FLUX_OFF + 1] << 8),
+      fluxBottomGs: r[HE_SWITCH_FLUX_OFF + 2] | (r[HE_SWITCH_FLUX_OFF + 3] << 8),
+    });
   }
   return {list, genericCnt};
 }
 
-const HE_SWITCH_NAME_OFF = 6;
+/*
+ * 데이터시트 두 점이 이름 앞에 끼어 있다.
+ *
+ * 이름은 길이가 정해지지 않은 값이라 늘 맨 뒤다 — 앞에 두면 뒤에 무엇을 더할 때마다
+ * 자리가 밀린다.
+ */
+const HE_SWITCH_FLUX_OFF = 6;
+const HE_SWITCH_NAME_OFF = 10;
 
 
 /*

@@ -55,6 +55,7 @@ import {
   faLayerGroup,
   faStethoscope,
   faCircleInfo,
+  faSliders,
   faRulerVertical,
   faToggleOn,
   faWaveSquare,
@@ -66,6 +67,8 @@ import {AccentSelect} from '../inputs/accent-select';
 import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {DepthSlider} from './he-depth';
+import {HeGraph} from './he-graph';
+import {heMakeCurve, heCurveToMm} from 'src/utils/he-curve';
 import type {KeyboardAPI} from 'src/utils/keyboard-api';
 import {ProfileSelect} from 'src/components/menus/profile-select';
 import {loadKeymapFromDevice} from 'src/store/keymapSlice';
@@ -181,7 +184,6 @@ const SECTIONS = [
   {rail: 'tune', key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
   {rail: 'tune', key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
   {rail: 'tune', key: 'deadzone', label: 'DEAD ZONE', icon: faCircleHalfStroke},
-  {rail: 'tune', key: 'switch', label: 'SWITCH', icon: faToggleOn},
 
   /*
    * ★ 보정은 갈래가 다르다.
@@ -192,6 +194,15 @@ const SECTIONS = [
    *
    *   그리고 보정은 하나가 아니다 — 바닥값(지금)에 이어 비선형 보정이 온다.
    */
+  {rail: 'switch', key: 'switch', label: 'SELECT', icon: faToggleOn},
+
+  /*
+   * 재서 만든 스위치 프로파일. 아직 자리만 잡아 둔다 — 무엇을 어떻게 재게 할지가
+   * 정해져야 화면을 그린다.
+   */
+  {rail: 'switch', key: 'swcustom', label: 'CUSTOM', icon: faSliders,
+   todo: 'measuring a switch yourself'},
+
   {rail: 'cal', key: 'calibrate', label: 'BOTTOM-OUT', icon: faRulerVertical},
 
   /*
@@ -235,6 +246,17 @@ const SECTIONS = [
 const RAILS = [
   {key: 'tune', title: 'Hall Effect', icon: faWaveSquare},
   {key: 'cal', title: 'Calibration', icon: faRulerVertical},
+  /*
+   * ★ 스위치가 갈래를 갖는다.
+   *
+   *   설정 갈래에 한 줄로 있던 것을 뺐다. 스위치를 고르는 것은 "취향" 이 아니라
+   *   **이 보드에 무엇이 꽂혀 있나** 를 알려주는 일이고, 그 답이 아래 모든 mm 값의
+   *   기준이 된다. 그리고 곧 곡선·커스텀 프로파일이 붙을 자리라 한 줄로는 좁다.
+   *
+   *   보정 다음에 둔다 — 보정과 스위치가 둘 다 "이 하드웨어가 무엇인가" 를 정하는
+   *   일이라 나란히 있는 편이 읽힌다. 장치(펌웨어·백업)는 그 뒤다.
+   */
+  {key: 'switch', title: 'Switch', icon: faToggleOn},
   {key: 'device', title: 'Device', icon: faMicrochip},
 ] as const;
 
@@ -2632,6 +2654,26 @@ export const HePane: React.FC = () => {
     }
 
     if (section === 'switch') {
+      const cur = switches?.list[cfg?.switchType ?? 0];
+      const travelMm = (cur?.travelUm ?? travel) / 100;
+
+      /*
+       * 곡선은 데이터시트 두 점에서 계산한다. 제원을 모르는 스위치면 null 이고, 그때는
+       * 그림에 직선만 그려진다 — 짐작한 곡선을 그려 두면 그게 실측인 척한다.
+       */
+      const curve = cur
+        ? heMakeCurve(cur.fluxRestGs, cur.fluxBottomGs, travelMm)
+        : null;
+
+      /* 펌웨어의 깊이는 직선 환산이라 u 를 그대로 되돌릴 수 있다 (u = depth / travel) */
+      const u =
+        tracking && deepestAll.um > 0
+          ? Math.min(1, deepestAll.um / (cur?.travelUm ?? travel))
+          : null;
+
+      const mmLin = u === null ? null : u * travelMm;
+      const mmMod = u === null || !curve ? null : heCurveToMm(curve, u);
+
       return (
         <>
           <ControlRow>
@@ -2639,12 +2681,6 @@ export const HePane: React.FC = () => {
               <Hint tip={t('he.tip.switch')}>{t('Type')}</Hint>
             </Label>
             <Detail>
-              {/*
-                * ★ width 는 감싸는 상자가 아니라 이 prop 이 정한다.
-                *   AccentSelect 안쪽 control 스타일이
-                *   width: state.selectProps.width || 250 이라 부모 폭을 무시한다.
-                *   상자로 감싸도 250px 로 잘리던 이유다.
-                */}
               <AccentSelect
                 width={selRowW}
                 value={switchOptions(switches)[cfg?.switchType ?? 0]}
@@ -2652,13 +2688,7 @@ export const HePane: React.FC = () => {
                 onChange={(o: any) => {
                   const v = o?.value ?? 0;
                   setCfg((c) => (c ? {...c, switchType: v} : c));
-                  /*
-                   * 키캡의 전 행정은 장치가 주는 값이라 여기서 못 고친다.
-                   *
-                   * 종류를 바꾸면 그 값도 바뀌므로 읽어 둔 것을 버린다 — 다음
-                   * 렌더에서 전 키를 다시 읽어 채운다. 손으로 맞춰 넣으면 장치가
-                   * 실제로 무엇을 쓰는지와 갈라진다.
-                   */
+                  /* 전 행정이 바뀌므로 읽어 둔 키 설정을 버린다 */
                   heSetSwitch(send, v)
                     .then(() => setKeyCfgs({}))
                     .catch(() => {});
@@ -2666,6 +2696,51 @@ export const HePane: React.FC = () => {
               />
             </Detail>
           </ControlRow>
+
+          <ControlRow>
+            <Label>{t('Travel')}</Label>
+            <Detail>
+              <Summary>{travelMm.toFixed(2)} mm</Summary>
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * ★ 그림이 이 화면의 본론이다.
+            *
+            *   스위치를 고르는 것은 곧 "이 보드의 mm 를 무엇으로 재나" 를 정하는 일이다.
+            *   숫자 한 줄로만 보여주면 고른 뜻이 안 드러난다. 눌러 보면서 점이 두 선
+            *   사이에서 벌어지는 것을 보면 바로 안다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.curve')}>{t('ADC to distance')}</Hint>
+            </Label>
+            <Detail>
+              <HeGraph curve={curve} travelMm={travelMm} u={u} />
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>{t('Now')}</Label>
+            <Detail>
+              <Summary>
+                {u === null
+                  ? t('press a key with live depth on')
+                  : `u ${u.toFixed(3)}   ${t('firmware')} ${mmLin!.toFixed(2)} mm` +
+                    (mmMod === null
+                      ? ''
+                      : `   ${t('model')} ${mmMod.toFixed(2)} mm   (${(
+                          mmMod - mmLin!
+                        ).toFixed(2)})`)}
+              </Summary>
+            </Detail>
+          </ControlRow>
+
+          <Note>
+            {curve
+              ? t('he.note.curveOn', {err: curve.maxErrMm.toFixed(2)})
+              : t('he.note.curveOff')}
+          </Note>
         </>
       );
     }
