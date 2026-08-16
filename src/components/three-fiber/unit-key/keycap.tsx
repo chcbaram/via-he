@@ -379,6 +379,30 @@ const paintKeycap = (
     );
   }
 
+  /*
+   * 키캡 아래 실시간 값 — 윗면과 키캡 바깥 모서리 **사이**에 그린다.
+   *
+   * 라벨 쪽은 윗면으로 클리핑을 걸어 두므로 거기서는 이 자리에 못 그린다. 색이
+   * 눌림 테두리와 같은 이유는 2D 쪽 주석에 적었다.
+   */
+  if (label && label.foot) {
+    const k = textureRects.keycapRect;
+    const f = textureRects.faceRect;
+    const fontSize = 26;
+
+    context.fillStyle = PRESSED_COLOR;
+    context.font = `${fontSize}px Fira Sans, Arial`;
+    context.textAlign = 'center';
+    context.fillText(
+      String(label.foot),
+      ((k.bl.x + k.tr.x) / 2) * canvas.width,
+      (1 - k.bl.y) * canvas.height -
+        ((f.bl.y - k.bl.y) * canvas.height) / 2 +
+        fontSize / 3,
+    );
+    context.textAlign = 'start';
+  }
+
   return paintKeycapLabel(canvas, textureRects.faceRect, legendColor, label);
 };
 

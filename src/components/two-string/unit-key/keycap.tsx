@@ -26,6 +26,33 @@ import {
  */
 const PRESSED_COLOR = '#4da3ff';
 
+/*
+ * 키캡 아래 실시간 값.
+ *
+ * ★ 캔버스가 아니라 요소다.
+ *
+ *   2D 의 캔버스는 키캡 **윗면**만 덮는다. 치마(윗면 바깥 테두리) 자리는 캔버스가
+ *   닿지 않으므로 거기 글자를 그리려면 요소로 얹어야 한다.
+ *
+ * ★ 색은 눌림 테두리와 같다.
+ *
+ *   둘 다 "지금 이 순간" 을 말하는 표시다. 설정값(윗면의 숫자)과 색으로 갈라 두면
+ *   무엇이 고정값이고 무엇이 흐르는 값인지 한눈에 나뉜다.
+ */
+const Foot = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  z-index: 1;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1;
+  color: ${PRESSED_COLOR};
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+`;
+
 const getMacroData = ({
   macroExpression,
   label,
@@ -548,6 +575,7 @@ export const Keycap: React.FC<TwoStringKeycapProps> = React.memo((props) => {
           >
             <canvas ref={canvasRef} style={{}} />
           </CanvasContainer>
+          {label?.foot ? <Foot>{label.foot}</Foot> : null}
         </GlowContainer>
         {(macroData || overflowsTexture) && (
           <TooltipContainer $rotate={rotation[2]}>

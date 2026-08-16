@@ -36,6 +36,7 @@ import {
   getHeOverlayText,
   getHeOverlayBars,
   getHeOverlayPressed,
+  getHeOverlayLive,
   getHeSelectedKeys,
   toggleKey,
 } from 'src/store/heSlice';
@@ -61,6 +62,7 @@ export const HeKeyboard = (props: {
   const overlayText = useAppSelector(getHeOverlayText);
   const overlayBars = useAppSelector(getHeOverlayBars);
   const overlayPressed = useAppSelector(getHeOverlayPressed);
+  const overlayLive = useAppSelector(getHeOverlayLive);
 
   /*
    * 키 정의 순서 -> 매트릭스 인덱스.
@@ -112,6 +114,12 @@ export const HeKeyboard = (props: {
     [keys, overlayPressed, cols],
   );
 
+  /* 키캡 아래 줄 — 실시간 값 */
+  const keyFoot = useMemo(
+    () => (overlayLive ? keys.map((k) => overlayLive[idxOf(k)]) : undefined),
+    [keys, overlayLive, cols],
+  );
+
   /* 막대는 따로 — 글자보다 훨씬 자주 바뀐다 */
   const keyBars = useMemo(
     () => (overlayBars ? keys.map((k) => overlayBars[idxOf(k)]) : undefined),
@@ -149,6 +157,7 @@ export const HeKeyboard = (props: {
       keyLabels={keyLabels}
       keyBars={keyBars}
       keyPressed={keyPressed}
+      keyFoot={keyFoot}
       definition={definition}
       containerDimensions={props.dimensions}
       mode={DisplayMode.Configure}

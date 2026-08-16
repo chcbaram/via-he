@@ -35,6 +35,7 @@ export type KeyboardCanvasContentProps<T> = {
   keyLabels?: (string | undefined)[];
   keyBars?: (number | undefined)[];
   keyPressed?: (boolean | undefined)[];
+  keyFoot?: (string | undefined)[];
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;
   width: number;
@@ -80,6 +81,13 @@ export type KeyGroupProps<T> = {
    * 눈으로 재서는 알 수 없다 — 넘는 순간이 따로 보여야 한다.
    */
   keyPressed?: (boolean | undefined)[];
+  /*
+   * 키캡 **아래**(윗면 밖)에 찍을 글자 — 실시간 값이 온다.
+   *
+   * 윗면은 각인과 설정값이 이미 쓰고 있다. 계속 바뀌는 값을 그 위에 얹으면 둘 다
+   * 안 읽힌다. 아래 치마 자리가 비어 있으므로 거기 쓴다.
+   */
+  keyFoot?: (string | undefined)[];
   selectedKey?: number;
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;

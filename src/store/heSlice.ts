@@ -55,6 +55,14 @@ type HeState = {
 
   /* 지금 입력으로 잡힌 키 (매트릭스 인덱스). 막대와 다른 것이다 */
   overlayPressed: number[] | null;
+
+  /*
+   * 키캡 **아래**(윗면 밖)에 찍을 실시간 값.
+   *
+   * 설정값(overlayText)과 자리가 다르다. 설정값은 윗면 우하단에 있고 가끔 바뀌지만,
+   * 이쪽은 누르는 동안 계속 바뀐다 — 같은 자리에 겹치면 둘 다 안 읽힌다.
+   */
+  overlayLive: Record<number, string> | null;
 };
 
 const initialState: HeState = {
@@ -63,6 +71,7 @@ const initialState: HeState = {
   overlayText: null,
   overlayBars: null,
   overlayPressed: null,
+  overlayLive: null,
 };
 
 const heSlice = createSlice({
@@ -104,6 +113,14 @@ const heSlice = createSlice({
       state.overlayPressed = action.payload;
     },
 
+    /* 키캡 아래에 찍을 실시간 값. */
+    setOverlayLive: (
+      state,
+      action: PayloadAction<Record<number, string> | null>,
+    ) => {
+      state.overlayLive = action.payload;
+    },
+
     /* 지금 화면이 키캡에 찍을 값. null 이면 원래 각인으로 되돌린다. */
     setOverlayText: (
       state,
@@ -123,6 +140,7 @@ export const {
   setOverlayText,
   setOverlayBars,
   setOverlayPressed,
+  setOverlayLive,
 } = heSlice.actions;
 
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
@@ -131,5 +149,6 @@ export const getHeOverlayText = (state: RootState) => state.he.overlayText;
 export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;
+export const getHeOverlayLive = (state: RootState) => state.he.overlayLive;
 
 export default heSlice.reducer;

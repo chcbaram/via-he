@@ -467,5 +467,7 @@
   "he.fw.flash": "굽기",
   "he.fw.reflash": "다시 굽기",
   "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.": "보정 안 해도 동작합니다. 안 하면 공칭 행정을 쓰고, 하면 키마다 실제로 재므로 mm 가 정확해집니다. 보정된 키는 잰 스트로크를 mm 로 보여주고, 나머지는 위 그림에 칠해집니다.",
-  "Calibrated": "보정됨"
+  "Calibrated": "보정됨",
+  "Show raw ADC": "원시 ADC 값 표시",
+  "he.tip.raw": "키를 누르는 동안 키캡 아래에 뜨는 숫자를 mm 에서 센서 원시값으로 바꿉니다. 센서가 실제로 무엇을 보고 있는지 확인할 때 쓰고, 평소에는 mm 가 필요한 값입니다."
 }

@@ -78,6 +78,7 @@ import {
   setOverlayText,
   setOverlayBars,
   setOverlayPressed,
+  setOverlayLive,
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
@@ -472,6 +473,17 @@ export const HePane: React.FC = () => {
   );
   const fwInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+
+  /*
+   * 키캡 아래에 **원시 ADC 값**을 같이 보일지.
+   *
+   * 평소에는 mm 만 보면 된다. 원시값은 센서가 실제로 무엇을 보고 있는지 확인할 때
+   * 쓰는 것이라 늘 켜 두면 숫자만 많아진다 — 옵션으로 둔다.
+   *
+   * 값은 이미 스트림에 실려 온다 (프레임의 키당 4바이트 중 앞 2바이트). 펌웨어에
+   * 더할 것이 없다.
+   */
+  const [showRaw, setShowRaw] = useState(false);
 
   /*
    * 선택 버튼 줄의 실제 폭. 스위치 목록이 이 폭을 따른다.
@@ -895,6 +907,7 @@ export const HePane: React.FC = () => {
         barsSig.current = '';
         dispatch(setOverlayBars(null));
         dispatch(setOverlayPressed(null));
+        dispatch(setOverlayLive(null));
       }
     };
     if (rail !== 'tune' || !tracking) {
@@ -922,12 +935,37 @@ export const HePane: React.FC = () => {
       if (state[i]?.pressed) pressed.push(i);
     }
 
-    const sig = JSON.stringify(bars) + '|' + pressed.join(',');
+    /*
+     * 키캡 아래 줄 — 눌린 키의 실시간 값.
+     *
+     * ★ 눌린 키만 찍는다.
+     *
+     *   63개가 늘 숫자를 달고 있으면 어느 것이 움직이는지 안 보인다. 손이 닿은
+     *   키에만 뜨면 눈이 거기로 간다.
+     *
+     * ★ mm 는 0.05 단위로 끊는다.
+     *
+     *   0.01 까지 보이면 끝자리가 쉼 없이 떨려 읽을 수가 없다. 원시값은 끊지
+     *   않는다 — 그건 떨림 자체를 보려고 켜는 것이다.
+     */
+    const live: Record<number, string> = {};
+    for (const g of layout) {
+      const i = g.row * MATRIX_COLS + g.col;
+      const k = state[i];
+      if (!k || k.depth === 0) continue;
+      live[i] = showRaw
+        ? String(k.raw)
+        : (Math.round(k.depth / 5) * 5 / 100).toFixed(2);
+    }
+
+    const sig =
+      JSON.stringify(bars) + '|' + pressed.join(',') + '|' + JSON.stringify(live);
     if (sig === barsSig.current) return;
     barsSig.current = sig;
     dispatch(setOverlayBars(bars));
     dispatch(setOverlayPressed(pressed));
-  }, [state, tracking, rail, layout, info?.travel, dispatch]);
+    dispatch(setOverlayLive(live));
+  }, [state, tracking, rail, layout, info?.travel, showRaw, dispatch]);
 
   /*
    * 설정 갈래에 들어오면 전 키 값을 채운다.
@@ -1779,6 +1817,24 @@ export const HePane: React.FC = () => {
                   put('releaseUm', v).catch(() => {});
                 }}
               />
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * 키캡 아래 값은 늘 mm 다. 이 스위치를 켜면 원시 ADC 값으로 바뀐다.
+            *
+            * ★ 자리를 나누지 않고 **같은 자리에서 바꾼다.**
+            *
+            *   둘을 같이 찍으면 키캡 아래에 숫자가 두 개 붙어 어느 것이 무엇인지
+            *   다시 설명해야 한다. 원시값을 볼 때는 mm 가 궁금하지 않다 — 센서가
+            *   무엇을 보고 있는지 확인하려고 켜는 것이다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.raw')}>{t('Show raw ADC')}</Hint>
+            </Label>
+            <Detail>
+              <AccentSlider isChecked={showRaw} onChange={setShowRaw} />
             </Detail>
           </ControlRow>
         </>

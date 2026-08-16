@@ -466,5 +466,7 @@
   "he.fw.flash": "書き込み",
   "he.fw.reflash": "再書き込み",
   "Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.": "キャリブレーションなしでも動作します。しない場合は公称ストロークを使い、すると各キーを実測するので mm が正確になります。完了したキーは実測ストロークを mm で表示し、残りは上図に色が付きます。",
-  "Calibrated": "完了"
+  "Calibrated": "完了",
+  "Show raw ADC": "生の ADC 値を表示",
+  "he.tip.raw": "キーを押している間、キーキャップ下の数値を mm からセンサーの生値に切り替えます。センサーが実際に何を見ているかを確認するためのもので、普段は mm で十分です。"
 }
