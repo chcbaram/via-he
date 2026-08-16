@@ -143,6 +143,15 @@ const OVERLAY_FIELDS: Record<string, (keyof HeKeyCfg)[] | undefined> = {
   actuation: ['releaseUm', 'pressUm'],
   rapid: ['rtReleaseUm', 'rtPressUm'],
   deadzone: ['deadUm'],
+  /*
+   * 스위치 화면은 그 키에 걸린 **전 행정**을 보인다.
+   *
+   * 이 화면에서 고르는 것은 종류이고, 종류가 바꾸는 것이 이 값이다. 종류 이름은
+   * 목록에 이미 있으므로 키캡에 또 적을 것이 아니다 — 고른 결과가 무엇인지가
+   * 알고 싶은 것이다. 보정된 키는 실측이 이 값을 대신하지만, 그건 보정 화면이
+   * 카운트로 보여준다.
+   */
+  switch: ['travelUm'],
 };
 
 const SECTIONS = [
@@ -2002,7 +2011,16 @@ export const HePane: React.FC = () => {
                 onChange={(o: any) => {
                   const v = o?.value ?? 0;
                   setCfg((c) => (c ? {...c, switchType: v} : c));
-                  heSetSwitch(send, v).catch(() => {});
+                  /*
+                   * 키캡의 전 행정은 장치가 주는 값이라 여기서 못 고친다.
+                   *
+                   * 종류를 바꾸면 그 값도 바뀌므로 읽어 둔 것을 버린다 — 다음
+                   * 렌더에서 전 키를 다시 읽어 채운다. 손으로 맞춰 넣으면 장치가
+                   * 실제로 무엇을 쓰는지와 갈라진다.
+                   */
+                  heSetSwitch(send, v)
+                    .then(() => setKeyCfgs({}))
+                    .catch(() => {});
                 }}
               />
             </Detail>
