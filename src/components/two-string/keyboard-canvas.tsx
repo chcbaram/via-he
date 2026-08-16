@@ -25,30 +25,43 @@ export const KeyboardCanvas: React.FC<KeyboardCanvasProps<React.MouseEvent>> = (
   /*
    * 담긴 자리에 맞춘 배율.
    *
-   * ★ 1 로 막지 않는다.
+   * ★ 기본 높이에서의 크기는 예전 그대로, 넓히면 그만큼 커진다.
    *
-   *   원래는 바깥의 Math.min 에 1 이 끼어 있어 아무리 자리를 넓혀도 원래 크기보다
-   *   커지지 않았다. 3D 는 그런 상한이 없어(높이가 배율식에 아예 안 들어간다)
-   *   가운데 손잡이를 내리면 계속 커지는데, 2D 만 어느 선에서 멈춰 두 모드가 다르게
-   *   움직였다.
+   *   원래는 배율이 1 에서 막혀 자리를 넓혀도 커지지 않았다. 그렇다고 상한만 풀면
+   *   기본 상태에서부터 키보드가 커져 여백이 달라진다 — 기본 높이(500)에서도
+   *   높이 여유가 이미 1 을 넘기 때문이다.
    *
-   *   넓힌 만큼 커지는 것이 사용자가 손잡이를 끄는 이유다. 다만 2D 는 CSS 로
-   *   확대하는 것이라 1 을 넘으면 글자가 그만큼 흐려진다 — 키캡 캔버스를 화면
-   *   해상도에 맞춰 그리기 때문이다. 크게 보려고 넓히는 것이므로 흐려도 안 보이는
-   *   것보다 낫다고 보고 열어 둔다.
+   *   그래서 **기준 배율은 500 으로 재고, 실제 높이와 500 의 비율만큼 곱한다.**
+   *   500 은 keyboardHeight 의 기본값이다(settingsSlice). 3D 가 배율식에 500 을
+   *   박아 둔 것도 같은 이유이고, 3D 가 손잡이를 내릴수록 커지는 것도 뷰포트가
+   *   그만큼 커지기 때문이다 — 이제 두 모드가 같은 식으로 움직인다.
+   *
+   *   마지막에 실제로 담기는 배율로 한 번 더 자른다. 안 자르면 좁은 창에서 옆이
+   *   넘친다.
+   *
+   *   2D 는 CSS 확대라 1 을 넘으면 글자가 그만큼 흐려진다. 크게 보려고 넓히는
+   *   것이므로 흐려도 안 보이는 것보다 낫다고 보고 열어 둔다.
    */
+  const DEFAULT_H = 500;
+
+  const fitW =
+    (containerDimensions &&
+      containerDimensions.width /
+        ((CSSVarObject.keyWidth + CSSVarObject.keyXSpacing) * width -
+          CSSVarObject.keyXSpacing +
+          minPadding * 2)) ||
+    1;
+  const boardH =
+    (CSSVarObject.keyHeight + CSSVarObject.keyYSpacing) * height -
+    CSSVarObject.keyYSpacing +
+    minPadding * 2;
+
+  const base = Math.min(1, fitW, DEFAULT_H / boardH);
   const ratio =
     Math.min(
-      (containerDimensions &&
-        containerDimensions.width /
-          ((CSSVarObject.keyWidth + CSSVarObject.keyXSpacing) * width -
-            CSSVarObject.keyXSpacing +
-            minPadding * 2)) ||
-        1,
-      containerHeight /
-        ((CSSVarObject.keyHeight + CSSVarObject.keyYSpacing) * height -
-          CSSVarObject.keyYSpacing +
-          minPadding * 2),
+      base * (containerHeight / DEFAULT_H),
+      fitW,
+      containerHeight / boardH,
     ) || 1;
 
   return (
