@@ -124,6 +124,18 @@ const U = 62;
  * 하위 메뉴. 아직 펌웨어 로직이 없는 것은 disabled 로 두되 **보이게** 한다 —
  * 앞으로 무엇이 오는지 알 수 있고, 로직이 생기면 플래그만 내리면 된다.
  */
+/*
+ * 화면별로 키캡에 얹을 값.
+ *
+ * 여기 없는 화면은 값을 안 얹는다. 화면이 늘면 한 줄 더한다 — 얹을 값이 없는 것도
+ * 뜻이 있는 답이라 굳이 적지 않는다.
+ */
+const OVERLAY_FIELD: Record<string, keyof HeKeyCfg | undefined> = {
+  actuation: 'pressUm',
+  rapid: 'rtReleaseUm',
+  deadzone: 'deadUm',
+};
+
 const SECTIONS = [
   /* 자주 만지는 것부터. 스위치는 한 번 정하면 끝이라 뒤에 둔다. */
   {rail: 'tune', key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
@@ -491,10 +503,30 @@ export const HePane: React.FC = () => {
   const chan = useRef<HeTrackChannel | null>(null);
   const frames = useRef(0);
 
+  /*
+   * ★ 이 화면의 HID 왕복을 한 줄로 세운다.
+   *
+   *   HID 는 요청 하나에 응답 하나다. 두 곳에서 동시에 보내면 응답이 엇갈려
+   *   VIA 가 "Receiving incorrect response" 로 잡고, 그 오류가 로그에 쌓이면
+   *   진짜 오류를 못 본다.
+   *
+   *   이 화면은 겹칠 자리가 여럿이다 — 라이브 트래킹, 보정 폴링, 전 키 읽기,
+   *   슬라이더를 끌 때의 쓰기. 부르는 쪽마다 조심하게 하면 반드시 하나를 놓친다.
+   *   통로 자체를 한 줄로 만들면 그럴 일이 없다.
+   *
+   *   앞이 실패해도 뒤는 돈다 — 한 번의 실패로 화면이 멎으면 안 된다.
+   */
+  const gate = useRef<Promise<unknown>>(Promise.resolve());
+
   const send = useCallback(
     async (cmd: number, bytes: number[]) => {
       if (!api) throw new Error('no device');
-      return api.hidCommand(cmd, bytes);
+      const run = gate.current.then(
+        () => api.hidCommand(cmd, bytes),
+        () => api.hidCommand(cmd, bytes),
+      );
+      gate.current = run.catch(() => {});
+      return run;
     },
     [api],
   );
@@ -593,10 +625,22 @@ export const HePane: React.FC = () => {
         if (i !== HE_KEY_ALL) done[i] = next;
       }
 
-      /* 브로드캐스트였으면 고른 키들의 표시값도 같이 맞춰 둔다 */
+      /*
+       * 브로드캐스트였으면 **알고 있는 전 키**의 표시값을 맞춰 둔다.
+       *
+       * ★ 고른 키만 맞추면 안 된다.
+       *
+       *   선택이 비어 있을 때가 곧 브로드캐스트다 — 그때 고른 키는 하나도 없다.
+       *   그 자리에서 고른 키만 돌면 아무것도 안 맞춰지고, 장치는 바뀌었는데
+       *   키캡의 숫자는 옛 값으로 남는다.
+       */
       if (all) {
-        for (const i of selectedKeys) {
-          if (keyCfgs[i]) done[i] = {...keyCfgs[i], ...patch} as HeKeyCfg;
+        for (const k of Object.keys(keyCfgs)) {
+          const i = Number(k);
+          done[i] = {...keyCfgs[i], ...patch} as HeKeyCfg;
+          if (done[i].releaseUm >= done[i].pressUm && done[i].pressUm > 0) {
+            done[i].releaseUm = done[i].pressUm - 1;
+          }
         }
       }
       if (Object.keys(done).length) setKeyCfgs((m) => ({...m, ...done}));
@@ -662,8 +706,7 @@ export const HePane: React.FC = () => {
      */
     if (rail === 'tune') {
       dispatch(setOverlayKeys(null));
-      dispatch(setOverlayText(null));
-      return;
+      return;                    /* 값은 아래 효과가 따로 맡는다 */
     }
     dispatch(setOverlayKeys([]));
     dispatch(setOverlayText(null));
@@ -731,6 +774,72 @@ export const HePane: React.FC = () => {
       alive = false;
     };
   }, [api, send, rail, section, cal?.active, layout, dispatch]);
+
+  /*
+   * 설정 갈래 — 지금 화면이 **다루는 값**을 키캡에 얹는다.
+   *
+   * ★ 화면마다 얹는 값이 다르다.
+   *
+   *   입력지점 화면에서는 입력지점을, RT 화면에서는 해제 거리를 보여야 한다.
+   *   한 가지로 고정하면 지금 만지는 값과 키캡의 숫자가 어긋나 오히려 헷갈린다.
+   *
+   *   스위치 화면은 비운다 — 거기서 정하는 것은 키별 값이 아니라 종류다.
+   *
+   * 읽기는 없다. 이미 읽어 둔 keyCfgs 에서 뽑을 뿐이라 화면을 옮겨도 공짜다.
+   * 슬라이더로 값을 바꾸면 putMany 가 keyCfgs 를 갱신하므로 키캡도 같이 따라간다.
+   */
+  useEffect(() => {
+    if (rail !== 'tune') return;
+
+    const field = OVERLAY_FIELD[section];
+    if (!field) {
+      dispatch(setOverlayText(null));
+      return;
+    }
+
+    const text: Record<number, string> = {};
+    for (const g of layout) {
+      const i = g.row * MATRIX_COLS + g.col;
+      const c = keyCfgs[i];
+      if (c) text[i] = (((c[field] as number) ?? 0) / 100).toFixed(2);
+    }
+    dispatch(setOverlayText(text));
+  }, [rail, section, keyCfgs, layout, dispatch]);
+
+  /*
+   * 설정 갈래에 들어오면 전 키 값을 채운다.
+   *
+   * keyCfgs 는 원래 **고른 키**만 읽어 둔다 — 고치려는 키만 알면 됐기 때문이다.
+   * 키캡에 얹으려면 전 키가 필요하다. 이미 있는 키는 건너뛰므로 갈래를 다시
+   * 열어도 다시 읽지 않는다.
+   */
+  useEffect(() => {
+    if (!api || rail !== 'tune' || layout.length === 0) return;
+
+    const missing = layout
+      .map((g) => g.row * MATRIX_COLS + g.col)
+      .filter((i) => !keyCfgs[i]);
+    if (missing.length === 0) return;
+
+    let alive = true;
+    (async () => {
+      const out: Record<number, HeKeyCfg> = {};
+      for (const i of missing) {
+        try {
+          out[i] = await heReadKeyCfg(send, i);
+        } catch {
+          /* 한 키가 실패해도 나머지는 읽는다 */
+        }
+        if (!alive) return;
+      }
+      if (alive && Object.keys(out).length) {
+        setKeyCfgs((m) => ({...m, ...out}));
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, send, rail, layout, keyCfgs]);
 
   /*
    * 펌웨어 화면을 열 때마다 현재 버전을 다시 읽는다.
