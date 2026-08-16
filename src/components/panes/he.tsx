@@ -1377,7 +1377,7 @@ export const HePane: React.FC = () => {
             </Label>
             <Detail>
               <FwBtn disabled={bkBusy} onClick={doExport}>
-                {t('Save to file')}
+                {t('he.bk.save')}
               </FwBtn>
             </Detail>
           </ControlRow>
@@ -1393,7 +1393,7 @@ export const HePane: React.FC = () => {
                   bkInput.current?.click();
                 }}
               >
-                {t('Load from file')}
+                {t('he.bk.load')}
               </FwBtn>
               <input
                 ref={bkInput}
