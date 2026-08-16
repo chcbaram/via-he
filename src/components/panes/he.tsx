@@ -230,6 +230,21 @@ const Val = styled.span`
   font-variant-numeric: tabular-nums;
 `;
 
+/*
+ * 한 줄짜리 요약값.
+ *
+ * ★ Val 을 쓰면 안 된다.
+ *
+ *   Val 은 슬라이더 옆에 붙는 자리라 96px 고정폭이다. 슬라이더가 값에 따라 왔다
+ *   갔다 하지 않게 하려고 그렇게 둔 것인데, 요약처럼 긴 문장을 넣으면 그 폭에서
+ *   네 줄로 접힌다. 실제로 그렇게 나갔다.
+ */
+const Summary = styled.span`
+  margin-left: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+`;
+
 /* 고른 키들의 값이 서로 다르면 숫자 대신 이걸 보여준다 */
 const fmtMm = (v: number | null) =>
   v === null ? '—' : `${(v / 100).toFixed(2)} mm`;
@@ -1299,7 +1314,7 @@ export const HePane: React.FC = () => {
                 <Hint tip={t('he.tip.calDone')}>{t('Calibrated')}</Hint>
               </Label>
               <Detail>
-                <Val>
+                <Summary>
                   {(() => {
                     const cnt = layout
                       .map((g) => calAll[g.row * MATRIX_COLS + g.col])
@@ -1310,9 +1325,10 @@ export const HePane: React.FC = () => {
                     const hi = Math.max(...cnt);
                     /* 폭을 최소값 기준 %로 — "13% 흩어져 있다" 가 바로 읽힌다 */
                     const spread = Math.round(((hi - lo) / lo) * 100);
-                    return `${cnt.length} / ${layout.length}  ·  ${lo} ~ ${hi}  (${spread}%)`;
+                    /* 단위를 적는다 — mm 로 오해할 자리다 */
+                    return `${cnt.length} / ${layout.length}  ·  ${lo} ~ ${hi} ADC  (${spread}%)`;
                   })()}
-                </Val>
+                </Summary>
               </Detail>
             </ControlRow>
           )}
