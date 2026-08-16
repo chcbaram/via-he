@@ -85,7 +85,7 @@ const paintKeycapLabel = (
   context.fillStyle = legendColor;
   let overflowed = false;
   if (label === undefined) {
-  } else if (label.topLabel && label.bottomLabel && label.subLabel) {
+  } else if (label.topLabel && label.bottomLabel && label.compact) {
     /*
      * ★ 값이 붙으면 두 줄 각인을 한 줄로 접는다.
      *
@@ -121,7 +121,7 @@ const paintKeycapLabel = (
     );
   } else if (label.centerLabel) {
     /* 값이 붙는 키캡은 각인을 줄인다 — 아래를 값에 내준다 */
-    let fontSize = (label.subLabel ? 11 : 13) * label.size;
+    let fontSize = (label.compact ? 11 : 13) * label.size;
     let fontHeight = 0.75 * fontSize;
     let faceMidLeftY = canvasHeight / 2;
     context.font = `bold ${fontSize}px ${fontFamily}`;
@@ -135,7 +135,7 @@ const paintKeycapLabel = (
     context.fillText(
       label.label,
       centerLabelMargin.x,
-      label.subLabel
+      label.compact
         ? topLabelMargin.y + fontHeight
         : faceMidLeftY + 0.5 * fontHeight,
     );
@@ -144,7 +144,7 @@ const paintKeycapLabel = (
       context.measureText(label.centerLabel).width >
       canvasWidth - centerLabelMargin.x;
   } else if (typeof label.label === 'string') {
-    let fontSize = label.subLabel ? 18 : 22;
+    let fontSize = label.compact ? 18 : 22;
     let fontHeight = 0.75 * fontSize;
     context.font = `bold ${fontSize}px ${fontFamily}`;
     context.fillText(

@@ -158,7 +158,7 @@ const paintKeycapLabel = (
   context.fillStyle = legendColor;
   let overflowed = false;
   if (label === undefined) {
-  } else if (label.topLabel && label.bottomLabel && label.subLabel) {
+  } else if (label.topLabel && label.bottomLabel && label.compact) {
     /* 값이 붙으면 아래 줄만 남긴다 — 2D 쪽 주석 참고 */
     let fontSize = 60;
     let fontHeightTU = (0.75 * fontSize) / canvas.height;
@@ -187,7 +187,7 @@ const paintKeycapLabel = (
     );
   } else if (label.centerLabel) {
     /* 값이 붙는 키캡은 각인을 줄인다 — 아래를 값에 내준다 */
-    let fontSize = (label.subLabel ? 31 : 37.5) * label.size;
+    let fontSize = (label.compact ? 31 : 37.5) * label.size;
     let fontHeightTU = (0.75 * fontSize) / canvas.height;
     let faceMidLeftY = (rect.tr.y + rect.bl.y) / 2;
     context.font = `bold ${fontSize}px ${fontFamily}`;
@@ -195,7 +195,7 @@ const paintKeycapLabel = (
     context.fillText(
       label.label,
       (rect.bl.x + centerLabelMargin.x) * canvas.width,
-      label.subLabel
+      label.compact
         ? (1 - (rect.tr.y - fontHeightTU - margin.y)) * canvas.height
         : (1 - (faceMidLeftY - 0.5 * fontHeightTU - centerLabelMargin.y)) *
           canvas.height,
@@ -205,7 +205,7 @@ const paintKeycapLabel = (
       context.measureText(label.centerLabel).width >
       (rect.tr.x - (rect.bl.x + centerLabelMargin.x)) * canvas.width;
   } else if (typeof label.label === 'string') {
-    let fontSize = label.subLabel ? 60 : 75;
+    let fontSize = label.compact ? 60 : 75;
     let fontHeightTU = (0.75 * fontSize) / canvas.height;
     context.font = `bold ${fontSize}px ${fontFamily}`;
     context.fillText(

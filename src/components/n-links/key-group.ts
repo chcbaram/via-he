@@ -93,17 +93,29 @@ export function getLabels<T>(
          * ★ 각인을 갈아 끼우면 안 된다.
          *
          *   처음에는 각인 자리를 값으로 바꿨다. 그러면 어느 키인지 알 수 없어져,
-         *   보정하려고 보는 화면에서 "다음에 누를 키" 를 못 찾는다. 아래 중앙에
-         *   작게 깔면 각인과 값이 같이 보인다.
+         *   보정하려고 보는 화면에서 "다음에 누를 키" 를 못 찾는다. 각인은 좌상단,
+         *   값은 우하단으로 갈라 놓으면 둘 다 보인다.
+         *
+         * ★ 각인 스타일은 **값 유무가 아니라 화면이 정한다** (compact).
+         *
+         *   처음에는 값이 붙은 키만 각인을 접었다. 그랬더니 같은 화면 안에서
+         *   보정된 키는 한 줄, 안 된 키는 두 줄로 나와 들쭉날쭉했다. 값을 보여주는
+         *   화면이면 전 키가 같은 각인 스타일이어야 한다 — 값이 아직 없는 키도
+         *   곧 생길 자리를 비워 두는 것이 맞다.
          *
          * key 를 값까지 포함해 만든다 — 키캡이 이 문자열로 다시 그릴지 정한다.
          * 안 넣으면 값이 바뀌어도 옛 그림이 남는다 (보정 중에는 계속 바뀐다).
          */
-        const sub = props.keyLabels?.[i];
-        if (sub === undefined) return base;
+        if (!props.keyLabels) return base;
 
+        const sub = props.keyLabels[i];
         const b = base && typeof base === 'object' ? base : {};
-        return {...b, subLabel: sub, key: `${(b as any).key ?? ''}|${sub}`};
+        return {
+          ...b,
+          compact: true,
+          subLabel: sub,
+          key: `${(b as any).key ?? ''}|c|${sub ?? ''}`,
+        };
       });
 }
 
