@@ -936,8 +936,16 @@ export async function heWriteBackup(
     await set1(send, QMK_CHANNEL, VAL_HOLD_OKP, b.qmk.holdOkp);
     await set1(send, NKRO_CHANNEL, VAL_NKRO_EN, b.qmk.nkro);
   }
+  /*
+   * 매크로가 비어 있으면 건드리지 않는다.
+   *
+   * 쓰기는 버퍼를 통째로 지우고 다시 쓰는 일이라 시간이 든다. 담긴 것이 전부 0 이면
+   * 애초에 매크로를 안 쓰는 보드라, 지우고 다시 0 을 쓰는 것은 헛일이다.
+   */
   const macros = b.macros;
-  if (macros?.length) await heLock(() => km.writeMacros(macros), 'macros');
+  if (macros?.length && macros.some((x) => x !== 0)) {
+    await heLock(() => km.writeMacros(macros), 'macros');
+  }
 
   return n;
 }

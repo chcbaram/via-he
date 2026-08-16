@@ -1472,8 +1472,25 @@ export const HePane: React.FC = () => {
           layers,
           read: (l: number) => kb.readRawMatrix(m, l) as Promise<number[]>,
           write: (km: number[][]) => kb.writeRawMatrix(m, km),
-          readMacros: () => kb.getMacroBytes(),
-          writeMacros: (d: number[]) => kb.setMacroBytes(d),
+          /*
+           * ★ 버퍼 크기로 자른다.
+           *
+           *   VIA 의 getMacroBytes 는 28바이트씩 끊어 읽으면서 **마지막 조각을 통째로**
+           *   붙인다. 그래서 버퍼 크기의 배수로 올림된 값이 나온다 (예: 1000 짜리
+           *   버퍼에서 1008 바이트). 그걸 그대로 되돌려 쓰면 setMacroBytes 가
+           *   "Macro size exceeds buffer size" 로 튕긴다 — 방금 자기가 읽은 것을
+           *   자기가 거부하는 셈이다.
+           *
+           *   읽을 때 잘라 두면 파일도 정확한 크기로 남고, 되돌릴 때도 걸리지 않는다.
+           */
+          readMacros: async () => {
+            const size = await kb.getMacroBufferSize();
+            return (await kb.getMacroBytes()).slice(0, size);
+          },
+          writeMacros: async (d: number[]) => {
+            const size = await kb.getMacroBufferSize();
+            await kb.setMacroBytes(d.slice(0, size));
+          },
         };
       };
 
