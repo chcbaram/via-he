@@ -412,6 +412,18 @@ const PresetVals = styled.div`
   font-variant-numeric: tabular-nums;
 `;
 
+/*
+ * 한 줄이 값을 둘 다룰 때 아래에 붙는 이름.
+ *
+ * 자 하나에 손잡이가 둘이므로 이름도 둘이어야 한다. 행을 나누면 자가 두 개인 줄
+ * 안다 — 같은 행에 두되 작게 붙인다.
+ */
+const SubLabel = styled.div`
+  font-size: 13px;
+  opacity: 0.65;
+  margin-top: 2px;
+`;
+
 const Note = styled.div`
   width: 100%;
   max-width: 960px;
@@ -1699,15 +1711,26 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
           {/*
-            * 입력지점만 세로 자로 잡는다.
+            * 입력지점과 해제지점을 **한 자에** 잡는다.
             *
             * 키가 위에서 아래로 내려가므로 눈금도 그 방향이어야 읽힌다. 그리고 옆에
             * 실제 깊이를 세워 두면 "1.00mm 가 내 손가락으로 어느 정도인가"를 눌러서
             * 바로 안다 — 숫자로는 알 수 없는 것이다.
+            *
+            * ★ 해제지점을 가로 슬라이더로 따로 두지 않는다.
+            *
+            *   둘은 같은 축 위의 두 점이고 사이 거리가 곧 이력이다. 따로 두면 그
+            *   거리가 안 보이고, "해제는 입력보다 얕아야 한다"는 제약조차 화면에서
+            *   읽히지 않았다 — 넘겨 보고 나서야 펌웨어가 잘라 준다는 걸 알았다.
+            *   한 자에 올리면 두 손잡이 사이가 그대로 그 거리이고, 순서도 눈으로
+            *   지켜진다.
             */}
           <ControlRow>
             <Label>
               <Hint tip={t('he.tip.press')}>{t('Press Point')}</Hint>
+              <SubLabel>
+                <Hint tip={t('he.tip.release')}>{t('Release Point')}</Hint>
+              </SubLabel>
             </Label>
             <Detail>
               <DepthSlider
@@ -1715,33 +1738,17 @@ export const HePane: React.FC = () => {
                 travelUm={travel}
                 depthUm={tracking ? deepest.um : null}
                 pressed={deepest.pressed}
+                showValues
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, pressUm: v} : c));
                   put('pressUm', v).catch(() => {});
                 }}
-              />
-              <Val>
-                {fmtMm(num('pressUm', cfg?.pressUm ?? 100))}
-              </Val>
-            </Detail>
-          </ControlRow>
-          <ControlRow>
-            <Label>
-              <Hint tip={t('he.tip.release')}>{t('Release Point')}</Hint>
-            </Label>
-            <Detail>
-              <AccentRange
-                min={10}
-                max={travel}
-                value={num('releaseUm', cfg?.releaseUm ?? 50) ?? 50}
-                onChange={(v: number) => {
+                value2={num('releaseUm', cfg?.releaseUm ?? 50) ?? 50}
+                onChange2={(v: number) => {
                   setCfg((c) => (c ? {...c, releaseUm: v} : c));
                   put('releaseUm', v).catch(() => {});
                 }}
               />
-              <Val>
-                {fmtMm(num('releaseUm', cfg?.releaseUm ?? 50))}
-              </Val>
             </Detail>
           </ControlRow>
         </>
