@@ -487,5 +487,15 @@
   "LEDs": "LEDs",
   "Profiles": "Profiles",
   "Made by": "Made by",
-  "he.note.info": "Read from the board itself, so it always matches what is actually running."
+  "he.note.info": "Read from the board itself, so it always matches what is actually running.",
+  "ADC to distance": "ADC to distance",
+  "Now": "Now",
+  "Travel": "Travel",
+  "press a key with live depth on": "Turn on live depth and press a key",
+  "he.curve.now": "in use (curve)",
+  "he.curve.old": "old linear",
+  "he.curve.live": "current position",
+  "he.tip.curve": "Horizontal is actual travel, vertical is the sensor reading as a fraction. Press a key and the dot shows where you are.",
+  "he.note.curveOn": "This switch uses a curve solved from the two flux figures its maker publishes. Reading it as a straight line is off by up to {{err}}mm — 1/2/3mm shims confirmed the curve is the right one.",
+  "he.note.curveOff": "No flux spec for this switch, so it is read as a straight line. The middle of the stroke may be off. Picking your actual product from the list is always better."
 }

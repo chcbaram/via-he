@@ -2740,14 +2740,20 @@ export const HePane: React.FC = () => {
             <Label>{t('Now')}</Label>
             <Detail>
               <Summary>
+                {/*
+                  * ★ 곡선이 있는 종류면 **곡선 값이 곧 펌웨어 값**이다.
+                  *
+                  *   예전에는 펌웨어가 직선이라 "펌웨어 A / 모델 B" 로 나란히 놨다.
+                  *   이제 펌웨어가 곡선을 쓰므로 그 이름이 거짓말이 된다. 지금 값을
+                  *   앞에 두고, 직선은 얼마나 어긋나 있었는지 보여주는 참고로 뒤에 둔다.
+                  */}
                 {u === null
                   ? t('press a key with live depth on')
-                  : `u ${u.toFixed(3)}   ${t('firmware')} ${mmLin!.toFixed(2)} mm` +
-                    (mmMod === null
-                      ? ''
-                      : `   ${t('model')} ${mmMod.toFixed(2)} mm   (${(
-                          mmMod - mmLin!
-                        ).toFixed(2)})`)}
+                  : mmMod === null
+                    ? `u ${u.toFixed(3)}   ${mmLin!.toFixed(2)} mm`
+                    : `u ${u.toFixed(3)}   ${mmMod.toFixed(2)} mm` +
+                      `   (${t('he.curve.old')} ${mmLin!.toFixed(2)}, ` +
+                      `${(mmLin! - mmMod).toFixed(2)})`}
               </Summary>
             </Detail>
           </ControlRow>

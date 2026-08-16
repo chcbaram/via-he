@@ -415,5 +415,15 @@
   "he.tip.bottom": "Turns the release side off near the bottom. Holding a key fully pressed, a finger still eases off by 0.1-0.3mm, and that alone would release it. Only happens with rapid trigger.",
   "he.tip.bottomZone": "How deep the protected band reaches up from the bottom.",
   "he.tip.dead": "Movement within this distance of the resting position is ignored, so vibration or tolerance cannot produce an accidental press. Leave it at zero unless the board sees vibration.",
-  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise."
+  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise.",
+  "ADC to distance": "ADC 与距离",
+  "Now": "当前",
+  "Travel": "总行程",
+  "press a key with live depth on": "打开实时深度并按下按键",
+  "he.curve.now": "当前换算(曲线)",
+  "he.curve.old": "旧的直线",
+  "he.curve.live": "当前位置",
+  "he.tip.curve": "横轴是实际按下距离，纵轴是传感器读数的比例。按键时圆点显示当前位置。",
+  "he.note.curveOn": "此轴体使用厂商公布的两个磁通值求得的曲线。若按直线读取最多偏差 {{err}}mm — 已用 1/2/3mm 塞尺验证曲线正确。",
+  "he.note.curveOff": "此轴体没有磁通规格，因此按直线读取，行程中段可能偏差。若知道实际型号，从列表中选择总是更准。"
 }

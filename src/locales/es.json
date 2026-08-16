@@ -415,5 +415,15 @@
   "he.tip.bottom": "Turns the release side off near the bottom. Holding a key fully pressed, a finger still eases off by 0.1-0.3mm, and that alone would release it. Only happens with rapid trigger.",
   "he.tip.bottomZone": "How deep the protected band reaches up from the bottom.",
   "he.tip.dead": "Movement within this distance of the resting position is ignored, so vibration or tolerance cannot produce an accidental press. Leave it at zero unless the board sees vibration.",
-  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise."
+  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise.",
+  "ADC to distance": "ADC a distancia",
+  "Now": "Ahora",
+  "Travel": "Recorrido total",
+  "press a key with live depth on": "Activa la profundidad en vivo y pulsa una tecla",
+  "he.curve.now": "en uso (curva)",
+  "he.curve.old": "recta anterior",
+  "he.curve.live": "posición actual",
+  "he.tip.curve": "El eje horizontal es el recorrido real y el vertical la lectura del sensor como fracción. Al pulsar, el punto muestra dónde estás.",
+  "he.note.curveOn": "Este interruptor usa una curva resuelta a partir de los dos valores de flujo que publica el fabricante. Leerla como recta se desvía hasta {{err}}mm — confirmado con galgas de 1/2/3 mm.",
+  "he.note.curveOff": "No hay datos de flujo para este interruptor, así que se lee como una recta. La zona media puede desviarse — elegir el producto real de la lista siempre es mejor."
 }

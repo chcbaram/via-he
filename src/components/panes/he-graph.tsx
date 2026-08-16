@@ -6,12 +6,15 @@
  *   가로가 실제 눌린 거리(mm), 세로가 센서가 읽는 값의 정규화 비율 u 다.
  *   u = (지금값 − 무압) / (바닥 − 무압) 이라 0 이 안 눌림, 1 이 바닥이다.
  *
- *     회색 직선   지금 펌웨어가 쓰는 환산. 두 점 사이를 곧게 잇는다
- *     강조색 곡선  자석 물리 모델이 말하는 실제
+ *     강조색 곡선  지금 펌웨어가 쓰는 환산 (자석 물리 모델)
+ *     회색 파선    예전에 쓰던 직선. 얼마나 어긋나 있었는지 보라고 남겨 둔다
  *     파란 점     지금 눌린 키가 있는 자리
  *
- *   두 선이 벌어진 만큼이 곧 오차다. 점이 곡선 위에 있는데 직선에서 읽으면
- *   **그 가로 거리 차이만큼 틀린 값**이 나온다 — 그림에서 바로 보인다.
+ * ★ 두 선의 역할이 뒤바뀌었다.
+ *
+ *   처음 이 그림을 만들 때는 펌웨어가 직선이었고, 곡선은 "이래야 맞다" 는 제안이었다.
+ *   심(1·2·3mm)으로 재서 곡선이 맞다는 것을 확인한 뒤 펌웨어를 곡선으로 바꿨다.
+ *   이제 실선이 실제고 파선이 참고다 — 이름을 바꾸지 않으면 그림이 거짓말을 한다.
  *
  * ★ 왜 세로가 u 인가.
  *
@@ -20,6 +23,7 @@
  */
 import React from 'react';
 import styled from 'styled-components';
+import {useTranslation} from 'react-i18next';
 import {HeCurve, heCurveToMm} from 'src/utils/he-curve';
 
 const W = 420;
@@ -76,6 +80,7 @@ type Props = {
 };
 
 export const HeGraph: React.FC<Props> = ({curve, travelMm, u}) => {
+  const {t} = useTranslation();
   const iw = W - PAD.l - PAD.r;
   const ih = H - PAD.t - PAD.b;
 
@@ -206,9 +211,9 @@ export const HeGraph: React.FC<Props> = ({curve, travelMm, u}) => {
       </Box>
 
       <Legend>
-        <span><Swatch $color="var(--color_accent)" />모델(곡선)</span>
-        <span><Swatch $color="var(--color_label)" $dash />지금 환산(직선)</span>
-        <span><Swatch $color={LIVE} />지금 눌린 자리</span>
+        <span><Swatch $color="var(--color_accent)" />{t('he.curve.now')}</span>
+        <span><Swatch $color="var(--color_label)" $dash />{t('he.curve.old')}</span>
+        <span><Swatch $color={LIVE} />{t('he.curve.live')}</span>
       </Legend>
     </div>
   );

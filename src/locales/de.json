@@ -415,5 +415,15 @@
   "he.tip.bottom": "Turns the release side off near the bottom. Holding a key fully pressed, a finger still eases off by 0.1-0.3mm, and that alone would release it. Only happens with rapid trigger.",
   "he.tip.bottomZone": "How deep the protected band reaches up from the bottom.",
   "he.tip.dead": "Movement within this distance of the resting position is ignored, so vibration or tolerance cannot produce an accidental press. Leave it at zero unless the board sees vibration.",
-  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise."
+  "he.tip.switch": "Nominal travel used to convert uncalibrated keys to mm. Once calibrated, the per-key measurement takes over. Pick your actual switch if you know it — the mm readings are wrong otherwise.",
+  "ADC to distance": "ADC zu Weg",
+  "Now": "Jetzt",
+  "Travel": "Gesamtweg",
+  "press a key with live depth on": "Live-Tiefe einschalten und eine Taste drücken",
+  "he.curve.now": "in Verwendung (Kurve)",
+  "he.curve.old": "frühere Gerade",
+  "he.curve.live": "aktuelle Position",
+  "he.tip.curve": "Waagerecht der tatsächliche Weg, senkrecht der Sensorwert als Anteil. Beim Drücken zeigt der Punkt die aktuelle Lage.",
+  "he.note.curveOn": "Dieser Schalter nutzt eine Kurve aus den zwei vom Hersteller angegebenen Flusswerten. Als Gerade gelesen weicht sie um bis zu {{err}}mm ab — mit 1/2/3-mm-Fühlerlehren bestätigt.",
+  "he.note.curveOff": "Für diesen Schalter fehlen die Flussangaben, daher wird linear gelesen. Die Mitte des Wegs kann abweichen — das tatsächliche Produkt aus der Liste zu wählen ist immer besser."
 }
