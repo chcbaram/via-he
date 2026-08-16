@@ -220,22 +220,25 @@ const paintKeycapLabel = (
 
   /* 각인 좌상단, 값 우하단 — 2D 쪽과 같은 규칙이다 (two-string/keycap.tsx 주석 참고) */
   if (label && label.subLabel) {
-    /* 넘치면 줄인다 — 2D 쪽 주석 참고 */
-    let fontSize = 32;
-    const room = (rect.tr.x - rect.bl.x - 2 * margin.x) * canvas.width;
+    /* 값이 둘이면 줄을 나눠 쌓는다 — 2D 쪽 주석 참고 */
+    const lines = String(label.subLabel).split('\n');
+    const fontSize = 32;
+    const lineH = fontSize + 4;
+
     context.font = `${fontSize}px ${fontFamily}`;
-    while (fontSize > 20 && context.measureText(label.subLabel).width > room) {
-      fontSize -= 1;
-      context.font = `${fontSize}px ${fontFamily}`;
-    }
     context.textAlign = 'right';
     context.globalAlpha = 0.8;
-    context.fillText(
-      label.subLabel,
-      (rect.tr.x - margin.x) * canvas.width,
-      (1 - (rect.bl.y + margin.y)) * canvas.height -
-        (label.bar ? 14 : 0),
-    );
+
+    const bottom =
+      (1 - (rect.bl.y + margin.y)) * canvas.height - (label.bar ? 14 : 0);
+    lines.forEach((ln, i) => {
+      context.fillText(
+        ln,
+        (rect.tr.x - margin.x) * canvas.width,
+        bottom - (lines.length - 1 - i) * lineH,
+      );
+    });
+
     context.globalAlpha = 1;
     context.textAlign = 'start';
   }

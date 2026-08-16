@@ -178,27 +178,31 @@ const paintKeycapLabel = (
    */
   if (label && label.subLabel) {
     /*
-     * ★ 넘치면 줄인다.
+     * ★ 값이 둘이면 줄을 나눠 쌓는다.
      *
-     *   값이 하나면 "1.00" 이지만 둘이면 "1.00/0.50" 이라 두 배가 넘는다. 1u
-     *   키캡에서는 고정 크기로는 안 들어간다. 자르면 뒤 값이 사라져 있는지조차
-     *   모르므로, 들어갈 때까지 줄인다 — 작아도 있는 편이 낫다.
+     *   한 줄에 "1.00/0.50" 으로 붙이면 1u 키캡 폭에 맞추느라 글자가 읽을 수 없게
+     *   작아진다. 가로는 더 못 늘리지만 세로는 남는다. 아래에서 위로 쌓으므로
+     *   **마지막 줄이 맨 아래**다 — 부르는 쪽이 입력, 해제 순으로 주면 화면의 자와
+     *   같은 순서로 놓인다.
      */
-    let fontSize = 11;
-    const room = canvasWidth - 7;
+    const lines = String(label.subLabel).split('\n');
+    const fontSize = 11;
+    const lineH = fontSize + 1;
+
     context.font = `${fontSize}px ${fontFamily}`;
-    while (fontSize > 7 && context.measureText(label.subLabel).width > room) {
-      fontSize -= 0.5;
-      context.font = `${fontSize}px ${fontFamily}`;
-    }
     context.textAlign = 'right';
     context.globalAlpha = 0.8;
+
     /* 막대가 있으면 그 위로 올린다 */
-    context.fillText(
-      label.subLabel,
-      canvasWidth - 4,
-      canvasHeight - (label.bar ? 8 : 4),
-    );
+    const bottom = canvasHeight - (label.bar ? 8 : 4);
+    lines.forEach((ln, i) => {
+      context.fillText(
+        ln,
+        canvasWidth - 4,
+        bottom - (lines.length - 1 - i) * lineH,
+      );
+    });
+
     context.globalAlpha = 1;
     context.textAlign = 'start';
   }

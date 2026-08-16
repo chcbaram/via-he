@@ -825,10 +825,16 @@ export const HePane: React.FC = () => {
       const i = g.row * MATRIX_COLS + g.col;
       const c = keyCfgs[i];
       if (!c) continue;
-      /* 값 사이는 사선 하나로 붙인다 — 1u 키캡에 빈칸까지 넣을 자리가 없다 */
+      /*
+       * 값이 둘이면 **줄을 나눈다.**
+       *
+       * 한 줄에 "1.00/0.50" 으로 붙였더니 1u 키캡 폭에 맞추느라 글자가 7px 까지
+       * 줄어 읽히지 않았다. 가로는 더 못 늘리지만 세로는 남아 있다 — 위가 입력,
+       * 아래가 해제로 자가 세워진 방향과도 맞는다.
+       */
       text[i] = fields
         .map((f) => (((c[f] as number) ?? 0) / 100).toFixed(2))
-        .join('/');
+        .join('\n');
     }
     dispatch(setOverlayText(text));
   }, [rail, section, keyCfgs, layout, dispatch]);
