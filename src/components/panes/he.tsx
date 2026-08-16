@@ -542,6 +542,19 @@ const ProfBtn = styled(AccentButton)<{$on: boolean}>`
   border-width: ${(p) => (p.$on ? 2 : 1)}px;
 `;
 
+/*
+ * 안 눌림으로 볼 문턱 (0.01mm).
+ *
+ * ★ 안 누른 키도 깊이가 딱 0 이 아니다.
+ *
+ *   잡음이 몇 카운트 떠 있어 0 과 1~2 를 오간다. 그대로 "눌렸나" 로 쓰면 키캡 숫자도
+ *   그래프의 점도 깜빡인다 — 실제로 둘 다 그랬다.
+ *
+ *   실측 잡음 폭(p-p 40 카운트, 0.06mm 쯤) 위에서 자른다. 값을 두 군데 적으면 한쪽만
+ *   고치게 되므로 여기 한 곳에 둔다.
+ */
+const HE_MM_MIN = 10;
+
 const Note = styled.div`
   width: 100%;
   max-width: 960px;
@@ -1079,7 +1092,6 @@ export const HePane: React.FC = () => {
      *   0.01 까지 보이면 끝자리가 쉼 없이 떨려 읽을 수가 없다. 원시값은 끊지
      *   않는다 — 그건 떨림 자체를 보려고 켜는 것이다.
      */
-    const MM_MIN = 10;      /* 0.10mm — 잡음 위 */
     const live: Record<number, string> = {};
     for (const g of layout) {
       const i = g.row * MATRIX_COLS + g.col;
@@ -1087,7 +1099,7 @@ export const HePane: React.FC = () => {
       if (!k) continue;
       if (showRaw) {
         live[i] = String(k.raw);
-      } else if (k.depth >= MM_MIN) {
+      } else if (k.depth >= HE_MM_MIN) {
         live[i] = ((Math.round(k.depth / 5) * 5) / 100).toFixed(2);
       }
     }
@@ -2666,8 +2678,12 @@ export const HePane: React.FC = () => {
         : null;
 
       /* 펌웨어의 깊이는 직선 환산이라 u 를 그대로 되돌릴 수 있다 (u = depth / travel) */
+      /*
+       * 문턱을 넘어야 "눌렸다" 로 본다. 안 그러면 손을 뗀 상태에서도 잡음이 0 과
+       * 1~2 를 오가며 점과 글자가 깜빡인다.
+       */
       const u =
-        tracking && deepestAll.um > 0
+        tracking && deepestAll.um >= HE_MM_MIN
           ? Math.min(1, deepestAll.um / (cur?.travelUm ?? travel))
           : null;
 
