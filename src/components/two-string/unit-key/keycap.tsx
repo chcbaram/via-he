@@ -83,7 +83,26 @@ const paintKeycapLabel = (
   context.clip();
 
   context.fillStyle = legendColor;
+  let overflowed = false;
   if (label === undefined) {
+  } else if (label.topLabel && label.bottomLabel && label.subLabel) {
+    /*
+     * ★ 값이 붙으면 두 줄 각인을 한 줄로 접는다.
+     *
+     *   두 줄 각인은 키캡 위아래를 다 쓴다. 값이 우하단에 들어가면 아래 줄과
+     *   나란히 붙어 "1 2530" 처럼 한 덩어리로 읽혔다.
+     *
+     *   남기는 것은 **아래 줄**이다. 그게 그 키의 이름이다 (1, `, ,). 위 줄은
+     *   시프트했을 때의 글자라 지금 화면에서 알 필요가 없다.
+     */
+    let fontSize = 18;
+    let fontHeight = 0.75 * fontSize;
+    context.font = `bold ${fontSize}px ${fontFamily}`;
+    context.fillText(
+      label.bottomLabel,
+      singleLabelMargin.x,
+      singleLabelMargin.y + fontHeight,
+    );
   } else if (label.topLabel && label.bottomLabel) {
     let fontSize = 16;
     let fontHeight = 0.75 * fontSize;
@@ -101,22 +120,31 @@ const paintKeycapLabel = (
       canvasHeight - bottomLabelMargin.y - bottomLabelOffset,
     );
   } else if (label.centerLabel) {
-    let fontSize = 13 * label.size;
+    /* 값이 붙는 키캡은 각인을 줄인다 — 아래를 값에 내준다 */
+    let fontSize = (label.subLabel ? 11 : 13) * label.size;
     let fontHeight = 0.75 * fontSize;
     let faceMidLeftY = canvasHeight / 2;
     context.font = `bold ${fontSize}px ${fontFamily}`;
+    /*
+     * 값을 얹을 때는 각인을 위로 올린다.
+     *
+     * 여러 낱말짜리 각인(Backspace, Enter)은 세로 가운데에 놓이는데, 그 자리는
+     * 우하단 값과 겹친다. 참고 보드도 값을 넣는 화면에서는 각인을 위로 붙인다 —
+     * 아래를 값 자리로 비우는 것이다.
+     */
     context.fillText(
       label.label,
       centerLabelMargin.x,
-      faceMidLeftY + 0.5 * fontHeight,
+      label.subLabel
+        ? topLabelMargin.y + fontHeight
+        : faceMidLeftY + 0.5 * fontHeight,
     );
     // return if label would have overflowed so that we know to show tooltip
-    return (
+    overflowed =
       context.measureText(label.centerLabel).width >
-      canvasWidth - centerLabelMargin.x
-    );
+      canvasWidth - centerLabelMargin.x;
   } else if (typeof label.label === 'string') {
-    let fontSize = 22;
+    let fontSize = label.subLabel ? 18 : 22;
     let fontHeight = 0.75 * fontSize;
     context.font = `bold ${fontSize}px ${fontFamily}`;
     context.fillText(
@@ -125,6 +153,32 @@ const paintKeycapLabel = (
       singleLabelMargin.y + fontHeight,
     );
   }
+
+  /*
+   * 각인 아래 **오른쪽**에 값 한 줄.
+   *
+   * ★ 각인을 덮지 않는다.
+   *
+   *   처음에는 각인 자리를 값으로 갈아 끼웠는데, 그러면 어느 키인지 알 수 없어져
+   *   보정 화면에서 "다음에 누를 키" 를 못 찾는다. 각인은 좌상단, 값은 우하단으로
+   *   대각선으로 갈라 놓으면 1u 키캡에서도 둘이 안 부딪힌다. 참고 보드도 같은
+   *   배치다.
+   *
+   * ★ 색은 legendColor 를 그대로 쓴다.
+   *
+   *   고른 키는 키캡이 강조색으로 바뀌고 각인이 어두워진다. 값에 색을 따로 박으면
+   *   그 키에서 값이 배경에 묻는다. 각인과 같은 색을 쓰면 반전이 저절로 따라온다.
+   */
+  if (label && label.subLabel) {
+    const fontSize = 11;
+    context.font = `${fontSize}px ${fontFamily}`;
+    context.textAlign = 'right';
+    context.globalAlpha = 0.8;
+    context.fillText(label.subLabel, canvasWidth - 4, canvasHeight - 4);
+    context.globalAlpha = 1;
+    context.textAlign = 'start';
+  }
+  return overflowed;
 };
 
 const paintKeycap = (

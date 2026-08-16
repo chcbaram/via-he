@@ -456,7 +456,12 @@ export const HE_CAL_START = 1;
 export const HE_CAL_SAVE = 2;
 export const HE_CAL_CANCEL = 3;
 
+export const HE_CAL_STROKE = 4;
+
 const HE_CAL_MAP_OFF = 8;
+
+/* 행정 응답의 값 자리. 펌웨어의 HID_CAL_STROKE_OFF 와 같아야 한다 */
+const HE_CAL_STROKE_OFF = 4;
 
 export type HeCalState = {
   active: boolean;
@@ -480,6 +485,34 @@ function parseCal(r: number[]): HeCalState {
     skipped: r[6],
     keys,
   };
+}
+
+/*
+ * 지금까지 모인 행정을 키별로 읽는다 (카운트). 0 = 아직 못 잰 키.
+ *
+ * ★ 보정 중에는 keyCfg 를 읽어도 소용없다.
+ *
+ *   이번에 모으는 값은 저장할 때까지 펌웨어의 cfg 에 들어가지 않는다. keyCfg 로
+ *   읽으면 **저장돼 있던 옛 값**이 나와서, 누르는 대로 갱신되는 것처럼 보이지도
+ *   않고 옛 값이 새 값인 척한다. 전용 통로로 진행 중인 값을 받는다.
+ *
+ * 한 프레임에 다 안 들어가 나눠 묻는다. 프레임마다 몇 개를 채웠는지 알려주므로
+ * 그만큼씩 전진한다 — 개수를 도구에 상수로 박으면 펌웨어와 갈라진다.
+ */
+export async function heCalStrokes(send: HidSender): Promise<number[]> {
+  const out: number[] = [];
+
+  for (let start = 0; start < 64; ) {
+    const r = await send(HE_CMD_CAL, [HE_CAL_STROKE, start]);
+    const n = r[3];
+    if (!n) break;
+    for (let i = 0; i < n; i++) {
+      out[start + i] =
+        r[HE_CAL_STROKE_OFF + i * 2] | (r[HE_CAL_STROKE_OFF + i * 2 + 1] << 8);
+    }
+    start += n;
+  }
+  return out;
 }
 
 export async function heCalStatus(send: HidSender): Promise<HeCalState> {

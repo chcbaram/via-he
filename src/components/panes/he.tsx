@@ -84,6 +84,7 @@ import {
   heReadInfo,
   heCalStart,
   heCalStatus,
+  heCalStrokes,
   heCalSave,
   heCalCancel,
   type HeCalState,
@@ -752,12 +753,35 @@ export const HePane: React.FC = () => {
   useEffect(() => {
     if (!api || !cal?.active) return;
     let alive = true;
+    /*
+     * 상태와 값을 **한 번에 이어서** 묻는다.
+     *
+     * 둘을 따로 돌리면 같은 통로에 요청이 겹쳐 응답이 엇갈린다. 그리고 값 읽기는
+     * 프레임 세 번이라 한 번에 네 번을 왕복하는데, 250ms 안에 넉넉히 끝난다.
+     */
     const id = setInterval(() => {
       heCalStatus(send)
-        .then((c) => {
+        .then(async (c) => {
           if (!alive) return;
           setCal(c);
           dispatch(setOverlayKeys(c.keys));
+
+          /*
+           * 누르는 대로 값이 갱신되는 것을 보여준다.
+           *
+           * ★ 아직 못 잰 키는 빈칸으로 둔다.
+           *
+           *   0 을 찍으면 "0 카운트로 측정됨" 으로 읽힌다. 저장돼 있던 옛 값을
+           *   대신 찍는 것도 안 된다 — 지금 잰 값인 척한다.
+           */
+          const v = await heCalStrokes(send);
+          if (!alive) return;
+          const text: Record<number, string> = {};
+          for (const g of layout) {
+            const i = g.row * MATRIX_COLS + g.col;
+            if (v[i] > 0) text[i] = String(v[i]);
+          }
+          dispatch(setOverlayText(text));
         })
         .catch(() => {});
     }, 250);
@@ -765,7 +789,7 @@ export const HePane: React.FC = () => {
       alive = false;
       clearInterval(id);
     };
-  }, [api, send, cal?.active, dispatch]);
+  }, [api, send, cal?.active, layout, dispatch]);
 
   /*
    * Esc 로 선택을 푼다.

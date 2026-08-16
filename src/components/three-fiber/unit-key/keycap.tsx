@@ -156,7 +156,18 @@ const paintKeycapLabel = (
   context.clip();
 
   context.fillStyle = legendColor;
+  let overflowed = false;
   if (label === undefined) {
+  } else if (label.topLabel && label.bottomLabel && label.subLabel) {
+    /* 값이 붙으면 아래 줄만 남긴다 — 2D 쪽 주석 참고 */
+    let fontSize = 60;
+    let fontHeightTU = (0.75 * fontSize) / canvas.height;
+    context.font = `bold ${fontSize}px ${fontFamily}`;
+    context.fillText(
+      label.bottomLabel,
+      (rect.bl.x + singleLabelMargin.x) * canvas.width,
+      (1 - (rect.tr.y - fontHeightTU - singleLabelMargin.y)) * canvas.height,
+    );
   } else if (label.topLabel && label.bottomLabel) {
     let fontSize = 52;
     let fontHeightTU = (0.75 * fontSize) / canvas.height;
@@ -175,23 +186,26 @@ const paintKeycapLabel = (
       (1 - (rect.bl.y + margin.y + bottomLabelOffset)) * canvas.height,
     );
   } else if (label.centerLabel) {
-    let fontSize = 37.5 * label.size;
+    /* 값이 붙는 키캡은 각인을 줄인다 — 아래를 값에 내준다 */
+    let fontSize = (label.subLabel ? 31 : 37.5) * label.size;
     let fontHeightTU = (0.75 * fontSize) / canvas.height;
     let faceMidLeftY = (rect.tr.y + rect.bl.y) / 2;
     context.font = `bold ${fontSize}px ${fontFamily}`;
+    /* 값을 얹을 때는 각인을 위로 — 2D 쪽과 같은 이유다 */
     context.fillText(
       label.label,
       (rect.bl.x + centerLabelMargin.x) * canvas.width,
-      (1 - (faceMidLeftY - 0.5 * fontHeightTU - centerLabelMargin.y)) *
-        canvas.height,
+      label.subLabel
+        ? (1 - (rect.tr.y - fontHeightTU - margin.y)) * canvas.height
+        : (1 - (faceMidLeftY - 0.5 * fontHeightTU - centerLabelMargin.y)) *
+          canvas.height,
     );
     // return if label would have overflowed so that we know to show tooltip
-    return (
+    overflowed =
       context.measureText(label.centerLabel).width >
-      (rect.tr.x - (rect.bl.x + centerLabelMargin.x)) * canvas.width
-    );
+      (rect.tr.x - (rect.bl.x + centerLabelMargin.x)) * canvas.width;
   } else if (typeof label.label === 'string') {
-    let fontSize = 75;
+    let fontSize = label.subLabel ? 60 : 75;
     let fontHeightTU = (0.75 * fontSize) / canvas.height;
     context.font = `bold ${fontSize}px ${fontFamily}`;
     context.fillText(
@@ -200,6 +214,22 @@ const paintKeycapLabel = (
       (1 - (rect.tr.y - fontHeightTU - singleLabelMargin.y)) * canvas.height,
     );
   }
+
+  /* 각인 좌상단, 값 우하단 — 2D 쪽과 같은 규칙이다 (two-string/keycap.tsx 주석 참고) */
+  if (label && label.subLabel) {
+    const fontSize = 32;
+    context.font = `${fontSize}px ${fontFamily}`;
+    context.textAlign = 'right';
+    context.globalAlpha = 0.8;
+    context.fillText(
+      label.subLabel,
+      (rect.tr.x - margin.x) * canvas.width,
+      (1 - (rect.bl.y + margin.y)) * canvas.height,
+    );
+    context.globalAlpha = 1;
+    context.textAlign = 'start';
+  }
+  return overflowed;
 };
 
 // coordinates of corners of keycap and top face in texture coordinates (UVs)

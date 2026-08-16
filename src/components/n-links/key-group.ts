@@ -77,25 +77,7 @@ export function getLabels<T>(
   return !props.matrixKeycodes.length
     ? []
     : props.keys.map((k, i) => {
-        /*
-         * 밖에서 준 글자가 있으면 각인 대신 그것을 찍는다.
-         *
-         * centerLabel 로 준다 — 가운데 줄에 13px 로 그려지는 길이라 "3.85" 같은
-         * 짧은 숫자가 어느 키캡 폭에서든 들어간다. label 만 주면 22px 로 그려져
-         * 1u 키에서 넘친다.
-         */
-        const over = props.keyLabels?.[i];
-        if (over !== undefined) {
-          return {
-            label: over,
-            centerLabel: over,
-            tooltipLabel: over,
-            key: `ov-${over}`,
-            size: 1.0,
-            offset: [0, 0] as [number, number],
-          };
-        }
-        return getLabel(
+        const base = getLabel(
           props.matrixKeycodes[i],
           k.w,
           macroExpressions,
@@ -104,6 +86,24 @@ export function getLabels<T>(
           byteToKey,
           keycodeLUT,
         );
+
+        /*
+         * 밖에서 준 값은 **각인 아래에 얹는다** (subLabel).
+         *
+         * ★ 각인을 갈아 끼우면 안 된다.
+         *
+         *   처음에는 각인 자리를 값으로 바꿨다. 그러면 어느 키인지 알 수 없어져,
+         *   보정하려고 보는 화면에서 "다음에 누를 키" 를 못 찾는다. 아래 중앙에
+         *   작게 깔면 각인과 값이 같이 보인다.
+         *
+         * key 를 값까지 포함해 만든다 — 키캡이 이 문자열로 다시 그릴지 정한다.
+         * 안 넣으면 값이 바뀌어도 옛 그림이 남는다 (보정 중에는 계속 바뀐다).
+         */
+        const sub = props.keyLabels?.[i];
+        if (sub === undefined) return base;
+
+        const b = base && typeof base === 'object' ? base : {};
+        return {...b, subLabel: sub, key: `${(b as any).key ?? ''}|${sub}`};
       });
 }
 
