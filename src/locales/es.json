@@ -427,5 +427,6 @@
   "he.note.curveOn": "Este interruptor usa una curva resuelta a partir de los dos valores de flujo que publica el fabricante. Leerla como recta se desvía hasta {{err}}mm — confirmado con galgas de 1/2/3 mm.",
   "he.note.curveOff": "No hay datos de flujo para este interruptor, así que se lee como una recta. La zona media puede desviarse — elegir el producto real de la lista siempre es mejor.",
   "pressed": "pulsada",
-  "he.note.rtBadge": "En la tecla, un punto arriba a la derecha indica rapid trigger y un anillo el modo continuo. Solo se marcan las teclas activadas."
+  "he.note.rtBadge": "En la tecla, un punto arriba a la derecha indica rapid trigger y un anillo el modo continuo. Solo se marcan las teclas activadas.",
+  "he.note.dead": "La zona muerta no puede superar el punto de liberación ({{max}}mm). Más allá asumiría su función — sube antes el punto de liberación si necesitas más."
 }

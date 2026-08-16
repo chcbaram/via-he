@@ -1043,21 +1043,39 @@ export const HePane: React.FC = () => {
    *   처음 한 번은 사용자가 버튼으로 켜서 허락해야 한다. 화면을 열었을 뿐인데
    *   장치 선택 창이 뜨면 놀란다. 한 번 허락하면 그다음부터 저절로 열린다.
    *
-   * ★ 장치 갈래에서는 끈다.
+   * ★ 장치 갈래에서는 끄고, **나올 때 돌려놓는다.**
    *
    *   거기서는 깊이를 볼 일이 없고, 굽는 동안 스트림이 열려 있으면 장치가
    *   재열거될 때 엉킨다. 보정 갈래에서는 켠 채로 둔다 — 거기도 깊이를 본다.
+   *
+   *   끄기만 하고 안 돌려놓던 것이 버그였다. 디버그를 한 번 보고 오면 켜져 있던
+   *   라이브 깊이가 꺼진 채였고, autoTried 가 이미 서 있어 자동 시작도 안 걸렸다.
+   *   **내가 끈 것은 내가 되살린다** — 사용자가 끈 것은 그대로 둬야 하므로 들어갈
+   *   때의 상태를 적어 둔다.
    */
   const autoTried = useRef(false);
+  const trackWas = useRef(false);
 
   useEffect(() => {
     if (!api || !device || busy) return;
 
     if (rail === 'device') {
-      if (tracking) stop();
+      if (tracking) {
+        trackWas.current = true;
+        stop();
+      }
       return;
     }
-    if (rail !== 'tune' || tracking || autoTried.current) return;
+    if (tracking) return;
+
+    /* 장치 갈래에 들어가느라 내가 껐던 것이면 되살린다 */
+    if (trackWas.current) {
+      trackWas.current = false;
+      start(true);
+      return;
+    }
+
+    if (rail !== 'tune' || autoTried.current) return;
 
     autoTried.current = true;
     start(true);
@@ -2725,6 +2743,24 @@ export const HePane: React.FC = () => {
     }
 
     if (section === 'deadzone') {
+      /*
+       * ★ 해제지점 위로는 못 올린다.
+       *
+       *   데드존은 "이보다 얕으면 안 본 걸로 친다" 는 규칙이라, 해제지점보다 깊어지면
+       *   해제지점이 할 일이 없어진다 — 깊이가 이미 0 이 되어 그 전에 떼져 버린다.
+       *   입력지점까지 넘기면 이번엔 입력지점을 덮어쓴다.
+       *
+       *   그러면 **화면의 숫자가 거짓이 된다.** 해제 0.50 이라고 적혀 있는데 실제로는
+       *   데드존에서 떼지고, 입력 1.00 이라는데 데드존에서 눌린다. 값을 조용히 고치는
+       *   대신 **애초에 그 자리에 못 가게** 막는다.
+       *
+       *   순서는 늘 이렇다 —  0 ≤ 데드존 ≤ 해제지점 < 입력지점
+       *
+       *   더 큰 데드존이 필요하면 해제지점을 먼저 올리면 된다. 두 값의 관계가 화면에서
+       *   그대로 보이므로 무엇을 해야 하는지도 같이 보인다.
+       */
+      const deadMax = num('releaseUm', cfg?.releaseUm ?? 50) ?? 50;
+
       return (
         <>
           <ControlRow>
@@ -2734,8 +2770,8 @@ export const HePane: React.FC = () => {
             <Detail>
               <AccentRange
                 min={0}
-                max={50}
-                value={num('deadUm', cfg?.deadUm ?? 0) ?? 0}
+                max={deadMax}
+                value={Math.min(num('deadUm', cfg?.deadUm ?? 0) ?? 0, deadMax)}
                 onChange={(v: number) => {
                   setCfg((c) => (c ? {...c, deadUm: v} : c));
                   put('deadUm', v).catch(() => {});
@@ -2746,6 +2782,8 @@ export const HePane: React.FC = () => {
               </Val>
             </Detail>
           </ControlRow>
+
+          <Note>{t('he.note.dead', {max: (deadMax / 100).toFixed(2)})}</Note>
         </>
       );
     }

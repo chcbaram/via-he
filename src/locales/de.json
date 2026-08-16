@@ -427,5 +427,6 @@
   "he.note.curveOn": "Dieser Schalter nutzt eine Kurve aus den zwei vom Hersteller angegebenen Flusswerten. Als Gerade gelesen weicht sie um bis zu {{err}}mm ab — mit 1/2/3-mm-Fühlerlehren bestätigt.",
   "he.note.curveOff": "Für diesen Schalter fehlen die Flussangaben, daher wird linear gelesen. Die Mitte des Wegs kann abweichen — das tatsächliche Produkt aus der Liste zu wählen ist immer besser.",
   "pressed": "gedrückt",
-  "he.note.rtBadge": "Oben rechts auf der Taste markiert ein Punkt Rapid Trigger, ein Ring den Dauermodus. Nur aktivierte Tasten werden markiert."
+  "he.note.rtBadge": "Oben rechts auf der Taste markiert ein Punkt Rapid Trigger, ein Ring den Dauermodus. Nur aktivierte Tasten werden markiert.",
+  "he.note.dead": "Die Totzone kann nicht tiefer als der Rückstellpunkt ({{max}}mm) sein. Darüber hinaus würde sie dessen Aufgabe übernehmen — erhöhe zuerst den Rückstellpunkt."
 }

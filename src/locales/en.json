@@ -499,5 +499,6 @@
   "he.note.curveOn": "This switch uses a curve solved from the two flux figures its maker publishes. Reading it as a straight line is off by up to {{err}}mm — 1/2/3mm shims confirmed the curve is the right one.",
   "he.note.curveOff": "No flux spec for this switch, so it is read as a straight line. The middle of the stroke may be off. Picking your actual product from the list is always better.",
   "pressed": "pressed",
-  "he.note.rtBadge": "On the keycap, a dot at the top right marks rapid trigger, a ring marks continuous mode. Only enabled keys are marked."
+  "he.note.rtBadge": "On the keycap, a dot at the top right marks rapid trigger, a ring marks continuous mode. Only enabled keys are marked.",
+  "he.note.dead": "The dead zone cannot go deeper than the release point ({{max}}mm). Past that it would take over the release point's job — raise the release point first if you need more."
 }
