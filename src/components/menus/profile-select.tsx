@@ -47,6 +47,14 @@ const Container = styled.div`
   font-weight: 400;
 `;
 
+/*
+ * 알약과 목록의 폭을 같은 값에서 뽑는다.
+ *
+ * 둘이 다르면 목록이 알약 밑에서 삐져나와 두 조각처럼 보인다. 숫자를 두 군데 적으면
+ * 한쪽만 고치게 되므로 한 곳에 둔다.
+ */
+const LIST_W = 160;
+
 /* badge.tsx 의 KeyboardTitle 과 같은 규칙 — 위 테두리 없이 아래로 떨어지는 알약 */
 const Title = styled.label`
   pointer-events: all;
@@ -63,6 +71,9 @@ const Title = styled.label`
   border-top: none;
   cursor: pointer;
   white-space: nowrap;
+  box-sizing: border-box;
+  width: ${LIST_W}px;
+  text-align: center;
   transition: all 0.1s ease-out;
   &:hover {
     filter: brightness(0.7);
@@ -72,7 +83,7 @@ const Title = styled.label`
 const List = styled.ul<{$show: boolean}>`
   padding: 0;
   border: 1px solid var(--bg_control);
-  width: 160px;
+  width: ${LIST_W}px;
   border-radius: 6px;
   background-color: var(--bg_menu);
   margin: 0;

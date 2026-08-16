@@ -64,6 +64,7 @@ import {AccentSelect} from '../inputs/accent-select';
 import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {DepthSlider} from './he-depth';
+import {ProfileSelect} from 'src/components/menus/profile-select';
 import {
   fwFetch,
   fwList,
@@ -2361,6 +2362,21 @@ export const HePane: React.FC = () => {
 
   return (
     <ConfigureBasePane>
+      {/*
+        * ★ 여기서도 같은 자리에 띄운다.
+        *
+        *   프로파일은 어느 탭에 있든 "지금 몇 번" 이 보여야 한다. 이 탭에서 값을
+        *   만지는 동안 그 값이 어느 프로파일에 들어가는지가 특히 중요하다 —
+        *   정작 여기서만 안 보이면 앞뒤가 안 맞는다.
+        *
+        *   키맵 탭과 같은 좌표(오른끝에서 220px, 맨 위)를 쓰므로 탭을 오가도
+        *   자리가 안 움직인다.
+        */}
+      <div style={{position: 'absolute', top: 50, left: 0, right: 0, pointerEvents: 'none'}}>
+        <div style={{pointerEvents: 'all'}}>
+          <ProfileSelect />
+        </div>
+      </div>
       <Grid style={{pointerEvents: 'none'}}>
         <MenuCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
