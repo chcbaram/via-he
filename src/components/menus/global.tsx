@@ -75,10 +75,18 @@ export const UnconnectedGlobalMenu = () => {
    * (scripts/add-local-kbs.ts -> src/utils/he-boards.ts).
    */
   const selectedDefinition = useAppSelector(getSelectedDefinition);
-  const showHeTab =
-    !!selectedDefinition && HE_BOARDS.has(selectedDefinition.vendorProductId);
-
   const [location] = useLocation();
+
+  /*
+   * ★ 이미 HE 탭에 있으면 장치가 사라져도 탭을 지우지 않는다.
+   *
+   *   펌웨어를 구우면 장치가 부트로더로 넘어가면서 정의가 없어진다. 그때 탭이
+   *   통째로 사라져 **굽는 중에 화면이 뒤로 튕겼다.** 부트로더로 가는 것은
+   *   그 화면이 시킨 일이므로, 그 결과로 화면을 없애면 안 된다.
+   */
+  const showHeTab =
+    location === '/he' ||
+    (!!selectedDefinition && HE_BOARDS.has(selectedDefinition.vendorProductId));
 
   const Panes = useMemo(() => {
     return PANES.filter((pane) => pane.key !== ErrorsPaneConfig.key).map(

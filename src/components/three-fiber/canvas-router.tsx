@@ -19,6 +19,7 @@ import {
   getSelectedDefinition,
 } from 'src/store/definitionsSlice';
 import {reloadConnectedDevices} from 'src/store/devicesThunks';
+import {setForceAuthorize} from 'src/store/devicesSlice';
 import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {
   getConfigureKeyboardIsSelectable,
@@ -170,7 +171,15 @@ export const NonSuspenseCanvasRouter = () => {
             {showAuthorizeButton ? (
               !selectedDefinition ? (
                 <AccentButtonLarge
-                  onClick={() => dispatch(reloadConnectedDevices())}
+                  onClick={() => {
+                    /*
+                     * 승인 플래그를 여기서 켠다. 예전에는 "장치가 하나도 없다" 는
+                     * 상황이 켰는데, 굽는 동안 장치가 잠깐 사라지는 것과 구분이
+                     * 안 돼 선택 창이 제멋대로 떴다.
+                     */
+                    dispatch(setForceAuthorize(true));
+                    dispatch(reloadConnectedDevices());
+                  }}
                   style={{width: 'max-content'}}
                 >
                   Authorize device

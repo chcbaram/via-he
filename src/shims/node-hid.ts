@@ -93,8 +93,19 @@ const ExtendedHID = {
   },
   devices: async (requestAuthorize = false) => {
     let devices = await ExtendedHID.getFilteredDevices();
-    // TODO: This is a hack to avoid spamming the requestDevices popup
-    if (devices.length === 0 || requestAuthorize) {
+    /*
+     * ★ 목록이 비었다고 선택 창을 띄우지 않는다. (상류 대비 수정)
+     *
+     *   상류는 `devices.length === 0` 일 때도 requestDevice() 를 부른다. 주석에
+     *   스스로 "hack" 이라 적어 두었다. 그런데 펌웨어를 구울 때 장치가 부트로더로
+     *   넘어가면 목록이 잠깐 비는데, 그때마다 선택 창이 **굽는 도중에** 튀어나온다.
+     *   게다가 그 목록에는 우리 보드가 없다 — 부트로더는 VID/PID 가 달라서
+     *   VIA 의 필터에 안 걸리고, 책상에 물려둔 남의 키보드만 보인다.
+     *
+     *   명시적인 승인 경로(requestAuthorize)는 그대로 두므로 "장치 승인" 버튼은
+     *   전과 같이 동작한다.
+     */
+    if (requestAuthorize) {
       try {
         await ExtendedHID.requestDevice();
       } catch (e) {

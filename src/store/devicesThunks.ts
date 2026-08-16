@@ -144,6 +144,9 @@ export const reloadConnectedDevices =
       forceRequest,
     );
 
+    /* 한 번 물었으면 내린다 — 안 그러면 재스캔마다 창이 뜬다 */
+    if (forceRequest) dispatch(setForceAuthorize(false));
+
     const protocolVersions = await Promise.all(
       recognisedDevices.map((device) =>
         new KeyboardAPI(device.path).getProtocolVersion(),
@@ -257,7 +260,17 @@ export const reloadConnectedDevices =
       dispatch(selectConnectedDevice(firstConnectedDevice));
     } else if (validDevicesArr.length === 0) {
       dispatch(selectDevice(null));
-      dispatch(setForceAuthorize(true));
+      /*
+       * ★ 여기서 forceAuthorize 를 켜지 않는다. (상류 대비 수정)
+       *
+       *   장치가 없어졌다고 승인을 강제하면, 펌웨어를 구울 때 장치가 부트로더로
+       *   넘어가 목록이 잠깐 비는 그 순간 **굽는 도중에 선택 창이 튀어나온다.**
+       *   게다가 그 창에는 우리 보드가 없다 — 부트로더는 VID/PID 가 달라
+       *   VIA 필터에 안 걸린다.
+       *
+       *   승인이 필요한 상황은 사용자가 "장치 승인" 을 누르는 때뿐이고, 그 버튼이
+       *   직접 플래그를 켠다.
+       */
     }
   };
 

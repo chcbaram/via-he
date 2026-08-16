@@ -12,6 +12,25 @@
 
 /* 설정 채널 명령 — VIA 가 쓰지 않는 0xC0 대 */
 export const HE_CMD_INFO = 0xc0;
+
+/*
+ * 보드 정보 — [1..] 이름, [16..] 버전. 둘 다 NUL 종료.
+ *
+ * 버전은 **고정 자리**다. 이름 뒤에 이어 붙이면 이름 길이가 바뀔 때 밀린다.
+ */
+const HE_INFO_VER_OFF = 16;
+
+export async function heReadInfo(
+  send: HidSender,
+): Promise<{board: string; version: string}> {
+  const r = await send(HE_CMD_INFO, []);
+  const str = (from: number, to: number) => {
+    let out = '';
+    for (let i = from; i < to && r[i]; i++) out += String.fromCharCode(r[i]);
+    return out;
+  };
+  return {board: str(1, HE_INFO_VER_OFF), version: str(HE_INFO_VER_OFF, r.length)};
+}
 export const HE_CMD_RESET = 0xc1;
 export const HE_CMD_LAYOUT = 0xc2;
 export const HE_CMD_TRACK = 0xc3;

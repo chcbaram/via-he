@@ -50,6 +50,7 @@ import {
   faArrowDownUpAcrossLine,
   faBolt,
   faCircleHalfStroke,
+  faMicrochip,
   faRulerVertical,
   faToggleOn,
   faWaveSquare,
@@ -62,6 +63,15 @@ import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
 import {DepthSlider} from './he-depth';
 import {
+  fwFetch,
+  fwList,
+  iapEnterBoot,
+  iapFlash,
+  iapRequest,
+  type FwEntry,
+  type IapProgress,
+} from 'src/utils/he-iap';
+import {
   clearKeys,
   getHeSelectedKeys,
   setCalKeys,
@@ -70,6 +80,7 @@ import {
 import {useAppDispatch} from 'src/store/hooks';
 import {
   heReadSwitches,
+  heReadInfo,
   heCalStart,
   heCalStatus,
   heCalSave,
@@ -125,6 +136,14 @@ const SECTIONS = [
    *   그리고 보정은 하나가 아니다 — 바닥값(지금)에 이어 비선형 보정이 온다.
    */
   {rail: 'cal', key: 'calibrate', label: 'BOTTOM-OUT', icon: faRulerVertical},
+
+  /*
+   * 장치 자체를 다루는 것들. 프로파일·내보내기도 앞으로 여기 붙는다.
+   *
+   * ★ 이름을 "Settings" 로 하지 않았다. VIA 에 이미 전역 Settings 탭이 있어
+   *   같은 말을 두 군데 쓰면 어느 쪽인지 헷갈린다.
+   */
+  {rail: 'device', key: 'firmware', label: 'FIRMWARE', icon: faMicrochip},
 ] as const;
 
 /*
@@ -133,6 +152,7 @@ const SECTIONS = [
 const RAILS = [
   {key: 'tune', title: 'Hall Effect', icon: faWaveSquare},
   {key: 'cal', title: 'Calibration', icon: faRulerVertical},
+  {key: 'device', title: 'Device', icon: faMicrochip},
 ] as const;
 
 type RailKey = (typeof RAILS)[number]['key'];
@@ -270,9 +290,52 @@ const Hint: React.FC<{tip: string; children: React.ReactNode}> = ({
  *   탭의 슬라이더가 상대적으로 좁아 보였다.** 이 열의 폭은 이 화면 하나가 아니라
  *   탭 전체가 나눠 쓰는 값이라, 한 줄만 보고 정하면 다른 데가 틀어진다.
  */
+/*
+ * 굽기 진행 막대.
+ *
+ * 부트로더로 넘어가고 기다리는 동안에는 비율을 모른다 — 그때는 흐르는 줄무늬로
+ * "살아 있다" 만 보여준다.
+ */
+const FwStat = styled.span`
+  margin-left: 12px;
+  white-space: nowrap;
+`;
+
+const FwBar = styled.div`
+  width: 260px;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--bg_control);
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+`;
+
+const FwBarFill = styled.div<{$pct: number; $busy: boolean}>`
+  height: 100%;
+  width: ${(p) => (p.$busy ? 100 : p.$pct)}%;
+  background: ${(p) =>
+    p.$busy
+      ? 'repeating-linear-gradient(45deg, var(--color_accent) 0 8px, transparent 8px 16px)'
+      : 'var(--color_accent)'};
+  transition: width 0.15s linear;
+`;
+
 const SelBtn = styled(AccentButton)`
   margin-left: 8px;
   min-width: 92px;
+`;
+
+/*
+ * 굽기 쪽 버튼.
+ *
+ * "다시 굽기" 와 ".bin 고르기" 가 세로로 나란히 놓이는데 글자 길이가 달라 크기가
+ * 제각각이면 목록으로 안 읽힌다. 폭을 하나로 잡되 **min-width 로** 둔다 — 고정
+ * 폭이면 번역이 길어질 때 글자가 넘친다.
+ */
+const FwBtn = styled(SelBtn)`
+  min-width: 150px;
+  white-space: nowrap;
 `;
 
 /*
@@ -326,6 +389,18 @@ export const HePane: React.FC = () => {
   const [cfg, setCfg] = useState<HeSettings | null>(null);
   const [switches, setSwitches] = useState<HeSwitchTable | null>(null);
   const [cal, setCal] = useState<HeCalState | null>(null);
+  const [fw, setFw] = useState<IapProgress | null>(null);
+  const [fwErr, setFwErr] = useState<string | null>(null);
+  const [fwList_, setFwList] = useState<FwEntry[] | null>(null);
+  const [fwPick, setFwPick] = useState(0);
+  const [fwInfo, setFwInfo] = useState<{board: string; version: string} | null>(
+    null,
+  );
+  const fwInput = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const fwPermit = useRef<((d: HIDDevice | null) => void) | null>(null);
+  const fwVid = useRef<number | undefined>(undefined);
+  const fwPid = useRef<number | undefined>(undefined);
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
 
@@ -482,10 +557,34 @@ export const HePane: React.FC = () => {
     heReadSwitches(send)
       .then((t) => alive && setSwitches(t))
       .catch(() => {});
+    heReadInfo(send)
+      .then((i) => alive && setFwInfo(i))
+      .catch(() => {});
+    fwList()
+      .then((l) => alive && setFwList(l))
+      .catch(() => alive && setFwList([]));   /* 목록이 없어도 수동 굽기는 된다 */
     return () => {
       alive = false;
     };
   }, [api, send]);
+
+  /*
+   * 펌웨어 화면을 열 때마다 현재 버전을 다시 읽는다.
+   *
+   * 마운트 때 한 번만 읽으면 그 사이에 장치가 바뀌거나(굽기·재연결) 처음 읽기가
+   * 실패했을 때 빈칸으로 남는다. 이 화면의 존재 이유가 버전을 보는 것이므로
+   * 열 때마다 확인한다.
+   */
+  useEffect(() => {
+    if (!api || section !== 'firmware' || busy) return;
+    let alive = true;
+    heReadInfo(send)
+      .then((i) => alive && setFwInfo(i))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [api, send, section, busy]);
 
   /*
    * 보정 중에는 상태를 주기적으로 읽는다.
@@ -642,6 +741,276 @@ export const HePane: React.FC = () => {
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
       return <Note>{t('Not yet')} — {t(todo.todo)}</Note>;
+    }
+
+    if (section === 'firmware') {
+      const cur = fwInfo?.version ?? '—';
+      const rel = fwList_ ?? [];
+      const sel: FwEntry | undefined = rel[fwPick];
+      const pct = fw && fw.total ? Math.round((fw.sent * 100) / fw.total) : 0;
+
+      const phase =
+        fw?.phase === 'boot'
+          ? t('Entering bootloader')
+          : fw?.phase === 'wait'
+          ? t('Waiting for bootloader')
+          : fw?.phase === 'permit'
+          ? t('Permission needed')
+          : fw?.phase === 'write'
+          ? `${pct}%`
+          : fw?.phase === 'done'
+          ? t('Done')
+          : '';
+
+      const flash = async (image: Uint8Array) => {
+        /*
+         * vid/pid 를 지금 붙잡아 둔다. 부트로더로 넘어가면 device 가 null 이
+         * 되는데, 그걸 도중에 다시 읽으면 터진다.
+         */
+        const vid = device?.vendorId ?? fwVid.current;
+        const pid = device?.productId ?? fwPid.current;
+        if (vid === undefined || pid === undefined) return;
+        fwVid.current = vid;
+        fwPid.current = pid;
+
+        setFwErr(null);
+        setBusy(true);
+        try {
+          await iapFlash(vid, pid, image, setFw, () => {
+            /*
+             * 부트로더를 못 찾았다. 사용자가 버튼을 누를 때까지 기다린다 —
+             * requestDevice() 는 사용자 제스처 안에서만 부를 수 있다.
+             */
+            return new Promise<HIDDevice | null>((res) => {
+              fwPermit.current = res;
+            });
+          });
+          /*
+           * 구운 뒤 버전을 다시 읽는다.
+           *
+           * ★ 한 번만 물으면 못 받는다. 굽기가 끝나도 앱이 다시 열거되고 VIA 가
+           *   장치를 다시 잡기까지 몇 초가 걸린다. 될 때까지 몇 번 두드린다.
+           */
+          for (let i = 0; i < 12; i++) {
+            await new Promise((r) => setTimeout(r, 1000));
+            try {
+              const nfo = await heReadInfo(send);
+              if (nfo.version) {
+                setFwInfo(nfo);
+                break;
+              }
+            } catch {
+              /* 아직 안 올라왔다 */
+            }
+          }
+        } catch (x) {
+          setFwErr(String(x));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        e.target.value = '';   /* 같은 파일을 다시 골라도 이벤트가 오게 */
+        if (f) await flash(new Uint8Array(await f.arrayBuffer()));
+      };
+
+      return (
+        <>
+          <ControlRow>
+            <Label>{t('Current version')}</Label>
+            <Detail>{cur}</Detail>
+          </ControlRow>
+
+          {rel.length > 0 && (
+            <>
+              <ControlRow>
+                <Label>
+                  {/* ★ 'Release' 는 앱에 이미 "해제" 로 번역돼 있다. 키를 따로 쓴다 */}
+                  <Hint tip={t('he.tip.fw')}>{t('Release version')}</Hint>
+                </Label>
+                <Detail>
+                  <AccentSelect
+                    width={330}
+                    value={{
+                      label: `${rel[fwPick].version}  (${rel[fwPick].date})`,
+                      value: fwPick,
+                    }}
+                    options={rel.map((r, i) => ({
+                      label: `${r.version}  (${r.date})`,
+                      value: i,
+                    }))}
+                    onChange={(o: any) => setFwPick(o?.value ?? 0)}
+                  />
+                </Detail>
+              </ControlRow>
+
+              {/* 릴리즈 노트 — 무엇이 바뀌는지 보고 고르게 한다 */}
+              {sel?.notes?.length ? (
+                <Note>
+                  {sel.notes.map((n, i) => (
+                    <div key={i}>· {n}</div>
+                  ))}
+                </Note>
+              ) : null}
+
+              <ControlRow>
+                <Label>{t('Update')}</Label>
+                <Detail>
+                  <FwBtn
+                    disabled={busy || !sel}
+                    onClick={async (e: React.MouseEvent) => {
+                      (e.currentTarget as HTMLElement).blur();
+                      if (!sel) return;
+                      setFwErr(null);
+                      try {
+                        await flash(await fwFetch(sel));
+                      } catch (x) {
+                        setFwErr(String(x));
+                      }
+                    }}
+                  >
+                    {/* ★ 'Flash' 는 앱에 이미 조명 뜻으로 "플래시" 라 번역돼 있다 */}
+                    {sel && sel.version === cur
+                      ? t('Reflash firmware')
+                      : t('Flash firmware')}
+                  </FwBtn>
+                </Detail>
+              </ControlRow>
+            </>
+          )}
+
+          {/* 손으로 고르는 길도 남긴다 — 배포 목록에 없는 빌드를 굽는 자리 */}
+          <ControlRow>
+            <Label>{t('From file')}</Label>
+            <Detail>
+              <FwBtn
+                disabled={busy}
+                onClick={(e: React.MouseEvent) => {
+                  (e.currentTarget as HTMLElement).blur();
+                  setFwErr(null);
+                  fwInput.current?.click();
+                }}
+              >
+                {t('Choose .bin')}
+              </FwBtn>
+              <input
+                ref={fwInput}
+                type="file"
+                accept=".bin"
+                style={{display: 'none'}}
+                onChange={onFile}
+              />
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * ★ 진행은 막대로 보여준다.
+            *
+            *   숫자만 있으면 멈춘 것인지 도는 것인지 알 수 없다. 굽는 동안 손을
+            *   떼면 안 되는 작업이라 "지금 살아 있다" 가 보여야 한다.
+            */}
+          {fw && (
+            <ControlRow>
+              <Label>{t('Progress')}</Label>
+              <Detail>
+                {/*
+                  * ★ 상태 글자를 Val 에 넣지 않는다.
+                  *
+                  *   Val 은 "1.00 mm" 에 맞춘 고정폭이라 "부트로더 기다리는 중"
+                  *   같은 문구가 들어가면 두세 줄로 잘린다. 여기는 폭을 안 고정한다.
+                  */}
+                <FwBar>
+                  <FwBarFill
+                    $pct={fw.phase === 'write' ? pct : fw.phase === 'done' ? 100 : 0}
+                    $busy={fw.phase === 'boot' || fw.phase === 'wait'}
+                  />
+                </FwBar>
+                <FwStat>{phase}</FwStat>
+              </Detail>
+            </ControlRow>
+          )}
+
+          {/*
+            * ★ 부트로더는 따로 허용받아야 한다.
+            *
+            *   WebHID 권한은 인터페이스 구성까지 포함해서 준다. 앱을 허용해 두어도
+            *   부트로더는 다른 구성이라 목록에 안 나오고, 앱 모드일 때는 부트로더
+            *   인터페이스가 없으니 미리 받아둘 수도 없다. 그래서 부트로더가 뜬
+            *   뒤에 한 번 받는다 — 그 뒤로는 기억된다.
+            */}
+          {fw?.phase === 'permit' && (
+            <>
+            <Note>{t('Allow the bootloader device')}</Note>
+            <ControlRow>
+              <Label>{t('Permission')}</Label>
+              <Detail>
+                <FwBtn
+                  onClick={async (e: React.MouseEvent) => {
+                    (e.currentTarget as HTMLElement).blur();
+                    const dev = await iapRequest();
+                    fwPermit.current?.(dev);
+                    fwPermit.current = null;
+                  }}
+                >
+                  {t('Allow')}
+                </FwBtn>
+              </Detail>
+            </ControlRow>
+            </>
+          )}
+
+          {fwErr && <Note style={{color: '#d66'}}>{fwErr}</Note>}
+
+          {/*
+            * 부트로더로만 넘기는 길.
+            *
+            * 굽기 전에 권한을 미리 받아 두거나(앱 모드에서는 부트로더 인터페이스가
+            * 없어 미리 못 받는다), 앱이 이상해졌을 때 손으로 넘겨 놓는 데 쓴다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.boot')}>{t('Bootloader')}</Hint>
+            </Label>
+            <Detail>
+              <FwBtn
+                disabled={busy}
+                onClick={async (e: React.MouseEvent) => {
+                  (e.currentTarget as HTMLElement).blur();
+                  setFwErr(null);
+                  const vid = device?.vendorId ?? fwVid.current;
+                  const pid = device?.productId ?? fwPid.current;
+                  if (vid === undefined || pid === undefined) return;
+                  fwVid.current = vid;
+                  fwPid.current = pid;
+                  try {
+                    await iapEnterBoot(vid, pid);
+                    setFw({phase: 'permit', sent: 0, total: 0});
+                  } catch (x) {
+                    setFwErr(String(x));
+                  }
+                }}
+              >
+                {t('Run')}
+              </FwBtn>
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * ★ 벽돌이 되지 않는다는 것을 먼저 말한다.
+            *
+            *   굽기는 사용자가 가장 무서워하는 버튼이다. 부트로더는 기록 주소를
+            *   하드코딩하므로 USB 로는 자신을 덮어쓸 수 없다 — 중간에 끊겨도
+            *   업데이트 모드로 남아 다시 시도하면 된다. 그걸 알면 누를 수 있다.
+            */}
+          <Note>
+            {t(
+              'The bootloader cannot overwrite itself over USB, so a failed update leaves the board in update mode — just try again.',
+            )}
+          </Note>
+        </>
+      );
     }
 
     if (section === 'calibrate') {
@@ -1059,7 +1428,16 @@ export const HePane: React.FC = () => {
     return null;
   };
 
-  if (!device || !api) {
+  /*
+   * ★ 굽는 동안에는 장치가 사라지는 것이 정상이다.
+   *
+   *   앱 -> 부트로더로 넘어가면 USB 가 다시 열거되므로 VIA 의 장치 목록에서
+   *   잠깐 빠진다. 그때 "키보드를 연결하세요" 로 되돌아가면 **굽는 중인 화면이
+   *   통째로 사라진다.** 실제로 그렇게 되어 장치가 부트로더에 남았다.
+   *
+   *   굽기가 도는 동안에는 그 화면을 붙잡아 둔다. 끝나면 장치가 다시 잡힌다.
+   */
+  if ((!device || !api) && !busy) {
     return (
       <Content>
         <Note>{t('he.noDevice')}</Note>
@@ -1114,10 +1492,10 @@ export const HePane: React.FC = () => {
             {/*
               * ★ 보정 갈래에서는 감춘다.
               *
-              *   보정은 언제나 전 키가 대상이라 고를 것이 없다. 남겨 두면
-              *   "보정도 고른 키만 하나" 로 읽힌다.
+              *   보정은 언제나 전 키가 대상이고 펌웨어 굽기는 키와 무관하다.
+              *   남겨 두면 "보정도 고른 키만 하나" 로 읽힌다.
               */}
-            {rail !== 'cal' && (
+            {rail === 'tune' && (
             <ControlRow>
               <Label>
                 <Hint tip={t('he.tip.selection')}>
