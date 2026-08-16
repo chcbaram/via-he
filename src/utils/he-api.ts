@@ -592,3 +592,38 @@ export function heCheckBackup(o: any, board: string): string | null {
   if (!o.keys || typeof o.keys !== 'object') return 'no keys in the file';
   return null;
 }
+
+
+/*
+ * 프로파일 — HID 0xC8.
+ *
+ * 설정 한 벌을 통째로 갈아 끼운다. **보정값은 공유한다** — 보정은 보드를 잰 값이라
+ * 프로파일마다 들고 있으면 63키를 네 번 눌러야 한다.
+ */
+export const HE_CMD_PROF = 0xc8;
+
+export const HE_PROF_STATUS = 0;
+export const HE_PROF_SET = 1;
+export const HE_PROF_COPY = 2;
+
+export type HeProf = {active: number; count: number};
+
+const parseProf = (r: number[]): HeProf => ({active: r[2], count: r[3]});
+
+export async function heProfGet(send: HidSender): Promise<HeProf> {
+  return parseProf(await send(HE_CMD_PROF, [HE_PROF_STATUS]));
+}
+
+export async function heProfSet(
+  send: HidSender,
+  idx: number,
+): Promise<HeProf> {
+  return parseProf(await send(HE_CMD_PROF, [HE_PROF_SET, idx]));
+}
+
+export async function heProfCopy(
+  send: HidSender,
+  dst: number,
+): Promise<HeProf> {
+  return parseProf(await send(HE_CMD_PROF, [HE_PROF_COPY, dst]));
+}

@@ -52,6 +52,7 @@ import {
   faCircleHalfStroke,
   faMicrochip,
   faFileArrowDown,
+  faLayerGroup,
   faRulerVertical,
   faToggleOn,
   faWaveSquare,
@@ -95,6 +96,7 @@ import {
   type HeSwitchTable,
   HeKeyGeo,
   HeKeyState,
+  HeProf,
   HeSettings,
   HeTrackChannel,
   HeTrackInfo,
@@ -113,6 +115,9 @@ import {
   heWriteKeyCfg,
   heMakeBackup,
   heCheckBackup,
+  heProfGet,
+  heProfSet,
+  heProfCopy,
   HeKeyCfg,
   HE_KEY_ALL,
   HE_RT_ON,
@@ -158,6 +163,15 @@ const OVERLAY_FIELDS: Record<string, (keyof HeKeyCfg)[] | undefined> = {
 };
 
 const SECTIONS = [
+  /*
+   * ★ 프로파일이 맨 위다.
+   *
+   *   아래 화면들이 정하는 값이 전부 **어느 프로파일 안의** 값이다. 그걸 모르고
+   *   값을 만지면 나중에 "내가 맞춰 둔 게 어디 갔나" 가 된다. 무엇을 고치는지 먼저
+   *   보여야 한다.
+   */
+  {rail: 'tune', key: 'profile', label: 'PROFILE', icon: faLayerGroup},
+
   /* 자주 만지는 것부터. 스위치는 한 번 정하면 끝이라 뒤에 둔다. */
   {rail: 'tune', key: 'actuation', label: 'PRESS POINT', icon: faArrowDownUpAcrossLine},
   {rail: 'tune', key: 'rapid', label: 'RAPID TRIGGER', icon: faBolt},
@@ -447,6 +461,19 @@ const SecondLabel = styled.div`
   margin-top: 14px;
 `;
 
+/*
+ * 프로파일 버튼.
+ *
+ * 지금 것을 색으로 나타낸다 — 넷이 나란히 있으면 어느 것이 켜져 있는지가 가장 먼저
+ * 알고 싶은 것이다.
+ */
+const ProfBtn = styled(AccentButton)<{$on: boolean}>`
+  margin-left: 8px;
+  min-width: 52px;
+  opacity: ${(p) => (p.$on ? 1 : 0.55)};
+  border-width: ${(p) => (p.$on ? 2 : 1)}px;
+`;
+
 const Note = styled.div`
   width: 100%;
   max-width: 960px;
@@ -499,6 +526,9 @@ export const HePane: React.FC = () => {
   const [showRaw, setShowRaw] = useState(false);
 
   /* 내보내기·가져오기 진행 상황 한 줄 */
+  /* 지금 프로파일 */
+  const [prof, setProf] = useState<HeProf | null>(null);
+
   const [bkMsg, setBkMsg] = useState<string | null>(null);
   const [bkBusy, setBkBusy] = useState(false);
   const bkInput = useRef<HTMLInputElement>(null);
@@ -722,6 +752,9 @@ export const HePane: React.FC = () => {
       .catch(() => {});
     heReadInfo(send)
       .then((i) => alive && setFwInfo(i))
+      .catch(() => {});
+    heProfGet(send)
+      .then((p) => alive && setProf(p))
       .catch(() => {});
     fwList()
       .then((l) => alive && setFwList(l))
@@ -1273,6 +1306,78 @@ export const HePane: React.FC = () => {
     const todo = SECTIONS.find((s) => s.key === section) as {todo?: string};
     if (todo?.todo) {
       return <Note>{t('Not yet')} — {t(todo.todo)}</Note>;
+    }
+
+    if (section === 'profile') {
+      const cnt = prof?.count ?? 4;
+      const now = prof?.active ?? 0;
+
+      /*
+       * ★ 바꾼 뒤에는 읽어 둔 것을 전부 버린다.
+       *
+       *   프로파일이 바뀌면 전역 설정도 키별 설정도 통째로 다른 값이 된다. 화면이
+       *   들고 있던 것을 그대로 두면 옛 프로파일의 숫자가 새 프로파일의 것인 척
+       *   남는다 — 그 상태에서 슬라이더를 건드리면 옛 값이 새 프로파일에 써진다.
+       */
+      const pick = async (i: number) => {
+        try {
+          const r = await heProfSet(send, i);
+          setProf(r);
+          setKeyCfgs({});
+          setCfg(await heGetSettings(send));
+        } catch (e) {
+          setErr(String(e));
+        }
+      };
+
+      const copyTo = async (i: number) => {
+        try {
+          setProf(await heProfCopy(send, i));
+        } catch (e) {
+          setErr(String(e));
+        }
+      };
+
+      return (
+        <>
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.prof')}>{t('Profile')}</Hint>
+            </Label>
+            <Detail>
+              {Array.from({length: cnt}, (_, i) => (
+                <ProfBtn key={i} $on={i === now} onClick={() => pick(i)}>
+                  {i + 1}
+                </ProfBtn>
+              ))}
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * 네 벌을 처음부터 손으로 채우면 지겨워서 안 쓴다. 잘 맞춰 둔 한 벌을
+            * 복사해 놓고 한두 값만 바꾸는 것이 실제로 쓰는 방식이다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.profCopy')}>{t('Copy to')}</Hint>
+            </Label>
+            <Detail>
+              {Array.from({length: cnt}, (_, i) => (
+                <ProfBtn
+                  key={i}
+                  $on={false}
+                  disabled={i === now}
+                  onClick={() => copyTo(i)}
+                >
+                  {i + 1}
+                </ProfBtn>
+              ))}
+            </Detail>
+          </ControlRow>
+
+          <Note>{t('he.note.prof')}</Note>
+        </>
+      );
     }
 
     if (section === 'backup') {

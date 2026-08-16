@@ -432,5 +432,11 @@
   "he.tip.backup": "Saves every key's press point, rapid trigger and dead zone to a file, or writes a saved file back. Calibration is not included — it measures this board's own switches and would be wrong on another board.",
   "he.note.backup": "Calibration stays with the board. It measures this board's own switches, so copying it elsewhere would silently skew every mm reading — recalibrate instead. Only keys present in the file are written; the rest are left alone.",
   "he.bk.save": "Save",
-  "he.bk.load": "Load"
+  "he.bk.load": "Load",
+  "PROFILE": "PROFILE",
+  "Profile": "Profile",
+  "Copy to": "Copy to",
+  "he.tip.prof": "Which set of settings the board is using. Everything on the screens below lives inside the selected profile. Calibration is shared — it measures the board, not your taste.",
+  "he.tip.profCopy": "Copies the current profile over another one. Set one up the way you like, then copy it and change a value or two.",
+  "he.note.prof": "The board remembers which profile is active across power cycles. Calibration is shared by all four — you only bottom-out once."
 }
