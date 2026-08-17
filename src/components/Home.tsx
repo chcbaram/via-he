@@ -163,6 +163,31 @@ export const Home: React.FC<HomeProps> = (props) => {
   }, []);
 
   /*
+   * ★ 장치가 하나도 없으면 **천천히 계속 다시 훑는다.**
+   *
+   *   VIA 는 USB 연결/해제 이벤트에만 반응한다. 그런데 그 이벤트가 온 순간에 장치를
+   *   못 잡으면(재열거 직후라 아직 안 뜬 경우, 또는 재시도를 다 쓰고 장치 목록을
+   *   비운 경우) **그 뒤로 아무도 다시 안 본다.** 이벤트는 이미 지나갔기 때문이다.
+   *
+   *   펌웨어를 굽고 나면 정확히 그렇게 됐다 — 화면이 "키보드를 연결하면" 으로 굳고
+   *   **새로고침해야만** 돌아왔다. 새로고침이 듣는다는 것은 다시 훑기만 하면 된다는 뜻이다.
+   *
+   * ★ 3초다. 1초로 하지 않는다.
+   *
+   *   selectConnectedDevice 는 자체 재시도(8회)를 돌린다. 그보다 촘촘히 부르면
+   *   재시도와 겹쳐 오히려 실패를 재촉한다.
+   *
+   * ★ 붙어 있을 때는 아무것도 안 한다. 멀쩡한 세션을 건드릴 이유가 없다.
+   */
+  useEffect(() => {
+    if (!hasHIDSupport) return;
+    if (Object.values(connectedDevices).length > 0) return;
+
+    const id = setInterval(() => dispatch(reloadConnectedDevices()), 3000);
+    return () => clearInterval(id);
+  }, [connectedDevices]);
+
+  /*
    * ★ 여기서 HE 탭으로 **자동으로 데려가지 않는다.** (한 번 넣었다가 뺐다)
    *
    *   부트로더가 보이면 곧장 /he 로 옮기게 해 봤는데, 접속하자마자 그리로 튀었다.
