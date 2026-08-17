@@ -5,9 +5,18 @@ import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import styled from 'styled-components';
 import {useTranslation} from 'react-i18next';
 
+/*
+ * ★ 제자리를 잡지 않고 **줄에 실린다.**
+ *
+ *   예전에는 `position: absolute; right: 200px` 로 화면에 못박혀 있었다. 오른쪽
+ *   아이콘 묶음(ExternalLinks)이 몇 개인지와 무관하게 늘 같은 자리라, 디스코드를
+ *   빼자 그 사이가 빈 채로 남았다.
+ *
+ *   이제 그 묶음 안에 들어가 같이 흐른다. 아이콘을 더하거나 빼도 간격이 알아서 맞는다.
+ *   position: relative 는 아래 목록(LanguageList)이 이 버튼 기준으로 펼쳐지기 위한 것이다.
+ */
 const Container = styled.div`
-  position: absolute;
-  right: 200px;
+  position: relative;
   font-size: 18px;
 `;
 

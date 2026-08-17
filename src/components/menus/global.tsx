@@ -11,7 +11,6 @@ import {CategoryIconContainer} from '../panes/grid';
 import {ErrorLink, ErrorsPaneConfig} from '../panes/errors';
 import {ExternalLinks} from './external-links';
 import {useTranslation} from 'react-i18next';
-import {LanguageSelect} from './language-select';
 
 const Container = styled.div`
   width: 100vw;
@@ -125,7 +124,7 @@ export const UnconnectedGlobalMenu = () => {
         </Title>
         <ErrorLink />
         {Panes}
-        <LanguageSelect />
+        {/* 언어 고르기는 ExternalLinks 줄 안으로 들어갔다 */}
         <ExternalLinks />
       </GlobalContainer>
     </React.Fragment>
