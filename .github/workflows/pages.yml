@@ -1,0 +1,60 @@
+#
+# GitHub Pages 로 올린다.
+#
+# ★ `bun run defs` 를 빼면 안 된다.
+#
+#   public/definitions 는 33MB 라 .gitignore 대상이다. 체크아웃에는 없으므로
+#   빌드 때 만들어야 하고, 안 만들면 **보드 인식이 안 되는 앱**이 올라간다.
+#   (vite.config.ts 가 public/definitions/hash.json 을 읽으므로 빌드 자체도 못 한다.)
+#
+# ★ 저장소 설정도 같이 바꿔야 한다 — Settings > Pages > Source 를 "GitHub Actions".
+#   "Deploy from a branch" 로 두면 이 워크플로가 돌아도 반영되지 않는다.
+#
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 굽는 중에 또 밀어 넣어도 뒤엣것만 올라가게 한다. 취소는 하지 않는다 —
+# 중간에 끊긴 배포가 남는 것보다 낫다.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      # 업스트림 정의 2000여 개 + local-kbs 의 우리 보드
+      - run: bun run defs
+
+      - run: bun run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

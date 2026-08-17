@@ -75,9 +75,17 @@ export async function syncStore(): Promise<DefinitionIndex> {
       return currentDefinitionIndex;
     }
     // Get definition index file
-    const response = await fetch('/definitions/supported_kbs.json', {
-      cache: 'reload',
-    });
+    /*
+     * ★ 절대 경로로 적으면 안 된다. (상류 대비 수정)
+     *
+     *   GitHub Pages 는 .../via-he/ 처럼 하위 경로로 열린다. '/definitions/...' 는
+     *   그 밖(도메인 루트)을 가리켜 404 가 난다. BASE_URL 은 dev 에서 '/',
+     *   빌드에서 '/via-he/' 이고 항상 슬래시로 끝난다.
+     */
+    const response = await fetch(
+      `${import.meta.env.BASE_URL}definitions/supported_kbs.json`,
+      {cache: 'reload'},
+    );
     const json: KeyboardDefinitionIndex = await response.json();
 
     // TODO: maybe we should just export this shape from keyboards repo
@@ -123,7 +131,7 @@ export const getMissingDefinition = async <
   version: K,
 ): Promise<[DefinitionVersionMap[K], K]> => {
   const vpid = getVendorProductId(device.vendorId, device.productId);
-  const url = `/definitions/${version}/${vpid}.json`;
+  const url = `${import.meta.env.BASE_URL}definitions/${version}/${vpid}.json`;
   const response = await fetch(url);
   const json: DefinitionVersionMap[K] = await response.json();
   let definitions = deviceStore.get('definitions');

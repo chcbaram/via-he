@@ -78,11 +78,13 @@ export const IAP_MAGIC = [0x48, 0x50, 0x4d, 0x0a]; /* "HPM\n" */
  *   <dir>/manifest.json         그 보드의 배포 목록 — 최신이 맨 앞
  *   <dir>/<버전>/*.bin
  *
- * 보드별 목록은 펌웨어 저장소의 `tools/make_release.py` 가 만든 `release/` 를
- * **그대로** 옮겨 온 것이다. 층을 나눈 이유가 그것이다 — 합치면 옮길 때마다
- * 손으로 병합해야 하고, 버전 폴더 이름이 보드끼리 겹친다.
+ * 보드별 목록은 펌웨어 저장소의 `tools/make_release.py` 가 여기에 **바로 쓴다.**
+ * 층을 나눈 이유는 버전 폴더 이름이 보드끼리 겹치기 때문이다.
+ *
+ * ★ BASE_URL 을 앞에 붙인다. GitHub Pages 는 .../via-he/ 처럼 하위 경로로 열리므로
+ *   '/firmware' 라고 적으면 도메인 루트를 가리켜 404 가 난다. dev 에서는 '/' 다.
  */
-export const FW_BASE = '/firmware';
+export const FW_BASE = `${import.meta.env.BASE_URL}firmware`;
 
 export type FwEntry = {
   version: string;

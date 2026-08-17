@@ -108,7 +108,42 @@ VIA 는 Fira Sans 를 쓰는데 한글 글자가 없어서 그대로 두면 OS �
 ## GitHub Pages
 
 정적 SPA 라 Pages 로 배포된다. WebHID 는 보안 컨텍스트만 요구하고 Pages 는 HTTPS 다.
+(크로미움 계열에서만 동작한다 — Firefox·Safari 는 WebHID 가 없다.)
 
-- 크로미움 계열에서만 동작한다 (Chrome·Edge). Firefox·Safari 는 WebHID 가 없다
-- Pages 는 `/<저장소>/` 하위라 vite `base` 를 맞춰야 한다
-- SPA 라우팅은 `404.html` 로 우회한다
+넣어 둔 것 넷이다.
+
+**1. `base`** — `vite.config.ts`. Pages 는 `/via-he/` 하위로 열린다. 안 맞추면
+빌드된 js·이미지 경로가 어긋나 **빈 화면**이 뜬다. **빌드에서만** 붙인다 — dev
+서버까지 걸면 `localhost:5173/via-he/` 가 되어 번거롭기만 하다. 다른 데 올릴 때는
+`VITE_BASE=/` 처럼 덮는다.
+
+**2. `404.html`** — 같은 파일의 `spaFallback` 플러그인이 빌드 뒤 `index.html` 을
+복사한다. `/he`, `/console` 에서 새로고침하면 Pages 에 그 파일이 없어 404 인데,
+없는 경로에 `404.html` 을 돌려주므로 앱이 그대로 받는다. 워크플로가 아니라 여기서
+만드는 이유는 **로컬 `bun run build` 와 CI 산출물을 같게** 두기 위해서다.
+
+**3. 워크플로** — `.github/workflows/pages.yml`.
+
+> ★ **`bun run defs` 를 빼면 안 된다.** `public/definitions` 는 33MB 라
+> `.gitignore` 대상이고 체크아웃에 없다. 빌드 때 만들어야 하는데,
+> `vite.config.ts` 가 `public/definitions/hash.json` 을 읽으므로 그게 없으면
+> **빌드 자체가 안 된다.**
+
+**4. 저장소 설정** — `Settings` → `Pages` → Source 를 **`GitHub Actions`** 로.
+`Deploy from a branch` 로 두면 워크플로가 돌아도 반영되지 않는다.
+
+### 절대 경로로 받아오면 안 된다
+
+`base` 를 주는 순간 `fetch('/definitions/...')` 는 **도메인 루트**를 가리켜 404 가
+난다. `import.meta.env.BASE_URL` 을 앞에 붙인다 (dev 는 `/`, 빌드는 `/via-he/`,
+항상 슬래시로 끝난다).
+
+지금 그렇게 고쳐 둔 자리 —
+
+```
+src/utils/device-store.ts   supported_kbs.json, <version>/<vpid>.json
+src/utils/he-iap.ts         FW_BASE (펌웨어 목록·이미지)
+```
+
+새로 `public/` 에서 무언가를 받아 올 때 같은 실수를 하기 쉽다. 절대 경로가 보이면
+의심할 것.
