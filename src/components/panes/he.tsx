@@ -2968,23 +2968,7 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
 
-          {/*
-            * 키캡 아래 값은 늘 mm 다. 이 스위치를 켜면 원시 ADC 값으로 바뀐다.
-            *
-            * ★ 자리를 나누지 않고 **같은 자리에서 바꾼다.**
-            *
-            *   둘을 같이 찍으면 키캡 아래에 숫자가 두 개 붙어 어느 것이 무엇인지
-            *   다시 설명해야 한다. 원시값을 볼 때는 mm 가 궁금하지 않다 — 센서가
-            *   무엇을 보고 있는지 확인하려고 켜는 것이다.
-            */}
-          <ControlRow>
-            <Label>
-              <Hint tip={t('he.tip.raw')}>{t('Show raw ADC')}</Hint>
-            </Label>
-            <Detail>
-              <AccentSlider isChecked={showRaw} onChange={setShowRaw} />
-            </Detail>
-          </ControlRow>
+
           {/*
             * 입력지점과 해제지점을 **한 자에** 잡는다.
             *
@@ -3047,6 +3031,24 @@ export const HePane: React.FC = () => {
           </ControlRow>
 
           {/*
+            * 키캡 아래 값은 늘 mm 다. 이 스위치를 켜면 원시 ADC 값으로 바뀐다.
+            *
+            * ★ 자리를 나누지 않고 **같은 자리에서 바꾼다.**
+            *
+            *   둘을 같이 찍으면 키캡 아래에 숫자가 두 개 붙어 어느 것이 무엇인지
+            *   다시 설명해야 한다. 원시값을 볼 때는 mm 가 궁금하지 않다 — 센서가
+            *   무엇을 보고 있는지 확인하려고 켜는 것이다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.raw')}>{t('Show raw ADC')}</Hint>
+            </Label>
+            <Detail>
+              <AccentSlider isChecked={showRaw} onChange={setShowRaw} />
+            </Detail>
+          </ControlRow>
+
+          {/*
             * 지금 눌린 거리 — 늘 보인다.
             *
             * ★ 키캡 숫자와 **역할이 다르다.**
@@ -3075,6 +3077,9 @@ export const HePane: React.FC = () => {
               </Summary>
             </Detail>
           </ControlRow>
+
+
+
 
 
         </>
