@@ -41,5 +41,7 @@
 
 ## 펌웨어
 
-키보드 펌웨어는 별도 저장소다. 이 앱이 굽는 이미지는 거기서 `make_release.py` 로
-만들어 `public/firmware/wish60-he/` 에 바로 쓴다.
+키보드 펌웨어는 별도 저장소다 — **[chcbaram/wish-he](https://github.com/chcbaram/wish-he)**.
+
+이 앱이 굽는 이미지는 거기서 `tools/make_release.py` 로 만들어
+`public/firmware/wish60-he/` 에 바로 쓴다.
