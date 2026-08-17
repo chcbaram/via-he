@@ -1,8 +1,7 @@
-import React, {createRef, useEffect, useRef} from 'react';
+import React, {createRef, useEffect} from 'react';
 import styled from 'styled-components';
-import {useLocation} from 'wouter';
 import {iapFind} from 'src/utils/he-iap';
-import {getHeBootloaderSeen, setBootloaderSeen} from 'src/store/heSlice';
+import {setBootloaderSeen} from 'src/store/heSlice';
 import {getByteForCode} from '../utils/key';
 import {startMonitoring, usbDetect} from '../utils/usb-hid';
 import {
@@ -164,32 +163,20 @@ export const Home: React.FC<HomeProps> = (props) => {
   }, []);
 
   /*
-   * 부트로더뿐이면 **HE 탭으로 데려간다.**
+   * ★ 여기서 HE 탭으로 **자동으로 데려가지 않는다.** (한 번 넣었다가 뺐다)
    *
-   * 그 상태에서 앱이 할 수 있는 일은 굽는 것 하나뿐인데, 그 화면이 탭 안에 있다.
-   * 첫 화면에 세워 두면 "장치를 찾는 중" 만 돌아 무엇을 해야 할지 알 수 없다.
+   *   부트로더가 보이면 곧장 /he 로 옮기게 해 봤는데, 접속하자마자 그리로 튀었다.
+   *   WebHID 권한은 장치별로 남아서 한 번 구운 적이 있으면 뽑아 둬도 부트로더가
+   *   보일 수 있다 — 그러면 키보드를 안 꽂았는데도 HE 화면으로 끌려가고, 거기엔
+   *   보여줄 것이 없어 빈 화면이 된다.
    *
-   * ★ 한 번만 옮긴다.
+   *   탭은 그대로 뜬다 (global.tsx 의 showHeTab 이 bootloaderSeen 을 본다).
+   *   갈지 말지는 사용자가 정한다.
    *
-   *   계속 옮기면 부트로더에 둔 채 다른 탭을 못 본다 — 나가려 할 때마다 끌려온다.
-   *   거짓으로 돌아가면 다시 무장하므로, 굽고 나서 또 넘어가면 그때 다시 데려간다.
-   *
-   * ★ VIA 장치가 하나라도 있으면 안 옮긴다. 정상으로 붙은 키보드를 보고 있는데
-   *   부트로더가 옆에 물려 있다고 화면을 뺏을 이유가 없다.
+   *   부트로더로 **명시적으로 붙었을 때**는 여전히 바로 옮긴다 —
+   *   useBootConnect({goHe: true}) 가 그 자리다. 그건 사용자가 버튼을 누른 것이라
+   *   화면을 옮겨도 놀랄 일이 없다.
    */
-  const bootloaderSeen = useAppSelector(getHeBootloaderSeen);
-  const [location, setLocation] = useLocation();
-  const bootJumped = useRef(false);
-  useEffect(() => {
-    if (!bootloaderSeen) {
-      bootJumped.current = false;
-      return;
-    }
-    if (bootJumped.current) return;
-    if (Object.values(connectedDevices).length > 0) return;
-    bootJumped.current = true;
-    if (location !== '/he') setLocation('/he');
-  }, [bootloaderSeen, connectedDevices, location]);
 
   const toggleLights = async () => {
     if (!api || !selectedDefinition) {
