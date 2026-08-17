@@ -1,6 +1,6 @@
 import {useState, useMemo, FC, useCallback} from 'react';
 import styled from 'styled-components';
-import {OverflowCell, SubmenuOverflowCell, SubmenuRow} from '../grid';
+import {CenteredOverflowCell, SubmenuOverflowCell, SubmenuRow} from '../grid';
 import {CenterPane} from '../pane';
 import {title, component} from '../../icons/adjust';
 import {MacroDetailPane} from './submenus/macros/macro-detail';
@@ -78,7 +78,7 @@ export const Pane: FC = () => {
       <SubmenuOverflowCell>
         <MenuContainer>{macroMenus}</MenuContainer>
       </SubmenuOverflowCell>
-      <OverflowCell>
+      <CenteredOverflowCell>
         <MacroPane>
           <Container>
             <MacroDetailPane
@@ -89,7 +89,7 @@ export const Pane: FC = () => {
             />
           </Container>
         </MacroPane>
-      </OverflowCell>
+      </CenteredOverflowCell>
     </>
   );
 };

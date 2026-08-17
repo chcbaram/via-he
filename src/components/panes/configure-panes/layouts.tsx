@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import {title, component} from '../../icons/layouts';
-import {ControlRow, SpanOverflowCell, Label, Detail} from '../grid';
+import {ControlRow, CenteredSpanOverflowCell, Label, Detail} from '../grid';
 import {AccentSlider} from '../../inputs/accent-slider';
 import {AccentSelect} from '../../inputs/accent-select';
 import {CenterPane} from '../pane';
@@ -98,7 +98,7 @@ export const Pane: FC = () => {
 
   const labels = layouts.labels || [];
   return (
-    <SpanOverflowCell>
+    <CenteredSpanOverflowCell>
       <ContainerPane>
         <Container>
           {/*
@@ -113,8 +113,14 @@ export const Pane: FC = () => {
           <ControlRow>
             <Label>{t('Host layout')}</Label>
             <Detail>
+              {/*
+                * ★ 폭을 따로 주지 않는다.
+                *
+                *   220 을 박아 뒀더니 바로 아래 레이아웃 선택(기본 250)과 오른쪽 끝은
+                *   맞는데 왼쪽 끝이 어긋나 계단처럼 보였다. 같은 줄에 세로로 놓이는
+                *   것들은 폭이 같아야 한 벌로 읽힌다.
+                */}
               <AccentSelect
-                width={220}
                 value={hostLayoutOptions.find((o) => o.value === hostLayout)}
                 options={hostLayoutOptions}
                 onChange={(o: any) => {
@@ -136,7 +142,7 @@ export const Pane: FC = () => {
           ))}
         </Container>
       </ContainerPane>
-    </SpanOverflowCell>
+    </CenteredSpanOverflowCell>
   );
 };
 export const Title = title;

@@ -1,5 +1,5 @@
 import {FC, useState, useEffect} from 'react';
-import {Detail, Label, ControlRow, SpanOverflowCell} from '../grid';
+import {Detail, Label, ControlRow, CenteredSpanOverflowCell} from '../grid';
 import {CenterPane} from '../pane';
 import styled from 'styled-components';
 import {useTranslation} from 'react-i18next';
@@ -106,17 +106,17 @@ export const Pane: FC = () => {
     cwValue === undefined
   ) {
     return (
-      <SpanOverflowCell>
+      <CenteredSpanOverflowCell>
         <ErrorMessage>
           {t(
             'Your current firmware does not support rotary encoders. Install the latest firmware for your device.',
           )}
         </ErrorMessage>
-      </SpanOverflowCell>
+      </CenteredSpanOverflowCell>
     );
   }
   return (
-    <SpanOverflowCell>
+    <CenteredSpanOverflowCell>
       <Encoder>
         <Container>
           <ControlRow>
@@ -153,6 +153,6 @@ export const Pane: FC = () => {
           )}
         </Container>
       </Encoder>
-    </SpanOverflowCell>
+    </CenteredSpanOverflowCell>
   );
 };

@@ -36,7 +36,7 @@ import {ConfigureBasePane} from './pane';
 import {
   Grid,
   MenuCell,
-  OverflowCell,
+  CenteredOverflowCell,
   SubmenuOverflowCell,
   SubmenuRow,
   ControlRow,
@@ -653,6 +653,35 @@ const Note = styled.div`
 const Err = styled(Note)`
   color: var(--color_error);
   opacity: 1;
+`;
+
+/*
+ * 릴리즈 노트 — 네 줄까지만 보이고 나머지는 스크롤한다.
+ *
+ *   일곱 줄짜리가 오자 펌웨어 화면을 통째로 잡아먹었다. 노트는 "무엇이 바뀌는지"를
+ *   훑는 것이지 정독하는 것이 아니고, 그 아래의 **굽기 버튼이 화면 밖으로 밀려나는**
+ *   쪽이 훨씬 나쁘다.
+ *
+ * ★ 높이를 px 로 박지 않는다.
+ *
+ *   Note 의 line-height 가 1.6 이라 한 줄이 곧 1.6em 이다. 6.4em 은 정확히 네 줄이고,
+ *   글자 크기를 바꾸면 같이 따라온다. px 로 박으면 그때 조용히 어긋난다.
+ *
+ * ★ 끝에서 바깥으로 넘기지 않는다.
+ *
+ *   overscroll-behavior 가 없으면 노트를 다 내린 순간 스크롤이 패널로 넘어가 화면이
+ *   통째로 따라 움직인다. 노트를 읽으려던 것뿐인데 자리가 바뀐다.
+ *
+ * ★ 오른쪽 여백은 스크롤 막대 자리다. 막대가 글자를 덮는 환경이 있다.
+ *   이 저장소에는 box-sizing 전역 설정이 없어 (ControlRow 도 제 자리에서 켠다)
+ *   여기서도 켜 준다 — 안 켜면 width:100% 에 여백이 더해져 8px 넘친다.
+ */
+const ReleaseNotes = styled(Note)`
+  box-sizing: border-box;
+  max-height: 6.4em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 8px;
 `;
 
 export const HePane: React.FC = () => {
@@ -2755,11 +2784,11 @@ export const HePane: React.FC = () => {
 
               {/* 릴리즈 노트 — 무엇이 바뀌는지 보고 고르게 한다 */}
               {sel?.notes?.length ? (
-                <Note>
+                <ReleaseNotes>
                   {sel.notes.map((n, i) => (
                     <div key={i}>· {n}</div>
                   ))}
-                </Note>
+                </ReleaseNotes>
               ) : null}
 
               <ControlRow>
@@ -3889,7 +3918,7 @@ export const HePane: React.FC = () => {
             ))}
           </MenuContainer>
         </SubmenuOverflowCell>
-        <OverflowCell style={{pointerEvents: 'all'}}>
+        <CenteredOverflowCell style={{pointerEvents: 'all'}}>
           <Content>
             {/*
               * 선택 도구는 섹션 위에 공통으로 둔다. 어느 탭에서든 "지금 몇 개를
@@ -3949,7 +3978,7 @@ export const HePane: React.FC = () => {
             {bootOnly && <Note>{t('he.bootOnly')}</Note>}
             {renderSection()}
           </Content>
-        </OverflowCell>
+        </CenteredOverflowCell>
       </Grid>
     </ConfigureBasePane>
   );

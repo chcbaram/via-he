@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import styled from 'styled-components';
-import {OverflowCell, SubmenuCell, SubmenuRow} from '../grid';
+import {CenteredOverflowCell, SubmenuCell, SubmenuRow} from '../grid';
 import {CenterPane} from '../pane';
 import {title, component} from '../../icons/lightbulb';
 import {GeneralPane} from './submenus/lighting/general';
@@ -88,13 +88,13 @@ export const Pane: FC = () => {
           ))}
         </MenuContainer>
       </SubmenuCell>
-      <OverflowCell>
+      <CenteredOverflowCell>
         <LightingPane>
           <Container>
             <selectedCategory.Menu />
           </Container>
         </LightingPane>
-      </OverflowCell>
+      </CenteredOverflowCell>
     </>
   );
 };

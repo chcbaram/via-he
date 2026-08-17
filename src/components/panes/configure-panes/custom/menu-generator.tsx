@@ -8,7 +8,7 @@ import {
 import React, {useState} from 'react';
 import styled from 'styled-components';
 import {
-  OverflowCell,
+  CenteredOverflowCell,
   SubmenuOverflowCell,
   SubmenuCell,
   SubmenuRow,
@@ -212,7 +212,7 @@ export const Pane: React.FC<Props> = (props: any) => {
   // Handle case where all menus are hidden
   if (menus.length === 0) {
     return (
-      <OverflowCell>
+      <CenteredOverflowCell>
         <CustomPane>
           <Container>
             <div
@@ -226,7 +226,7 @@ export const Pane: React.FC<Props> = (props: any) => {
             </div>
           </Container>
         </CustomPane>
-      </OverflowCell>
+      </CenteredOverflowCell>
     );
   }
 
@@ -249,11 +249,11 @@ export const Pane: React.FC<Props> = (props: any) => {
           ))}
         </MenuContainer>
       </SubmenuOverflowCell>
-      <OverflowCell>
+      <CenteredOverflowCell>
         <CustomPane>
           <Container>{SelectedMenu(childProps)}</Container>
         </CustomPane>
-      </OverflowCell>
+      </CenteredOverflowCell>
     </>
   );
 };

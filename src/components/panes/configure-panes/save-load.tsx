@@ -8,7 +8,7 @@ import {getByteForCode, getCodeForByte} from '../../../utils/key';
 import deprecatedKeycodes from '../../../utils/key-to-byte/deprecated-keycodes';
 import {title, component} from '../../icons/save';
 import {CenterPane} from '../pane';
-import {Detail, Label, ControlRow, SpanOverflowCell} from '../grid';
+import {Detail, Label, ControlRow, CenteredSpanOverflowCell} from '../grid';
 import {
   getBasicKeyToByte,
   getSelectedDefinition,
@@ -253,7 +253,7 @@ export const Pane: FC = () => {
   };
 
   return (
-    <SpanOverflowCell>
+    <CenteredSpanOverflowCell>
       <SaveLoadPane>
         <Container>
           <ControlRow>
@@ -276,7 +276,7 @@ export const Pane: FC = () => {
           ) : null}
         </Container>
       </SaveLoadPane>
-    </SpanOverflowCell>
+    </CenteredSpanOverflowCell>
   );
 };
 
