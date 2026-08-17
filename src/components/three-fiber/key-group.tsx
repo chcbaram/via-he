@@ -71,7 +71,15 @@ export const KeyGroup: React.FC<KeyGroupProps<ThreeEvent<MouseEvent>>> = (
   ]);
   const labels = useMemo(() => {
     return getLabels(props, macroExpressions, basicKeyToByte, byteToKey, keycodeLUT);
-  }, [keys, props.matrixKeycodes, props.keyLabels, props.keyBars, props.keyPressed, props.keyFoot, macros, props.definition, keycodeLUT]);
+  /*
+   * ★ keyBadge 를 빠뜨리면 배지만 바뀔 때 갱신이 안 된다.
+   *
+   *   RT 를 켜고 끄면 키캡의 숫자(되뗌 거리)는 그대로라 keyLabels 가 안 바뀐다.
+   *   그러면 이 memo 가 안 돌아 배지가 옛 상태로 남는다. 예전에는 overlayText 를
+   *   내용이 같아도 매번 새 객체로 보내서 우연히 같이 갱신됐는데, 그 중복 전송을
+   *   막고 나니 드러났다 — 우연에 기대고 있었던 것이다.
+   */
+  }, [keys, props.matrixKeycodes, props.keyLabels, props.keyBars, props.keyPressed, props.keyFoot, props.keyBadge, macros, props.definition, keycodeLUT]);
   const {width, height} = calculateKeyboardFrameDimensions(keys);
   const elems = useMemo(() => {
     return props.keys.map((k, i) => {

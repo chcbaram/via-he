@@ -44,6 +44,7 @@ type HeState = {
    * 읽힌다.
    */
   overlayText: Record<number, string> | null;
+  hoverKey: number | null;
 
   /*
    * 키캡 아래 막대 (0~1) — **지금 상태**다. 매트릭스 인덱스로 넣는다.
@@ -87,10 +88,45 @@ type HeState = {
   switching: boolean;
 };
 
+/*
+ * 같은 내용이면 참조를 그대로 둔다.
+ *
+ * ★ 중복 제거는 **여기서** 해야 한다. 보내는 쪽에서 하면 안 된다.
+ *
+ *   키캡 하나가 캔버스 하나라, 새 객체가 오면 63개를 통째로 다시 그린다. 그래서
+ *   보내는 쪽에 "직전에 보낸 것과 같으면 건너뛴다" 는 서명 비교를 뒀었는데, 이
+ *   값을 쓰는 자리가 **넷**이었다 — 설정 화면, 교정 화면의 스트로크, 교정 중
+ *   진행 표시, 그리고 갈래를 옮길 때의 지우기.
+ *
+ *   그중 하나만 서명을 들고 있으니 나머지 셋이 바꾸면 그 서명이 낡는다. 실제로
+ *   교정 탭에 갔다가 입력지점으로 돌아오면 값이 안 나왔다 — 교정이 null 로 지운
+ *   것을 설정 화면의 서명은 모르니, 같은 내용이라 보고 안 보낸 것이다.
+ *
+ *   상태를 들고 있는 쪽이 비교해야 빠뜨릴 수가 없다. 안 바꾸면 immer 가 원래
+ *   객체를 그대로 돌려주므로 선택자도 memo 도 그대로 유지된다.
+ */
+function sameMap<T>(
+  a: Record<number, T> | null,
+  b: Record<number, T> | null,
+): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    if ((a as any)[k] !== (b as any)[k]) return false;
+  }
+  return true;
+}
+
 const initialState: HeState = {
   selectedKeys: [],
   overlayKeys: null,
   overlayText: null,
+  hoverKey: null,
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
@@ -116,6 +152,26 @@ const heSlice = createSlice({
     },
     setKeys: (state, action: PayloadAction<number[]>) => {
       state.selectedKeys = action.payload;
+    },
+    /*
+     * 마우스가 가리킨 키. 그림과 설정 화면이 따로 있어 Redux 를 거친다.
+     *
+     * 키캡에는 자리가 없어 행정만 찍는데, 그것만으로는 어느 스위치인지 모른다.
+     * 이름을 찍자니 1u 폭에 "Gateron Jade Pro" 가 안 들어간다 — 가리키는 동안
+     * 화면이 읽어 주는 쪽이 맞다.
+     */
+    setHoverKey: (state, action: PayloadAction<number | null>) => {
+      state.hoverKey = action.payload;
+    },
+    /*
+     * ★ **아직 그 키를 가리키고 있을 때만** 지운다.
+     *
+     *   키에서 키로 옮기면 out(A) 와 over(B) 가 연달아 온다. 순서가 어긋나면
+     *   over(B) 뒤에 out(A) 가 도착해 방금 잡은 B 를 지운다 — 판을 쓸 때마다
+     *   표시가 깜빡인다. 나가는 키가 지금 값과 같을 때만 지우면 그럴 일이 없다.
+     */
+    clearHoverKey: (state, action: PayloadAction<number>) => {
+      if (state.hoverKey === action.payload) state.hoverKey = null;
     },
     clearKeys: (state) => {
       state.selectedKeys = [];
@@ -169,6 +225,7 @@ const heSlice = createSlice({
       state,
       action: PayloadAction<Record<number, number> | null>,
     ) => {
+      if (sameMap(state.overlayBadge, action.payload)) return;
       state.overlayBadge = action.payload;
     },
 
@@ -177,6 +234,7 @@ const heSlice = createSlice({
       state,
       action: PayloadAction<Record<number, string> | null>,
     ) => {
+      if (sameMap(state.overlayText, action.payload)) return;
       state.overlayText = action.payload;
     },
   },
@@ -188,6 +246,8 @@ export const {
   setKeys,
   clearKeys,
   setOverlayBadge,
+  setHoverKey,
+  clearHoverKey,
   setOverlayKeys,
   setOverlayText,
   setOverlayBars,
@@ -200,6 +260,7 @@ export const {
 export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
 export const getHeOverlayKeys = (state: RootState) => state.he.overlayKeys;
 export const getHeOverlayText = (state: RootState) => state.he.overlayText;
+export const getHeHoverKey = (state: RootState) => state.he.hoverKey;
 export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;
