@@ -573,14 +573,14 @@
   "he.note.fwBoardMismatch": "デバイスは「{{device}}」だが「{{picked}}」を選んでいる。このまま書くと別ボードのイメージになる。",
   "Hold On Other Key Press and Tapping Term are saved per profile. NKRO applies to all profiles.": "他キー押下でホールドとタッピング時間はプロファイルごとに保存される。NKRO は全プロファイル共通。",
   "Note": "備考",
-  "Hold To Repeat": "Hold To Repeat",
-  "Pair 1": "Pair 1",
-  "Pair 2": "Pair 2",
   "Enable": "Enable",
-  "Key 1": "Key 1",
-  "Key 2": "Key 2",
-  "First Delay": "First Delay",
-  "Repeat Interval": "Repeat Interval",
-  "Press both of a pair and only the newest one is sent. Saved per profile.": "Press both of a pair and only the newest one is sent. Saved per profile.",
-  "Hold two or more keys and they are re-sent as if tapped. Saved per profile.": "Hold two or more keys and they are re-sent as if tapped. Saved per profile."
+  "Hold two or more keys and they are re-sent as if tapped. Saved per profile.": "Hold two or more keys and they are re-sent as if tapped. Saved per profile.",
+  "Anti-Ghosting": "Anti-Ghosting",
+  "KEY BIND 1": "KEY BIND 1",
+  "KEY BIND 2": "KEY BIND 2",
+  "- KEY 1": "- KEY 1",
+  "- KEY 2": "- KEY 2",
+  "First Delay Time": "First Delay Time",
+  "Repeat Time": "Repeat Time",
+  "Press both of a bind and only the newest one is sent. Saved per profile.": "Press both of a bind and only the newest one is sent. Saved per profile."
 }
