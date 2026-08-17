@@ -171,8 +171,17 @@ const heSlice = createSlice({
      *   아예 안 걸린다. 그래서 앱은 "장치 없음" 으로 보고 HE 탭조차 안 띄운다 —
      *   정작 그 화면에만 굽는 기능이 있는데.
      */
+    /*
+     * ★ 값이 그대로면 손대지 않는다.
+     *
+     *   Home 이 1초마다 확인해서 넣는다. 대개는 같은 값이고, 그때마다 상태를
+     *   새로 만들면 앱 전체가 초당 한 번 다시 그려진다. (immer 도 같은 값
+     *   재대입은 걸러 주지만, **여기 의도해서 그런 것**임을 남겨 둔다.)
+     */
     setBootloaderSeen: (state, action: PayloadAction<boolean>) => {
-      state.bootloaderSeen = action.payload;
+      if (state.bootloaderSeen !== action.payload) {
+        state.bootloaderSeen = action.payload;
+      }
     },
     setHoverKey: (state, action: PayloadAction<number | null>) => {
       state.hoverKey = action.payload;

@@ -77,11 +77,13 @@ import {ProfileSelect} from 'src/components/menus/profile-select';
 import {loadKeymapFromDevice} from 'src/store/keymapSlice';
 import {Badge} from './configure-panes/badge';
 import {
+  fwBoards,
   fwFetch,
   fwList,
   iapEnterBoot,
   iapFlash,
   iapRequest,
+  type FwBoard,
   type FwEntry,
   type IapProgress,
 } from 'src/utils/he-iap';
@@ -102,6 +104,8 @@ import {
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
+import {reloadConnectedDevices} from 'src/store/devicesThunks';
+import {useBootConnect} from './he-boot-connect';
 import {
   heReadSwitches,
   heSwCustomAll,
@@ -657,12 +661,28 @@ export const HePane: React.FC = () => {
   const api = useAppSelector(getSelectedKeyboardAPI);
 
   /*
+   * ★ 굽는 중에는 여기서 화면을 옮기지 않는다.
+   *
+   *   busy 를 이 자리에서 선언하는 이유가 그것이다 (원래는 fw 상태들과 같이
+   *   아래에 있었다). 아래 bootOnly 가 busy 를 봐야 하고, rail/section 의
+   *   useState 초기값이 다시 bootOnly 를 본다.
+   */
+  const [busy, setBusy] = useState(false);
+  const bootSeen = useAppSelector(getHeBootloaderSeen);
+
+  /*
    * 부트로더만 물려 있으면 **펌웨어 화면에서 시작한다.**
    *
    * 그 상태에서 할 수 있는 일이 굽는 것 하나뿐이다. 입력지점 화면을 열어 두면
    * "값이 왜 안 뜨나" 가 되므로, 시작 자리도 고르는 자리도 거기 하나로 좁힌다.
+   *
+   * ★ 굽는 동안(busy)에는 거짓으로 둔다.
+   *
+   *   굽기는 앱 -> 부트로더 -> 앱 이라 그 사이 api 가 잠깐 없다. 그때 갈래를
+   *   접으면 굽기가 끝나고도 그 화면에 갇힌다 — 실제로 그랬다. 굽는 중 화면은
+   *   이미 busy 로 붙잡고 있으니(아래 "장치 없음" 벽) 여기까지 접을 이유가 없다.
    */
-  const bootOnly = useAppSelector(getHeBootloaderSeen) && !api;
+  const bootOnly = bootSeen && !api && !busy;
 
   const [rail, setRail] = useState<RailKey>(bootOnly ? 'device' : 'tune');
   const [section, setSection] = useState<SectionKey>(
@@ -705,11 +725,22 @@ export const HePane: React.FC = () => {
   const [fwErr, setFwErr] = useState<string | null>(null);
   const [fwList_, setFwList] = useState<FwEntry[] | null>(null);
   const [fwPick, setFwPick] = useState(0);
+  /*
+   * 어느 보드의 배포본을 볼 것인가.
+   *
+   * ★ 앱 모드에서는 물을 일이 없다 — 장치가 0xCA 로 자기 이름을 말한다. 아래
+   *   effect 가 그걸로 골라 준다.
+   *
+   * ★ 부트로더에서는 **반드시 물어야 한다.** 벤더 IAP 라 VID/PID 가 보드와 무관하게
+   *   늘 534B:4102 이고 이름을 물을 명령도 없다. 짐작으로 고르면 다른 보드의
+   *   이미지를 굽게 된다.
+   */
+  const [fwBoards_, setFwBoards] = useState<FwBoard[] | null>(null);
+  const [fwBoard, setFwBoard] = useState<FwBoard | null>(null);
   const [fwInfo, setFwInfo] = useState<{board: string; version: string} | null>(
     null,
   );
   const fwInput = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
 
   /*
    * 키캡 아래에 **원시 ADC 값**을 같이 보일지.
@@ -799,6 +830,80 @@ export const HePane: React.FC = () => {
   const fwPid = useRef<number | undefined>(undefined);
   const [err, setErr] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
+
+  /* 부트로더 권한이 아직 없을 때 쓰는 길 — "장치 없음" 벽에 놓는다 */
+  const bootConnect = useBootConnect();
+
+  /*
+   * 굽는 동안 "앱이 돌아왔나" 를 보는 창.
+   *
+   * 굽기 함수는 누른 순간의 값을 붙잡은 클로저라 그 안의 `api` 는 영영 굽기 전
+   * 것이다. ref 로 지금 값을 들여다본다.
+   */
+  const apiRef = useRef(api);
+  useEffect(() => {
+    apiRef.current = api;
+  }, [api]);
+
+  /*
+   * 보드 목록은 **장치와 무관하게** 읽는다.
+   *
+   * 부트로더로 붙었을 때가 이 목록이 가장 필요한 순간인데, 그때는 api 가 없다.
+   * 예전에는 배포 목록을 api 가 있는 effect 안에서 읽어서, 정작 굽기만 할 수 있는
+   * 상태에서 목록이 비어 있었다.
+   */
+  useEffect(() => {
+    let alive = true;
+    fwBoards()
+      .then((b) => alive && setFwBoards(b))
+      .catch(() => alive && setFwBoards([])); /* 목록이 없어도 파일로 굽는 길은 남는다 */
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /* 장치가 자기 이름을 말했으면 그걸로 고른다 — 앱 모드에서는 물을 이유가 없다 */
+  useEffect(() => {
+    if (fwBoard || !fwBoards_ || !fwInfo?.board) return;
+    const hit = fwBoards_.find((b) => b.id === fwInfo.board);
+    if (hit) setFwBoard(hit);
+  }, [fwBoard, fwBoards_, fwInfo?.board]);
+
+  /* 고른 보드의 배포 목록 */
+  useEffect(() => {
+    if (!fwBoard) {
+      setFwList(null);
+      return;
+    }
+    let alive = true;
+    setFwPick(0);
+    fwList(fwBoard.dir)
+      .then((l) => alive && setFwList(l))
+      .catch(() => alive && setFwList([]));
+    return () => {
+      alive = false;
+    };
+  }, [fwBoard]);
+
+  /*
+   * 부트로더로 넘어가면 **펌웨어 화면으로 옮긴다.**
+   *
+   * ★ useState 초기값만으로는 부족하다.
+   *
+   *   그건 이 화면을 **처음 그릴 때** 한 번만 본다. 그런데 흔한 쪽은 반대다 —
+   *   HE 탭을 열어 둔 채 "Bootloader → Run" 을 눌러 넘어가는 것. 그때는 초기값이
+   *   이미 지났으므로 아무도 안 옮겨 주고, 갈래만 하나로 접힌 채 내용은 다른
+   *   화면이 남는다.
+   *
+   *   되돌리지는 않는다. 앱이 돌아오면 갈래가 다시 다 열리고, 그때 어디를 볼지는
+   *   사용자가 정할 일이다.
+   */
+  useEffect(() => {
+    if (bootOnly) {
+      setRail('device');
+      setSection('firmware');
+    }
+  }, [bootOnly]);
 
 
   /*
@@ -1249,9 +1354,6 @@ export const HePane: React.FC = () => {
     heProfGet(send)
       .then((p) => alive && dispatch(setProfile(p)))
       .catch(() => {});
-    fwList()
-      .then((l) => alive && setFwList(l))
-      .catch(() => alive && setFwList([]));   /* 목록이 없어도 수동 굽기는 된다 */
     return () => {
       alive = false;
     };
@@ -2484,10 +2586,18 @@ export const HePane: React.FC = () => {
         /*
          * vid/pid 를 지금 붙잡아 둔다. 부트로더로 넘어가면 device 가 null 이
          * 되는데, 그걸 도중에 다시 읽으면 터진다.
+         *
+         * ★ **없으면 0 으로 둔다. 여기서 돌아서면 안 된다.**
+         *
+         *   부트로더에 멈춘 보드로 앱을 켜면 device 도 없고 ref 도 비어 있다.
+         *   예전에는 그때 그냥 return 해서 **굽기 버튼이 아무 일도 안 했다** —
+         *   되살리려고 온 사람이 정확히 그 상태다.
+         *
+         *   이 값은 "앱을 부트로더로 넘기는" 단계에만 쓰인다. 이미 부트로더면
+         *   iapFlash 가 그 단계를 통째로 건너뛰므로 쓰이지 않는다.
          */
-        const vid = device?.vendorId ?? fwVid.current;
-        const pid = device?.productId ?? fwPid.current;
-        if (vid === undefined || pid === undefined) return;
+        const vid = device?.vendorId ?? fwVid.current ?? 0;
+        const pid = device?.productId ?? fwPid.current ?? 0;
         fwVid.current = vid;
         fwPid.current = pid;
 
@@ -2504,22 +2614,30 @@ export const HePane: React.FC = () => {
             });
           });
           /*
-           * 구운 뒤 버전을 다시 읽는다.
+           * 앱이 **다시 잡힐 때까지** 장치 목록을 훑는다.
            *
-           * ★ 한 번만 물으면 못 받는다. 굽기가 끝나도 앱이 다시 열거되고 VIA 가
-           *   장치를 다시 잡기까지 몇 초가 걸린다. 될 때까지 몇 번 두드린다.
+           * ★ VIA 혼자서는 못 잡는다.
+           *
+           *   USB 연결/해제 이벤트에만 반응하고, 그때도 500ms·1000ms 두 번 훑고
+           *   만다 (Home.tsx 의 timeoutRepeater). 보드가 재열거된 뒤 프로토콜
+           *   질의까지 그 1초 안에 못 끝내면 selectDevice(null) 로 끝나고, 다음
+           *   이벤트가 없으니 영영 안 잡힌다.
+           *
+           * ★ **여기서 장치에 말을 걸면 안 된다.**
+           *
+           *   원래는 버전을 다시 물었다. 그런데 이 자리의 `send` 는 **굽기 전
+           *   장치**를 가리키고 그 장치는 이미 사라졌다. 그 왕복은 실패하는 게
+           *   아니라 **답이 영영 안 온다** — 반복문이 첫 바퀴에서 멈추고
+           *   `finally` 가 안 돌아 busy 가 참으로 굳었다. 굽기는 끝났는데 버튼이
+           *   전부 죽어 보이던 것이 이것이다.
+           *
+           *   버전은 물을 필요도 없다. 새 api 가 잡히면 위쪽 effect(`[api, send]`)가
+           *   알아서 다시 읽는다.
            */
           for (let i = 0; i < 12; i++) {
             await new Promise((r) => setTimeout(r, 1000));
-            try {
-              const nfo = await heReadInfo(send);
-              if (nfo.version) {
-                setFwInfo(nfo);
-                break;
-              }
-            } catch {
-              /* 아직 안 올라왔다 */
-            }
+            if (apiRef.current) break; /* 돌아왔다 */
+            dispatch(reloadConnectedDevices());
           }
         } catch (x) {
           setFwErr(String(x));
@@ -2534,12 +2652,83 @@ export const HePane: React.FC = () => {
         if (f) await flash(new Uint8Array(await f.arrayBuffer()));
       };
 
+      const boards = fwBoards_ ?? [];
+
+      /*
+       * ★ **보드를 먼저 고른다.**
+       *
+       *   부트로더는 자기가 무슨 보드인지 말해 주지 않는다 — 벤더 IAP 라 VID/PID 가
+       *   보드와 무관하게 늘 534B:4102 이고, 이름을 물을 명령도 없다. 앱이 돌 때만
+       *   0xCA 로 알 수 있는데, 굽는 것이 가장 절실한 상황이 바로 앱이 안 도는
+       *   상태다.
+       *
+       *   그래서 여기서는 짐작하지 않고 묻는다. 고르기 전에는 배포 목록도 굽기
+       *   버튼도 안 보인다 — 목록만 먼저 보여 주면 그게 어느 보드 것인지 모르는 채
+       *   누르게 된다.
+       */
+      const boardRow = (
+        <ControlRow>
+          <Label>
+            <Hint tip={t('he.tip.fwBoard')}>{t('Keyboard')}</Hint>
+          </Label>
+          <Detail>
+            <AccentSelect
+              width={330}
+              value={
+                fwBoard
+                  ? {label: fwBoard.name, value: fwBoard.dir}
+                  : (null as any)
+              }
+              placeholder={t('Pick your keyboard')}
+              options={boards.map((b) => ({label: b.name, value: b.dir}))}
+              onChange={(o: any) =>
+                setFwBoard(boards.find((b) => b.dir === o?.value) ?? null)
+              }
+            />
+          </Detail>
+        </ControlRow>
+      );
+
+      /*
+       * 보드를 아직 안 골랐으면 **여기서 멈춘다.** 굽기 말고 할 수 있는 일이 없는
+       * 화면이라, 고르기 전에 다른 것을 늘어놓아 봐야 읽을 이유가 없다.
+       */
+      if (!fwBoard) {
+        return (
+          <>
+            {boardRow}
+            <Note>
+              {boards.length === 0
+                ? t('he.note.fwNoBoards')
+                : t('he.note.fwPickBoard')}
+            </Note>
+          </>
+        );
+      }
+
       return (
         <>
+          {boardRow}
+
           <ControlRow>
             <Label>{t('Current version')}</Label>
             <Detail>{cur}</Detail>
           </ControlRow>
+
+          {/*
+            * ★ 장치가 말한 이름과 고른 보드가 다르면 **말한다.**
+            *
+            *   앱 모드에서는 자동으로 맞춰지지만, 사람이 일부러 다른 것을 고를 수
+            *   있다. 그대로 구우면 다른 보드의 이미지가 올라간다.
+            */}
+          {fwInfo?.board && fwInfo.board !== fwBoard.id && (
+            <Note style={{color: '#d66'}}>
+              {t('he.note.fwBoardMismatch', {
+                device: fwInfo.board,
+                picked: fwBoard.name,
+              })}
+            </Note>
+          )}
 
           {rel.length > 0 && (
             <>
@@ -2583,7 +2772,7 @@ export const HePane: React.FC = () => {
                       if (!sel) return;
                       setFwErr(null);
                       try {
-                        await flash(await fwFetch(sel));
+                        await flash(await fwFetch(fwBoard.dir, sel));
                       } catch (x) {
                         setFwErr(String(x));
                       }
@@ -2692,8 +2881,15 @@ export const HePane: React.FC = () => {
           {/*
             * 부트로더로만 넘기는 길.
             *
-            * 굽기 전에 권한을 미리 받아 두거나(앱 모드에서는 부트로더 인터페이스가
-            * 없어 미리 못 받는다), 앱이 이상해졌을 때 손으로 넘겨 놓는 데 쓴다.
+            * 앱이 이상해졌을 때 손으로 넘겨 놓거나, 부트로더 쪽 길을 확인할 때 쓴다.
+            *
+            * ★ **넘기기만 한다.** 예전에는 넘긴 뒤 permit 화면을 띄웠는데, 그 화면의
+            *   "Allow" 는 굽는 중에만 채워지는 resolver(fwPermit)를 부르므로 여기서는
+            *   눌러도 아무 일이 안 나는 막다른 자리였다.
+            *
+            *   넘어간 뒤는 이제 알아서 이어진다 — 부트로더가 열거되면 Home 의 주기
+            *   확인이 그걸 보고, 이 화면이 펌웨어 갈래로 옮겨 간다. 권한이 아직
+            *   없으면 "장치 없음" 벽의 연결 버튼이 받는다.
             */}
           <ControlRow>
             <Label>
@@ -2712,7 +2908,6 @@ export const HePane: React.FC = () => {
                   fwPid.current = pid;
                   try {
                     await iapEnterBoot(vid, pid);
-                    setFw({phase: 'permit', sent: 0, total: 0});
                   } catch (x) {
                     setFwErr(String(x));
                   }
@@ -3610,6 +3805,23 @@ export const HePane: React.FC = () => {
     return (
       <Content>
         <Note>{t('he.noDevice')}</Note>
+        {/*
+          * 여기 온 이유가 **부트로더에 멈춰 있어서**일 수 있다. 그런데 권한이 없으면
+          * 그 보드는 어느 목록에도 안 나오므로, 앱은 "장치가 없다" 와 구분할 길이
+          * 없다. 그래서 묻지 않고 길만 놓아 둔다.
+          */}
+        <Note>{t('he.bootConnect.hint')}</Note>
+        <ControlRow>
+          <Label>{t('Bootloader')}</Label>
+          <Detail>
+            <FwBtn onClick={() => bootConnect.connect()}>
+              {t('Connect')}
+            </FwBtn>
+          </Detail>
+        </ControlRow>
+        {bootConnect.err && (
+          <Note style={{color: '#d66'}}>{bootConnect.err}</Note>
+        )}
       </Content>
     );
   }

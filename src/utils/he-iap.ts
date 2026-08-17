@@ -38,6 +38,21 @@ const IAP_USAGE_PAGE = 0xff53;
 const IAP_VID = 0x534b;
 const IAP_PID = 0x4102;
 
+/*
+ * 선택 창에 부트로더를 올리는 필터.
+ *
+ * 여기(`iapRequest`)와 VIA 의 "장치 승인"(`shims/node-hid.ts`)이 같이 쓴다. 뒤쪽에도
+ * 넣는 이유는 **막다른 길을 막기 위해서**다 — 부트로더 상태로 앱을 켠 사람이 늘
+ * 누르던 "장치 승인" 을 눌렀을 때도 보드가 목록에 보여야 한다. 고른 장치는 VIA 의
+ * 키보드 필터(usagePage 0xFF60)에서 걸러져 목록에는 안 들어가고, 남는 것은 권한이다.
+ * 그 권한을 다음 `iapFind()` 가 주워서 HE 탭이 돌아온다.
+ */
+export const IAP_FILTER = {
+  vendorId: IAP_VID,
+  productId: IAP_PID,
+  usagePage: IAP_USAGE_PAGE,
+};
+
 const CMD_DATA = 0x80;
 const CMD_START = 0x81;
 const CMD_FLUSH = 0x82;
@@ -57,10 +72,15 @@ const APP_REPORT_LEN = 32;
 export const IAP_MAGIC = [0x48, 0x50, 0x4d, 0x0a]; /* "HPM\n" */
 
 /*
- * 배포 목록 — public/firmware/manifest.json.
+ * 배포 목록 — public/firmware/ 아래 두 층이다.
  *
- * 펌웨어 저장소의 `tools/make_release.py` 가 만든 것을 그대로 옮겨 온다.
- * 최신이 맨 앞이다.
+ *   manifest.json               보드 목록 (여기서 고른다)
+ *   <dir>/manifest.json         그 보드의 배포 목록 — 최신이 맨 앞
+ *   <dir>/<버전>/*.bin
+ *
+ * 보드별 목록은 펌웨어 저장소의 `tools/make_release.py` 가 만든 `release/` 를
+ * **그대로** 옮겨 온 것이다. 층을 나눈 이유가 그것이다 — 합치면 옮길 때마다
+ * 손으로 병합해야 하고, 버전 폴더 이름이 보드끼리 겹친다.
  */
 export const FW_BASE = '/firmware';
 
@@ -74,15 +94,40 @@ export type FwEntry = {
   notes: string[];
 };
 
-export async function fwList(): Promise<FwEntry[]> {
+/*
+ * 어느 보드인가.
+ *
+ * ★ **부트로더는 자기가 무슨 보드인지 말해 주지 않는다.**
+ *
+ *   벤더 IAP 라 VID/PID 가 보드와 무관하게 늘 534B:4102 이고, INFO 명령도 없다.
+ *   앱이 돌 때만 0xCA 로 보드 이름을 물어볼 수 있다. 그런데 굽는 것이 가장 절실한
+ *   상황이 바로 **앱이 안 도는 상태**다.
+ *
+ *   그래서 부트로더로 붙었을 때는 사람에게 묻는다. 짐작해서 고르면 다른 보드의
+ *   이미지를 굽게 되고, 그건 되돌리기 번거로운 실수다.
+ */
+export type FwBoard = {
+  id: string; /* 장치가 0xCA 로 말하는 이름과 같아야 한다 (앱 모드 자동 선택용) */
+  name: string; /* 사람에게 보일 이름 */
+  dir: string; /* public/firmware/<dir>/ */
+};
+
+export async function fwBoards(): Promise<FwBoard[]> {
   const r = await fetch(`${FW_BASE}/manifest.json`, {cache: 'no-cache'});
+  if (!r.ok) throw new Error(`보드 목록을 못 읽었다 (${r.status})`);
+  const j = await r.json();
+  return (j.boards ?? []) as FwBoard[];
+}
+
+export async function fwList(dir: string): Promise<FwEntry[]> {
+  const r = await fetch(`${FW_BASE}/${dir}/manifest.json`, {cache: 'no-cache'});
   if (!r.ok) throw new Error(`목록을 못 읽었다 (${r.status})`);
   const j = await r.json();
   return (j.firmwares ?? []) as FwEntry[];
 }
 
-export async function fwFetch(e: FwEntry): Promise<Uint8Array> {
-  const r = await fetch(`${FW_BASE}/${e.bin}`, {cache: 'no-cache'});
+export async function fwFetch(dir: string, e: FwEntry): Promise<Uint8Array> {
+  const r = await fetch(`${FW_BASE}/${dir}/${e.bin}`, {cache: 'no-cache'});
   if (!r.ok) throw new Error(`펌웨어를 못 받았다 (${r.status})`);
   const buf = new Uint8Array(await r.arrayBuffer());
 
@@ -241,9 +286,7 @@ export async function iapFind(): Promise<HIDDevice | null> {
 
 /* 사용자 제스처 안에서 불러야 한다 */
 export async function iapRequest(): Promise<HIDDevice | null> {
-  const got = await navigator.hid.requestDevice({
-    filters: [{vendorId: IAP_VID, productId: IAP_PID, usagePage: IAP_USAGE_PAGE}],
-  });
+  const got = await navigator.hid.requestDevice({filters: [IAP_FILTER]});
   return got[0] ?? null;
 }
 

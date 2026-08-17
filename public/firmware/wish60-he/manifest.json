@@ -1,0 +1,16 @@
+{
+  "board": "WISH60-HE",
+  "firmwares": [
+    {
+      "version": "V260817R1",
+      "board": "WISH60-HE",
+      "date": "2026-08-17",
+      "bin": "V260817R1/wish60-he-V260817R1.bin",
+      "size": 145080,
+      "crc": "0xB8D9DE95",
+      "notes": [
+        "HE 지원 첫 번째 버전"
+      ]
+    }
+  ]
+}

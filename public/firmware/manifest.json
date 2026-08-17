@@ -1,16 +1,10 @@
 {
-  "board": "WISH60-HE",
-  "firmwares": [
+  "_comment": "보드 목록. 각 보드의 배포 목록은 <dir>/manifest.json 이고, 그것은 펌웨어 저장소의 release/manifest.json 을 그대로 옮겨 온 것이다.",
+  "boards": [
     {
-      "version": "V260817R1",
-      "board": "WISH60-HE",
-      "date": "2026-08-17",
-      "bin": "V260817R1/wish60-he-V260817R1.bin",
-      "size": 145080,
-      "crc": "0xB8D9DE95",
-      "notes": [
-        "HE 지원 첫 번째 버전"
-      ]
+      "id": "WISH60-HE",
+      "name": "WISH60 HE 7U",
+      "dir": "wish60-he"
     }
   ]
 }

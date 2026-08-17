@@ -520,5 +520,13 @@
   "he.tip.fluxBottom": "Flux at full bottom-out, from the datasheet (Gs). These two points determine the whole curve.",
   "he.tip.flux": "The datasheet pair this switch was built from.",
   "Under cursor": "Under cursor",
-  "he.bootOnly": "This board is sitting in its bootloader — it is not running keyboard firmware, so only flashing is available. Pick an image below and write it."
+  "he.bootOnly": "This board is sitting in its bootloader — it is not running keyboard firmware, so only flashing is available. Pick an image below and write it.",
+  "Connect to bootloader": "Connect to bootloader",
+  "he.bootConnect.hint": "If the board is stuck in its bootloader it will not show up as a keyboard. Connect to it here to flash firmware.",
+  "Keyboard": "Keyboard",
+  "Pick your keyboard": "Pick your keyboard",
+  "he.tip.fwBoard": "The bootloader does not report which board it is, so pick it here. Choosing the wrong one writes another board's image.",
+  "he.note.fwPickBoard": "Pick your keyboard to see its firmware releases.",
+  "he.note.fwNoBoards": "No firmware releases are bundled with this app. You can still flash a file by hand below.",
+  "he.note.fwBoardMismatch": "The board reports \"{{device}}\" but \"{{picked}}\" is selected. Flashing now writes another board's image."
 }

@@ -26,6 +26,7 @@ import {Badge} from './configure-panes/badge';
 import {ProfileSelect} from 'src/components/menus/profile-select';
 import {getHeSwitching} from 'src/store/heSlice';
 import {AccentButtonLarge} from '../inputs/accent-button';
+import {useBootConnect} from './he-boot-connect';
 import {useAppSelector} from 'src/store/hooks';
 import {getSelectedDefinition} from 'src/store/definitionsSlice';
 import {
@@ -148,6 +149,46 @@ const getRowsForKeyboardV2 = (
   );
 };
 
+/*
+ * 첫 화면의 버튼 둘.
+ *
+ * ★ 폭을 고정해 **같은 크기로 세운다.** 글자 길이에 맡기면 두 버튼이 제각각이 되고,
+ *   같은 층에 놓인 선택지로 안 읽힌다. 실제로 그래서 눈에 거슬렸다.
+ */
+const LoaderButtons = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  row-gap: 20px;
+`;
+
+const LoaderBtn = styled(AccentButtonLarge)`
+  width: 360px;
+`;
+
+const BootConnectHint = styled.div`
+  font-size: 14px;
+  color: var(--color_label);
+  max-width: 360px;
+  text-align: center;
+  line-height: 1.5;
+`;
+
+/* 첫 화면의 "부트로더 연결" */
+const BootConnect: React.FC = () => {
+  const {t} = useTranslation();
+  const {connect, err} = useBootConnect({goHe: true});
+  return (
+    <>
+      <LoaderBtn onClick={() => connect()}>
+        {t('Connect to bootloader')}
+      </LoaderBtn>
+      <BootConnectHint>{t('he.bootConnect.hint')}</BootConnectHint>
+      {err && <BootConnectHint style={{color: '#d66'}}>{err}</BootConnectHint>}
+    </>
+  );
+};
+
 const Loader: React.FC<{
   loadProgress: number;
   selectedDefinition: VIADefinitionV2 | VIADefinitionV3 | null;
@@ -176,7 +217,8 @@ const Loader: React.FC<{
     <LoaderPane>
       {<ChippyLoader theme={theme} progress={loadProgress || null} />}
       {(showButton || noConnectedDevices) && !noSupportedIds && !isElectron ? (
-        <AccentButtonLarge
+        <LoaderButtons>
+        <LoaderBtn
           onClick={() => {
             /*
              * ★ 승인 플래그를 여기서 켠다.
@@ -196,7 +238,20 @@ const Loader: React.FC<{
         >
           {t('Authorize device')}
           <FontAwesomeIcon style={{marginLeft: '10px'}} icon={faPlus} />
-        </AccentButtonLarge>
+        </LoaderBtn>
+        {/*
+          * ★ 부트로더에 멈춘 보드는 여기 말고는 붙을 자리가 없다.
+          *
+          *   굽다 만 보드는 VIA 필터(usagePage 0xff60)에 안 걸려 목록에 안 오르고,
+          *   그래서 HE 탭도 안 뜬다. 되살릴 기능은 그 탭 안에만 있으므로, 첫 화면에
+          *   길을 안 두면 앱으로는 손쓸 방법이 없다.
+          *
+          *   권한이 이미 있으면 이 버튼이 필요 없다 — iapFind() 가 조용히 찾아
+          *   HE 탭이 저절로 뜬다. 그래도 버튼을 늘 보이게 두는 이유는, 권한이 없는
+          *   상태와 장치가 아예 없는 상태를 앱이 **구분할 수 없기** 때문이다.
+          */}
+        <BootConnect />
+        </LoaderButtons>
       ) : (
         <LoadingText isSearching={!selectedDefinition} />
       )}

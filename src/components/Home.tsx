@@ -1,7 +1,8 @@
-import React, {createRef, useEffect} from 'react';
+import React, {createRef, useEffect, useRef} from 'react';
 import styled from 'styled-components';
+import {useLocation} from 'wouter';
 import {iapFind} from 'src/utils/he-iap';
-import {setBootloaderSeen} from 'src/store/heSlice';
+import {getHeBootloaderSeen, setBootloaderSeen} from 'src/store/heSlice';
 import {getByteForCode} from '../utils/key';
 import {startMonitoring, usbDetect} from '../utils/usb-hid';
 import {
@@ -127,16 +128,68 @@ export const Home: React.FC<HomeProps> = (props) => {
    *   목적이라 그 경우가 대부분이고, 권한이 아예 없으면 "장치 승인" 으로 직접
    *   고르는 길이 남는다.
    */
+  const probeBootloader = () => {
+    iapFind()
+      .then((d) => dispatch(setBootloaderSeen(d !== null)))
+      .catch(() => dispatch(setBootloaderSeen(false)));
+  };
+
   const updateDevicesRepeat: () => void = timeoutRepeater(
     () => {
       dispatch(reloadConnectedDevices());
-      iapFind()
-        .then((d) => dispatch(setBootloaderSeen(d !== null)))
-        .catch(() => dispatch(setBootloaderSeen(false)));
+      probeBootloader();
     },
     500,
     1,
   );
+
+  /*
+   * ★ 이벤트 때만 보면 **참으로 굳는다.**
+   *
+   *   위 updateDevicesRepeat 는 USB 이벤트마다 500ms·1000ms 두 번 훑고 끝난다.
+   *   굽기가 끝나 보드가 앱으로 재열거되는 구간이 딱 그 두 번에 걸치는데, 그때
+   *   부트로더가 아직 목록에 남아 있으면 참으로 굳고 **그 뒤로 아무도 다시 안 봤다.**
+   *   화면이 부트로더 전용으로 접힌 채, 새로고침해야만 돌아왔다.
+   *
+   *   그래서 값의 출처를 이벤트 래치에서 **주기 확인**으로 바꾼다. 이벤트 쪽도
+   *   그대로 두므로 반응은 여전히 빠르고, 놓친 경우를 이쪽이 1초 안에 줍는다.
+   *
+   *   비용은 없다시피 하다 — getDevices() 는 이미 준 권한 안에서 훑을 뿐이라
+   *   선택 창도 제스처도 없다. 같은 값 재대입은 리듀서가 걸러 재랜더도 안 는다.
+   */
+  useEffect(() => {
+    if (!hasHIDSupport) return;
+    const id = setInterval(probeBootloader, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  /*
+   * 부트로더뿐이면 **HE 탭으로 데려간다.**
+   *
+   * 그 상태에서 앱이 할 수 있는 일은 굽는 것 하나뿐인데, 그 화면이 탭 안에 있다.
+   * 첫 화면에 세워 두면 "장치를 찾는 중" 만 돌아 무엇을 해야 할지 알 수 없다.
+   *
+   * ★ 한 번만 옮긴다.
+   *
+   *   계속 옮기면 부트로더에 둔 채 다른 탭을 못 본다 — 나가려 할 때마다 끌려온다.
+   *   거짓으로 돌아가면 다시 무장하므로, 굽고 나서 또 넘어가면 그때 다시 데려간다.
+   *
+   * ★ VIA 장치가 하나라도 있으면 안 옮긴다. 정상으로 붙은 키보드를 보고 있는데
+   *   부트로더가 옆에 물려 있다고 화면을 뺏을 이유가 없다.
+   */
+  const bootloaderSeen = useAppSelector(getHeBootloaderSeen);
+  const [location, setLocation] = useLocation();
+  const bootJumped = useRef(false);
+  useEffect(() => {
+    if (!bootloaderSeen) {
+      bootJumped.current = false;
+      return;
+    }
+    if (bootJumped.current) return;
+    if (Object.values(connectedDevices).length > 0) return;
+    bootJumped.current = true;
+    if (location !== '/he') setLocation('/he');
+  }, [bootloaderSeen, connectedDevices, location]);
 
   const toggleLights = async () => {
     if (!api || !selectedDefinition) {

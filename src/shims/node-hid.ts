@@ -3,6 +3,7 @@ import type {
   ConnectedDevice,
   WebVIADevice,
 } from '../types/types';
+import {IAP_FILTER} from '../utils/he-iap';
 
 var lastWriteTimestamp = Date.now();
 // This is a bit cray
@@ -77,6 +78,18 @@ const ExtendedHID = {
           usage: 0x61,
         },
         QMK_CONSOLE_FILTER,
+        /*
+         * ★ 부트로더도 고를 수 있게 한다. (상류 대비 수정)
+         *
+         *   굽다 만 보드는 usagePage 가 0xFF53 이라 위 필터에 안 걸린다. 그래서
+         *   "장치 승인" 목록에 안 나오고, 그 상태로 앱을 켜면 HE 탭도 안 떠서
+         *   되살릴 길이 없었다.
+         *
+         *   고른 장치는 바로 아래 filterHIDDevices 에서 걸러지므로 VIA 의 키보드
+         *   목록에는 안 들어간다 — 남는 것은 **권한**이고, 그걸 Home 의 주기 확인이
+         *   주워서 HE 탭이 돌아온다.
+         */
+        IAP_FILTER,
       ],
     });
     const viaDevices = filterHIDDevices(requestedDevice);
