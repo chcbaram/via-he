@@ -66,7 +66,10 @@ import {AccentRange} from '../inputs/accent-range';
 import {AccentSelect} from '../inputs/accent-select';
 import {AccentSlider} from '../inputs/accent-slider';
 import {MenuContainer} from './configure-panes/custom/menu-generator';
+import {badgeColor} from 'src/utils/color-math';
 import {DepthSlider} from './he-depth';
+import TextInput from 'src/components/inputs/text-input';
+import {NumberInput} from './configure-panes/submenus/macros/keycode-sequence-components';
 import {HeGraph} from './he-graph';
 import {heMakeCurve, heCurveToMm} from 'src/utils/he-curve';
 import type {KeyboardAPI} from 'src/utils/keyboard-api';
@@ -85,6 +88,8 @@ import {
 import {
   clearKeys,
   getHeSelectedKeys,
+  getHeHoverKey,
+  setHoverKey,
   setOverlayKeys,
   setOverlayBadge,
   setOverlayText,
@@ -98,6 +103,12 @@ import {
 import {useAppDispatch} from 'src/store/hooks';
 import {
   heReadSwitches,
+  heSwCustomAll,
+  heSwCustomSet,
+  heSwBadgeColor,
+  heSwIsCustom,
+  heSwSlotOf,
+  heSwTypeOf,
   heReadInfo,
   heCalStart,
   heCalStatus,
@@ -106,6 +117,7 @@ import {
   heCalCancel,
   type HeCalState,
   type HeSwitchTable,
+  type HeSwCustom,
   HeKeyGeo,
   HeKeyState,
   HeProf,
@@ -188,11 +200,13 @@ const SECTIONS = [
   {rail: 'switch', key: 'switch', label: 'SELECT', icon: faToggleOn},
 
   /*
-   * 재서 만든 스위치 프로파일. 아직 자리만 잡아 둔다 — 무엇을 어떻게 재게 할지가
-   * 정해져야 화면을 그린다.
+   * 표에 없는 스위치를 사용자가 정의하는 자리.
+   *
+   * ★ SELECT 와 하는 일이 다르다. 여기는 **스위치의 제원**을 정하고, SELECT 는
+   *   그 제원을 어느 키에 얹을지 정한다. 예전에 행정 슬라이더가 SELECT 에 붙어
+   *   있었더니 "이 슬라이더가 무엇을 바꾸나" 가 매번 헷갈렸다.
    */
-  {rail: 'switch', key: 'swcustom', label: 'CUSTOM', icon: faSliders,
-   todo: 'measuring a switch yourself'},
+  {rail: 'switch', key: 'swcustom', label: 'CUSTOM', icon: faSliders},
 
   {rail: 'cal', key: 'calibrate', label: 'BOTTOM-OUT', icon: faRulerVertical},
 
@@ -271,14 +285,37 @@ type SectionKey = (typeof SECTIONS)[number]['key'];
  *   고칠 수 있는 값을 두 군데에 보여주면 반드시 한쪽이 거짓말을 한다. 바로 아래
  *   전 행정 줄이 진짜 값을 들고 있으므로 목록에서는 뺀다.
  */
-const switchOptions = (tbl: HeSwitchTable | null) =>
-  (tbl?.list ?? []).map((s, value) => ({
-    label:
-      value < (tbl?.genericCnt ?? 0)
-        ? s.name
-        : `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
+/*
+ * ★ 커스텀 슬롯은 늘 넷 다 보인다.
+ *
+ *   비어 있어도 "CUSTOM 1" 로 자리를 지킨다. 안 보이면 사용자가 그런 것이 있는지
+ *   모르고, 보이면 골랐다가 CUSTOM 탭으로 가면 된다.
+ *
+ *   이름을 붙였으면 이름을 같이 적는다 — 슬롯 번호만으로는 무엇을 넣었는지 기억이
+ *   안 난다.
+ */
+const swCustomLabel = (slot: number, c: HeSwCustom | undefined) =>
+  c && c.name ? `CUSTOM ${slot + 1} — ${c.name}` : `CUSTOM ${slot + 1}`;
+
+const switchOptions = (
+  tbl: HeSwitchTable | null,
+  cust: HeSwCustom[],
+) => [
+  /*
+   * ★ 커스텀이 **앞**이다.
+   *
+   *   내장 표는 우리가 아는 스위치이고, 커스텀은 사용자가 자기 보드를 보고 넣은
+   *   것이다. 자기가 넣은 것을 목록 바닥에서 찾게 할 이유가 없다.
+   */
+  ...cust.map((c, slot) => ({
+    label: swCustomLabel(slot, c),
+    value: heSwTypeOf(slot),
+  })),
+  ...(tbl?.list ?? []).map((s, value) => ({
+    label: `${s.name}  (${(s.travelUm / 100).toFixed(1)} mm)`,
     value,
-  }));
+  })),
+];
 
 /*
  * 프리셋. 슬라이더 세 개를 모르는 사람도 바로 쓸 수 있게 한다.
@@ -351,11 +388,41 @@ const Summary = styled.span`
 `;
 
 /* 고른 키들의 값이 서로 다르면 숫자 대신 이걸 보여준다 */
+/*
+ * 숫자를 직접 치는 칸. 자속은 0~2000 Gs 범위라 슬라이더로는 못 맞춘다 —
+ * 데이터시트를 보고 옮겨 적는 값이라 타이핑이 맞다.
+ */
+/* 키캡 배지와 같은 색을 이름 옆에 찍는다 — 색과 이름을 이어 주는 유일한 자리다 */
+/*
+ * 자 옆의 "지금" 줄. 눌리면 색이 선다 — 숫자만으로는 판정 여부가 안 보인다.
+ */
+
+const SwDot = styled.span<{$c: string}>`
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  margin-right: 8px;
+  vertical-align: middle;
+  background: ${(p) => p.$c};
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
+`;
+
+const NumBox = styled(NumberInput)`
+  width: 72px;
+  color: var(--color_label_highlighted);
+`;
+
+const TextBox = styled(TextInput)`
+  width: 200px;
+  margin-bottom: 0;
+`;
+
 const fmtMm = (v: number | null) =>
   v === null ? '—' : `${(v / 100).toFixed(2)} mm`;
 
 /* 이 항목을 바꾸면 장치가 계산하는 값(travelUm·strokeCnt)도 따라 바뀐다 */
-const REFRESH_KEYS: (keyof HeKeyCfg)[] = ['switchType', 'genTravelUm'];
+const REFRESH_KEYS: (keyof HeKeyCfg)[] = ['switchType'];
 
 /*
  * 설명 말풍선.
@@ -618,6 +685,8 @@ export const HePane: React.FC = () => {
    *   화면의 값은 전부 keyCfgs(키별) 에서 나온다 — 출처가 하나다.
    */
   const [switches, setSwitches] = useState<HeSwitchTable | null>(null);
+  /* 커스텀 슬롯 정의 — 장치가 준다. 목록과 SELECT 표시가 같이 본다 */
+  const [swCust, setSwCust] = useState<HeSwCustom[]>([]);
   const [cal, setCal] = useState<HeCalState | null>(null);
   /* 보정 화면에서 읽는 전 키 상태 — 어느 키가 이미 보정됐나 */
   const [calAll, setCalAll] = useState<HeKeyCfg[] | null>(null);
@@ -735,6 +804,7 @@ export const HePane: React.FC = () => {
    */
   const dispatch = useAppDispatch();
   const selectedKeys = useAppSelector(getHeSelectedKeys);
+  const hoverKey = useAppSelector(getHeHoverKey);
 
   const {basicKeyToByte, byteToKey} = useAppSelector(getBasicKeyToByte);
 
@@ -824,6 +894,174 @@ export const HePane: React.FC = () => {
     const v = pick(k);
     return typeof v === 'number' ? v : null;
   };
+
+  /*
+   * 목록과 정보 조회를 한 자리에서 만든다.
+   *
+   * 내장은 0xC6, 커스텀은 0xCB 로 따로 오지만 화면에서는 한 목록이다. 두 출처를
+   * 쓰는 쪽마다 합치면 반드시 한쪽을 빠뜨린다.
+   */
+  const swOptions = useMemo(
+    () => switchOptions(switches, swCust),
+    [switches, swCust],
+  );
+
+  /*
+   * CUSTOM 탭의 편집 상태.
+   *
+   * ★ 초안을 따로 든다. 타이핑할 때마다 장치에 쓰지 않는다.
+   *
+   *   자속을 "700" 으로 치는 동안 7, 70, 700 이 차례로 나간다. 그때마다 장치가
+   *   곡선을 다시 만들고 임계값을 다시 굽는다 — 중간 값은 대개 근이 없어 곡선이
+   *   사라졌다 나타났다 한다. 다 치고 나서 한 번 보낸다.
+   */
+  const [swSlot, setSwSlot] = useState(0);
+  const [swDraft, setSwDraft] = useState<HeSwCustom>({
+    name: '',
+    travelUm: 400,
+    fluxRestGs: 0,
+    fluxBottomGs: 0,
+    kind: 0,
+  });
+  const [swBusy, setSwBusy] = useState(false);
+  const [swMsg, setSwMsg] = useState('');
+  const swInput = useRef<HTMLInputElement>(null);
+
+  /*
+   * 화면을 옮기면 가리킨 키를 잊는다.
+   *
+   * 키캡에서 마우스가 빠져나가는 사건은 공유 렌더가 안 올려 주므로(내려오는 것은
+   * PointerDown·PointerOver 뿐이다) 판을 벗어나도 마지막 키가 남는다. 최소한 화면을
+   * 옮길 때는 지워야 "—" 가 제 뜻대로 보인다.
+   */
+  useEffect(() => {
+    dispatch(setHoverKey(null));
+  }, [rail, section, dispatch]);
+
+  const swSlotOptions = useMemo(
+    () =>
+      swCust.map((c, i) => ({label: swCustomLabel(i, c), value: i})),
+    [swCust],
+  );
+
+  /* 슬롯을 바꾸거나 장치에서 다시 읽으면 초안을 그 값으로 되돌린다 */
+  useEffect(() => {
+    const c = swCust[swSlot];
+
+    if (c) setSwDraft({...c});
+  }, [swSlot, swCust]);
+
+  const swSave = useCallback(async () => {
+    setSwBusy(true);
+    setSwMsg('');
+    try {
+      /*
+       * 장치가 실제로 담은 값을 받아 그대로 반영한다 — 이름이 잘렸거나 행정이
+       * 잘렸으면 화면이 바로 안다.
+       */
+      const got = await heSwCustomSet(send, swSlot, swDraft);
+
+      setSwCust((l) => l.map((c, i) => (i === swSlot ? got : c)));
+      setSwDraft({...got});
+      /* 행정이 바뀌면 키의 mm 환산 기준이 바뀐다 — 키캡 값을 다시 읽는다 */
+      setKeyCfgs({});
+      setSwMsg(t('Saved'));
+    } catch (e) {
+      setSwMsg(String(e));
+    } finally {
+      setSwBusy(false);
+    }
+  }, [send, swSlot, swDraft, t]);
+
+  /*
+   * ★ 스위치 정의 파일에는 **보드 이름을 안 넣는다.**
+   *
+   *   담긴 것이 전부 데이터시트에서 온 값이라 보드와 무관하다. 보드를 적어 두면
+   *   검사하고 싶어지고, 검사하면 다른 모델과 나눌 수가 없다. 전체 백업이 보드를
+   *   가리는 것과는 반대 이유다.
+   */
+  const swExport = useCallback(() => {
+    const obj = {
+      kind: 'wish60-he/switches',
+      version: 1,
+      switches: [
+        {
+          name: swDraft.name,
+          travelUm: swDraft.travelUm,
+          fluxRestGs: swDraft.fluxRestGs,
+          fluxBottomGs: swDraft.fluxBottomGs,
+        },
+      ],
+    };
+    const a = document.createElement('a');
+
+    a.href = URL.createObjectURL(
+      new Blob([JSON.stringify(obj, null, 2)], {type: 'application/json'}),
+    );
+    a.download = `${(swDraft.name || `custom${swSlot + 1}`)
+      .replace(/[^\w.-]+/g, '-')
+      .toLowerCase()}.switch.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, [swDraft, swSlot]);
+
+  /*
+   * 불러오면 **초안에만** 넣는다. 어느 칸에 넣을지는 이미 위에서 고른 상태이고,
+   * 실제로 장치에 쓰는 것은 사용자가 저장을 누를 때다 — 파일 하나로 슬롯이 조용히
+   * 바뀌면 곤란하다.
+   */
+  const swImport = useCallback(
+    async (evt: React.ChangeEvent<HTMLInputElement>) => {
+      const f = evt.target.files?.[0];
+
+      evt.target.value = '';
+      if (!f) return;
+      try {
+        const o = JSON.parse(await f.text());
+
+        if (o?.kind !== 'wish60-he/switches') {
+          setSwMsg(t('not a switch file'));
+          return;
+        }
+        const one = Array.isArray(o.switches) ? o.switches[0] : null;
+
+        if (!one) {
+          setSwMsg(t('no switches in the file'));
+          return;
+        }
+        setSwDraft({
+          name: String(one.name ?? '').slice(0, 11),
+          travelUm: Math.min(500, Math.max(200, one.travelUm | 0)),
+          fluxRestGs: Math.max(0, one.fluxRestGs | 0),
+          fluxBottomGs: Math.max(0, one.fluxBottomGs | 0),
+          kind: 0,
+        });
+        setSwMsg(t('Loaded — press Apply to write it'));
+      } catch (e) {
+        setSwMsg(String(e));
+      }
+    },
+    [t],
+  );
+
+  const swInfoOf = useCallback(
+    (t: number) => {
+      if (heSwIsCustom(t)) {
+        const c = swCust[heSwSlotOf(t)];
+
+        return c
+          ? {
+              name: swCustomLabel(heSwSlotOf(t), c),
+              travelUm: c.travelUm,
+              fluxRestGs: c.fluxRestGs,
+              fluxBottomGs: c.fluxBottomGs,
+            }
+          : null;
+      }
+      return switches?.list[t] ?? null;
+    },
+    [switches, swCust],
+  );
 
   /* 배치에 있는 키의 매트릭스 인덱스 — "모두 선택"과 "반전"의 모집단 */
   const allKeyIndexes = useMemo(
@@ -988,6 +1226,9 @@ export const HePane: React.FC = () => {
     heReadLayout(send)
       .then((l) => alive && setLayout(l))
       .catch((e) => alive && setErr(String(e)));
+    heSwCustomAll(send)
+      .then((c) => alive && setSwCust(c))
+      .catch(() => {});
     heReadSwitches(send)
       .then((t) => alive && setSwitches(t))
       .catch(() => {});
@@ -1119,8 +1360,6 @@ export const HePane: React.FC = () => {
    * 읽기는 없다. 이미 읽어 둔 keyCfgs 에서 뽑을 뿐이라 화면을 옮겨도 공짜다.
    * 슬라이더로 값을 바꾸면 putMany 가 keyCfgs 를 갱신하므로 키캡도 같이 따라간다.
    */
-  const textSig = useRef('');
-
   useEffect(() => {
     /*
      * ★ 스위치 갈래도 여기서 그린다.
@@ -1131,10 +1370,7 @@ export const HePane: React.FC = () => {
 
     const fields = OVERLAY_FIELDS[section];
     if (!fields) {
-      if (textSig.current !== '') {
-        textSig.current = '';
-        dispatch(setOverlayText(null));
-      }
+      dispatch(setOverlayText(null));
       return;
     }
 
@@ -1156,16 +1392,11 @@ export const HePane: React.FC = () => {
     }
 
     /*
-     * 같은 내용이면 보내지 않는다.
+     * 같은 내용이면 안 보내지는 것은 **리듀서가** 맡는다 (heSlice 의 sameMap).
      *
-     * 새 객체를 보내면 key-group 이 라벨을 다시 만들고 키캡 63개를 통째로 다시
-     * 그린다. keyCfgs 는 다른 이유로도 갱신되므로(값 하나만 바뀌어도, 새 키를 읽어
-     * 담아도), 내용이 같은데 다시 그리는 일이 실제로 잦다. 아래 막대 쪽이 이미
-     * 같은 방식으로 막고 있다.
+     * 여기서 서명을 들고 비교했다가 당했다 — 이 값을 쓰는 자리가 넷인데 서명은
+     * 하나뿐이라, 다른 셋이 바꾸면 서명이 낡아 필요한 갱신을 삼켰다.
      */
-    const sig = JSON.stringify(text);
-    if (sig === textSig.current) return;
-    textSig.current = sig;
     dispatch(setOverlayText(text));
   }, [rail, section, keyCfgs, layout, dispatch]);
 
@@ -1185,14 +1416,29 @@ export const HePane: React.FC = () => {
    *
    * RT 화면에서만 그린다. 다른 화면에서는 지금 만지는 값과 관계없는 표시라 방해다.
    */
-  const badgeSig = useRef('');
-
   useEffect(() => {
-    if (rail !== 'tune' || section !== 'rapid') {
-      if (badgeSig.current !== '') {
-        badgeSig.current = '';
-        dispatch(setOverlayBadge(null));
+    /*
+     * 스위치 화면은 **어느 종류가 걸렸나**를 색으로 찍는다.
+     *
+     * 키캡에는 행정만 들어가는데, 3.50mm 짜리가 둘이면 그것만으로는 못 가른다.
+     * 색이 같으면 같은 스위치다 — 이름을 못 읽어도 무리는 보인다.
+     */
+    if (rail === 'switch' && section === 'switch') {
+      const badge: Record<number, number> = {};
+
+      for (const g of layout) {
+        const i = g.row * MATRIX_COLS + g.col;
+        const c = keyCfgs[i];
+
+        if (!c) continue;
+        badge[i] = 1 | (heSwBadgeColor(c.switchType) << 4);
       }
+      dispatch(setOverlayBadge(badge));
+      return;
+    }
+
+    if (rail !== 'tune' || section !== 'rapid') {
+      dispatch(setOverlayBadge(null));
       return;
     }
 
@@ -1205,10 +1451,7 @@ export const HePane: React.FC = () => {
       badge[i] = f & HE_RT_CONT ? 2 : 1;
     }
 
-    /* 여기도 마찬가지다 — 배지는 거의 안 바뀌는데 keyCfgs 는 자주 바뀐다 */
-    const sig = JSON.stringify(badge);
-    if (sig === badgeSig.current) return;
-    badgeSig.current = sig;
+    /* 중복 제거는 리듀서가 한다 — 위와 같은 이유다 */
     dispatch(setOverlayBadge(badge));
   }, [rail, section, keyCfgs, layout, dispatch]);
 
@@ -2105,6 +2348,10 @@ export const HePane: React.FC = () => {
            * 키맵은 버리지 않고 덮어쓴다 (버리면 화면이 그릴 것이 없어진다).
            */
           setKeyCfgs({});
+          /* 스위치 정의도 덮였다 — 목록과 CUSTOM 탭이 그걸 보고 있다 */
+          await heSwCustomAll(send)
+            .then(setSwCust)
+            .catch(() => {});
           if (device) await dispatch(loadKeymapFromDevice(device, true));
 
           setBkMsg(`${t('Applied')} — ${n} ${t('keys')}`);
@@ -2683,6 +2930,14 @@ export const HePane: React.FC = () => {
             *   다른 탭에 있어서 여기서는 아무 표시 없이 조용히 바뀌었다. 무엇이
             *   바뀌는지 모르는 버튼은 누르기 어렵다.
             */}
+          {/*
+            * 프리셋이 무엇을 바꾸는지 보여준다.
+            *
+            * ★ 버튼만 늘어놓았더니 재입력 값이 안 보였다.
+            *   프리셋은 입력지점·해제지점만이 아니라 RT 재입력까지 바꾸는데, 그 값은
+            *   다른 탭에 있어서 여기서는 아무 표시 없이 조용히 바뀌었다. 무엇이
+            *   바뀌는지 모르는 버튼은 누르기 어렵다.
+            */}
           {PRESETS.map((p) => (
             <ControlRow key={p.label}>
               <Label>
@@ -2710,6 +2965,24 @@ export const HePane: React.FC = () => {
                 isChecked={tracking}
                 onChange={(v: boolean) => (v ? start() : stop())}
               />
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * 키캡 아래 값은 늘 mm 다. 이 스위치를 켜면 원시 ADC 값으로 바뀐다.
+            *
+            * ★ 자리를 나누지 않고 **같은 자리에서 바꾼다.**
+            *
+            *   둘을 같이 찍으면 키캡 아래에 숫자가 두 개 붙어 어느 것이 무엇인지
+            *   다시 설명해야 한다. 원시값을 볼 때는 mm 가 궁금하지 않다 — 센서가
+            *   무엇을 보고 있는지 확인하려고 켜는 것이다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.raw')}>{t('Show raw ADC')}</Hint>
+            </Label>
+            <Detail>
+              <AccentSlider isChecked={showRaw} onChange={setShowRaw} />
             </Detail>
           </ControlRow>
           {/*
@@ -2745,6 +3018,7 @@ export const HePane: React.FC = () => {
                 <Hint tip={t('he.tip.press')}>{t('Press Point')}</Hint>
               </SecondLabel>
             </Label>
+
             <Detail>
               <DepthSlider
                 value={num('pressUm') ?? 100}
@@ -2802,23 +3076,7 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
 
-          {/*
-            * 키캡 아래 값은 늘 mm 다. 이 스위치를 켜면 원시 ADC 값으로 바뀐다.
-            *
-            * ★ 자리를 나누지 않고 **같은 자리에서 바꾼다.**
-            *
-            *   둘을 같이 찍으면 키캡 아래에 숫자가 두 개 붙어 어느 것이 무엇인지
-            *   다시 설명해야 한다. 원시값을 볼 때는 mm 가 궁금하지 않다 — 센서가
-            *   무엇을 보고 있는지 확인하려고 켜는 것이다.
-            */}
-          <ControlRow>
-            <Label>
-              <Hint tip={t('he.tip.raw')}>{t('Show raw ADC')}</Hint>
-            </Label>
-            <Detail>
-              <AccentSlider isChecked={showRaw} onChange={setShowRaw} />
-            </Detail>
-          </ControlRow>
+
         </>
       );
     }
@@ -2983,6 +3241,154 @@ export const HePane: React.FC = () => {
       );
     }
 
+    /*
+     * CUSTOM — 스위치의 제원을 정하는 자리.
+     *
+     * ★ 키 선택과 무관하다. `locked` 를 안 건다.
+     *
+     *   여기서 고치는 것은 "이 슬롯이 어떤 스위치인가" 지 "이 키를 어떻게 할까" 가
+     *   아니다. 키를 안 골랐다고 스위치 정의를 못 고칠 이유가 없다.
+     */
+    if (section === 'swcustom') {
+      const cur = swDraft;
+      const mm = cur.travelUm / 100;
+
+      /*
+       * 미리보기는 앱이 계산하지만, 장치도 같은 계산을 정수로 한다 (keysCurveBuild).
+       * 실측으로 대조해 마디마다 32767 대비 17 안쪽 — 거리로 1.8µm 다.
+       */
+      const preview = heMakeCurve(cur.fluxRestGs, cur.fluxBottomGs, mm);
+
+      const setDraft = (patch: Partial<HeSwCustom>) =>
+        setSwDraft((d) => ({...d, ...patch}));
+
+      return (
+        <>
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.swslot')}>{t('Slot')}</Hint>
+            </Label>
+            <Detail>
+              <AccentSelect
+                width={selRowW}
+                value={
+                  swSlotOptions.find((o) => o.value === swSlot) ?? null
+                }
+                options={swSlotOptions}
+                onChange={(o: any) => setSwSlot(o?.value ?? 0)}
+              />
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>{t('Name')}</Label>
+            <Detail>
+              <TextBox
+                value={cur.name}
+                maxLength={11}
+                placeholder={`CUSTOM ${swSlot + 1}`}
+                onChange={(e: any) => setDraft({name: e.target.value})}
+              />
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>{t('Travel')}</Label>
+            <Detail>
+              <AccentRange
+                min={200}
+                max={500}
+                value={cur.travelUm}
+                onChange={(v: number) => setDraft({travelUm: v})}
+              />
+              <Val>{mm.toFixed(2)} mm</Val>
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * 데이터시트 두 점.
+            *
+            * ★ 이 둘이면 곡선이 결정된다. 축상 자기장 식의 미지수가 둘인데 두 점의
+            *   비를 잡으면 자석 세기가 약분되어 하나만 남는다. 그래서 심을 끼워
+            *   재지 않아도 된다.
+            *
+            * ★ 모르면 0 으로 둔다. 짐작한 값을 넣으면 그게 실측인 척한다 — 그때는
+            *   그 행정의 직선으로 읽는다.
+            */}
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.fluxRest')}>{t('Initial Flux')}</Hint>
+            </Label>
+            <Detail>
+              <NumBox
+                value={cur.fluxRestGs}
+                min={0}
+                max={5000}
+                onChange={(e: any) =>
+                  setDraft({fluxRestGs: Math.max(0, +e.target.value | 0)})
+                }
+              />
+              <Summary>&nbsp;Gs</Summary>
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.fluxBottom')}>{t('Bottom Flux')}</Hint>
+            </Label>
+            <Detail>
+              <NumBox
+                value={cur.fluxBottomGs}
+                min={0}
+                max={5000}
+                onChange={(e: any) =>
+                  setDraft({fluxBottomGs: Math.max(0, +e.target.value | 0)})
+                }
+              />
+              <Summary>&nbsp;Gs</Summary>
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.curve')}>{t('ADC to distance')}</Hint>
+            </Label>
+            <Detail>
+              <HeGraph curve={preview} travelMm={mm} u={null} />
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>{t('Save')}</Label>
+            <Detail>
+              <FwBtn disabled={swBusy} onClick={() => swSave()}>
+                {t('Apply')}
+              </FwBtn>
+              <FwBtn onClick={() => swExport()}>{t('Export')}</FwBtn>
+              <FwBtn onClick={() => swInput.current?.click()}>
+                {t('Import')}
+              </FwBtn>
+              <input
+                ref={swInput}
+                type="file"
+                accept=".json,application/json"
+                style={{display: 'none'}}
+                onChange={swImport}
+              />
+            </Detail>
+          </ControlRow>
+
+          {swMsg && <Note>{swMsg}</Note>}
+
+          <Note>
+            {preview
+              ? t('he.note.curveOn', {err: preview.maxErrMm.toFixed(2)})
+              : t('he.note.swLinear')}
+          </Note>
+        </>
+      );
+    }
+
     if (section === 'switch') {
       /*
        * ★ 종류도 **고른 키의 값**이다.
@@ -2996,32 +3402,29 @@ export const HePane: React.FC = () => {
        */
       const swType = num('switchType');
       const known = swType !== null;
-      const cur = known ? switches?.list[swType] : undefined;
+      const sw = known ? swInfoOf(swType) : null;
 
       /*
-       * ★ 일반형은 행정을 사용자가 정한다.
+       * ★ 여기는 **고르고 보는 자리**다.
        *
-       *   제원을 아는 제품은 종류가 행정을 갖고 있지만, "제원을 모르는 스위치를
-       *   꽂았다" 는 것은 사용자만 안다. 예전에는 4.0 / 3.5 / 3.0 세 칸을 미리
-       *   만들어 뒀는데 그 사이 값(3.4 같은)은 못 고르고 목록만 길어졌다.
+       *   예전에는 일반형을 고르면 행정 슬라이더가 여기 붙었다. 그런데 스위치의
+       *   제원을 정하는 일과 키에 스위치를 배정하는 일은 다른 일이다. 한 화면에
+       *   섞여 있으니 "지금 이 슬라이더가 무엇을 바꾸나" 가 매번 헷갈렸다.
        *
-       *   genericCnt 앞쪽이 일반형이다 — 장치가 알려 준다.
+       *   정하는 것은 CUSTOM 탭으로 옮겼다. 여기는 배정과 표시만 한다.
        */
-      const isGeneric = known && swType < (switches?.genericCnt ?? 1);
-      const genUm = num('genTravelUm') ?? 0;
-      /*
-       * 그림은 그릴 것이 있어야 하므로 모를 때도 공칭값으로 떨어진다. 대신 아래
-       * 행정 줄은 known 일 때만 숫자를 찍는다 — 그림은 보는 것이고, 그 줄은 값이다.
-       */
-      const travelUm = (isGeneric ? genUm : 0) || cur?.travelUm || travel;
+      const travelUm = sw?.travelUm || travel;
       const travelMm = travelUm / 100;
 
       /*
-       * 곡선은 데이터시트 두 점에서 계산한다. 제원을 모르는 스위치면 null 이고, 그때는
+       * 곡선은 데이터시트 두 점에서 계산한다. 두 점을 모르면 null 이고, 그때는
        * 그림에 직선만 그려진다 — 짐작한 곡선을 그려 두면 그게 실측인 척한다.
+       *
+       * ★ 장치도 같은 계산을 한다 (keysCurveBuild). 실측으로 대조해 두 마디마다
+       *   32767 대비 17 안쪽, 거리로 1.8µm 다.
        */
-      const curve = cur
-        ? heMakeCurve(cur.fluxRestGs, cur.fluxBottomGs, travelMm)
+      const curve = sw
+        ? heMakeCurve(sw.fluxRestGs, sw.fluxBottomGs, travelMm)
         : null;
 
       /* 펌웨어의 깊이는 직선 환산이라 u 를 그대로 되돌릴 수 있다 (u = depth / travel) */
@@ -3031,7 +3434,7 @@ export const HePane: React.FC = () => {
        */
       const u =
         tracking && deepestAll.um >= HE_MM_MIN
-          ? Math.min(1, deepestAll.um / (cur?.travelUm ?? travel))
+          ? Math.min(1, deepestAll.um / travelUm)
           : null;
 
       const mmLin = u === null ? null : u * travelMm;
@@ -3047,19 +3450,18 @@ export const HePane: React.FC = () => {
               <AccentSelect
                 width={selRowW}
                 isDisabled={locked}
-                value={known ? switchOptions(switches)[swType] : null}
-                options={switchOptions(switches)}
                 /*
-                 * ★ 종류도 **선택을 따른다.**
+                 * ★ 배열 인덱스로 찾지 않는다.
                  *
-                 *   한 보드에 여러 종류를 꽂을 수 있어 sw_type 은 키별 값이다. 그런데
-                 *   여기서 VIA 전역 값(heSetSwitch)을 쓰고 있었고, 그 setter 는 전
-                 *   키에 뿌린다 — 특정 키만 골라 놓고 종류를 바꿔도 63키가 전부
-                 *   바뀌었다.
-                 *
-                 *   다른 설정과 같은 길(putMany)로 보낸다. 고른 키가 없으면 그때
-                 *   브로드캐스트가 되므로 예전 동작도 그대로 남는다.
+                 *   커스텀은 비트 7 이 선 번호(0x80~)라 목록의 자리와 값이 다르다.
+                 *   예전처럼 options[swType] 로 집으면 커스텀에서 엉뚱한 칸을 집는다.
                  */
+                value={
+                  known
+                    ? (swOptions.find((o) => o.value === swType) ?? null)
+                    : null
+                }
+                options={swOptions}
                 onChange={(o: any) => {
                   const v = o?.value ?? 0;
                   put('switchType', v).catch(() => {});
@@ -3069,32 +3471,63 @@ export const HePane: React.FC = () => {
           </ControlRow>
 
           {/*
-            * 전 행정 — 일반형이면 직접 정하고, 제품이면 제원을 보여준다.
-            *
-            * ★ 같은 자리를 쓴다. 줄을 나누면 "지금 어느 쪽이 실제 값인가" 를 다시
-            *   설명해야 한다. 고칠 수 있을 때만 손잡이가 생긴다.
+            * 설정된 값을 보여주기만 한다 — 고치는 것은 CUSTOM 탭이다.
             */}
           <ControlRow>
             <Label>{t('Travel')}</Label>
             <Detail>
-              {!known ? (
-                <Summary>—</Summary>
-              ) : isGeneric ? (
-                <>
-                  <AccentRange
-                    min={200}
-                    max={500}
-                    disabled={locked}
-                    value={Math.round(travelMm * 100)}
-                    onChange={(v: number) => {
-                      put('genTravelUm', v).catch(() => {});
-                    }}
-                  />
-                  <Val>{travelMm.toFixed(2)} mm</Val>
-                </>
-              ) : (
-                <Summary>{travelMm.toFixed(2)} mm</Summary>
-              )}
+              <Summary>{known ? `${travelMm.toFixed(2)} mm` : '—'}</Summary>
+            </Detail>
+          </ControlRow>
+
+          {/*
+            * 가리킨 키에 무엇이 걸려 있나.
+            *
+            * ★ 키캡에는 행정만 찍는다. 1u 폭에 "Gateron Jade Pro" 가 안 들어가고,
+            *   줄여 넣으면 7px 이 되어 안 읽힌다. 대신 판을 쓸면 여기서 읽힌다.
+            */}
+          <ControlRow>
+            <Label>{t('Under cursor')}</Label>
+            <Detail>
+              <Summary>
+                {hoverKey === null
+                  ? '—'
+                  : (() => {
+                      const c = keyCfgs[hoverKey];
+
+                      if (!c) return '—';
+                      const s = swInfoOf(c.switchType);
+
+                      if (!s) return `0x${c.switchType.toString(16)}`;
+                      return (
+                        <>
+                          <SwDot
+                            $c={badgeColor(
+                              heSwBadgeColor(c.switchType) << 4,
+                            )}
+                          />
+                          {s.name}
+                          {'   '}
+                          {(s.travelUm / 100).toFixed(2)} mm
+                        </>
+                      );
+                    })()}
+              </Summary>
+            </Detail>
+          </ControlRow>
+
+          <ControlRow>
+            <Label>
+              <Hint tip={t('he.tip.flux')}>{t('Flux')}</Hint>
+            </Label>
+            <Detail>
+              <Summary>
+                {!known
+                  ? '—'
+                  : sw && sw.fluxRestGs > 0
+                    ? `${sw.fluxRestGs} / ${sw.fluxBottomGs} Gs`
+                    : t('he.flux.none')}
+              </Summary>
             </Detail>
           </ControlRow>
 

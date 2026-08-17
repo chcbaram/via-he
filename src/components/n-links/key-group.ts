@@ -36,6 +36,7 @@ export function getKeycapSharedProps<T>(
     onClick,
     onPointerDown,
     onPointerOver,
+    onPointerOut,
   } = keysKeys.coords[i];
   const isEncoder = k['ei'] !== undefined;
   return {
@@ -50,6 +51,7 @@ export function getKeycapSharedProps<T>(
     shouldRotate: isEncoder,
     onPointerDown: onPointerDown,
     onPointerOver: onPointerOver,
+    onPointerOut: onPointerOut,
     keyState: props.pressedKeys ? props.pressedKeys[i] : -1,
     disabled: !props.selectable,
     selected: i === selectedKeyIndex,
@@ -186,6 +188,7 @@ export function getKeysKeys<T>(
         },
         onPointerDown: props.onKeycapPointerDown,
         onPointerOver: props.onKeycapPointerOver,
+        onPointerOut: props.onKeycapPointerOut,
       };
     }),
   };

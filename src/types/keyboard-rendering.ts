@@ -52,6 +52,7 @@ export type KeyboardCanvasContentProps<T> = {
   keyBadge?: (number | undefined)[];
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;
+  onKeycapPointerOut?: (e: T, idx: number) => void;
   width: number;
   height: number;
 };
@@ -119,6 +120,7 @@ export type KeyGroupProps<T> = {
   selectedKey?: number;
   onKeycapPointerDown?: (e: T, idx: number) => void;
   onKeycapPointerOver?: (e: T, idx: number) => void;
+  onKeycapPointerOut?: (e: T, idx: number) => void;
 };
 
 export type KeyCoords<T> = {
@@ -131,6 +133,7 @@ export type KeyCoords<T> = {
   onClick: (e: T, idx: number) => void;
   onPointerDown?: (e: T, idx: number) => void;
   onPointerOver?: (e: T, idx: number) => void;
+  onPointerOut?: (e: T, idx: number) => void;
 };
 
 export type KeysKeys<T> = {

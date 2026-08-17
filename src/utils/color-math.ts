@@ -97,6 +97,43 @@ export const LIVE_COLOR_ON_DARK = '#4da3ff';
  */
 export const BADGE_COLOR = '#ffb020';
 
+/*
+ * 배지 색 팔레트.
+ *
+ * ★ 배지 값 하나에 **길이와 색을 같이** 싣는다.
+ *
+ *     len   = n & 0x0F     1 = 점, 2 = 알약
+ *     color = n >> 4       이 표의 번호
+ *
+ *   래피드 트리거는 예전부터 1·2 를 보내므로 color 가 0 이 되어 지금 색(호박색)이
+ *   그대로 나온다 — 규칙 하나로 두 쓰임이 같이 산다. 값의 뜻을 화면마다 다르게
+ *   두면 반드시 한쪽이 낡는다.
+ *
+ * ★ 번호는 스위치 종류에서 **바로** 뽑는다 (heSwBadgeColor).
+ *
+ *   보드에 실제로 쓰인 종류만 모아 순서대로 색을 주면, 키 하나를 바꿀 때마다 전체
+ *   색이 재배치되어 오히려 헷갈린다. 종류가 같으면 언제나 같은 색이어야 한다.
+ *
+ * 배지에는 1px 검은 테두리가 둘러 있어(2D 는 box-shadow, 3D 는 stroke) 밝은 색만
+ * 골라도 어느 키캡 위에서든 뜬다.
+ */
+export const BADGE_PALETTE = [
+  '#ffb020', /* 0 호박 — 래피드 트리거 */
+  '#4da3ff', /* 1 파랑 */
+  '#4ade80', /* 2 초록 */
+  '#f472b6', /* 3 분홍 */
+  '#a78bfa', /* 4 보라 */
+  '#fb7185', /* 5 장미 */
+  '#22d3ee', /* 6 청록 */
+  '#facc15', /* 7 노랑 */
+  '#fb923c', /* 8 주황 */
+  '#94a3b8', /* 9 회청 */
+];
+
+export const badgeLen = (n: number) => n & 0x0f;
+export const badgeColor = (n: number) =>
+  BADGE_PALETTE[(n >> 4) % BADGE_PALETTE.length];
+
 export const LIVE_COLOR_ON_LIGHT = '#0b4da2';
 
 export const getLiveColor = (bg: string) => {

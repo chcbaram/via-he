@@ -2,7 +2,8 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {shallowEqual} from 'react-redux';
 import {TestKeyState} from 'src/types/types';
 import {
-  BADGE_COLOR,
+  badgeColor,
+  badgeLen,
   getDarkenedColor,
   getLiveColor,
   LIVE_COLOR_ON_DARK,
@@ -109,10 +110,10 @@ const Badge = styled.div<{$n: number}>`
   right: ${CSSVarObject.faceXPadding[1] + BADGE_INSET}px;
   z-index: 1;
   height: ${BADGE_DOT}px;
-  width: ${(p) => BADGE_DOT + (p.$n - 1) * BADGE_STEP}px;
+  width: ${(p) => BADGE_DOT + (badgeLen(p.$n) - 1) * BADGE_STEP}px;
   border-radius: 999px;
   pointer-events: none;
-  background: ${BADGE_COLOR};
+  background: ${(p) => badgeColor(p.$n)};
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
 `;
 
@@ -488,7 +489,12 @@ export const Keycap: React.FC<TwoStringKeycapProps> = React.memo((props) => {
             }
             hover(true);
           },
-          () => hover(false),
+          (evt: React.MouseEvent) => {
+            if (props.onPointerOut) {
+              props.onPointerOut(evt, idx);
+            }
+            hover(false);
+          },
           (evt: React.MouseEvent) => {
             if (props.onPointerDown) {
               props.onPointerDown(evt, idx);
@@ -500,6 +506,7 @@ export const Keycap: React.FC<TwoStringKeycapProps> = React.memo((props) => {
     props.onClick,
     props.onPointerDown,
     props.onPointerOver,
+    props.onPointerOut,
     hover,
     idx,
     mode,

@@ -32,6 +32,8 @@ import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {getSelectedKeymap} from 'src/store/keymapSlice';
 import {
   addKey,
+  setHoverKey,
+  clearHoverKey,
   getHeOverlayKeys,
   getHeOverlayText,
   getHeOverlayBars,
@@ -189,9 +191,21 @@ export const HeKeyboard = (props: {
       }}
       /* 끌면 지나간 키를 켜기만 한다 — 토글하면 왕복할 때 꺼진다 */
       onKeycapPointerOver={(evt: any, i: number) => {
+        /*
+         * 가리킨 키를 알린다 — 스위치 화면이 그 키의 종류를 읽어 준다.
+         *
+         * ★ 끌고 있을 때도 보낸다. 판을 쓸며 무엇이 걸려 있는지 훑는 것이
+         *   이 표시의 주된 쓰임이다.
+         */
+        dispatch(setHoverKey(idxOf(keys[i])));
+
         if (overlay === null && evt?.buttons === 1) {
           dispatch(addKey(idxOf(keys[i])));
         }
+      }}
+      /* 판을 벗어나면 가리킨 것이 없어진다 */
+      onKeycapPointerOut={(_evt: any, i: number) => {
+        dispatch(clearHoverKey(idxOf(keys[i])));
       }}
     />
   );

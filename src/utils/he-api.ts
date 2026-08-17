@@ -246,7 +246,6 @@ export const HE_VAL_BOTTOM = 6;      /* 바닥 보호 */
 export const HE_VAL_DEAD = 7;        /* 데드존 */
 export const HE_VAL_RT_FLAGS = 8;
 /* 일반형 전 행정 — 키별 명령에만 두면 화면이 프로파일 전역을 못 읽는다 */
-export const HE_VAL_GEN_TRAVEL = 9;
 
 /* keys.c 의 KEYS_RT_* 와 같은 비트 */
 export const HE_RT_ON = 1 << 0;
@@ -263,7 +262,6 @@ export type HeSettings = {
   deadUm: number;
   rtFlags: number;
   /* 일반형(GENERIC) 전 행정의 프로파일 기본값 */
-  genTravelUm: number;
 };
 
 export async function heGetSettings(send: HidSender): Promise<HeSettings> {
@@ -285,7 +283,6 @@ export async function heGetSettings(send: HidSender): Promise<HeSettings> {
     bottomUm: await rd16(HE_VAL_BOTTOM),
     deadUm: await rd16(HE_VAL_DEAD),
     rtFlags: await rd8(HE_VAL_RT_FLAGS),
-    genTravelUm: await rd16(HE_VAL_GEN_TRAVEL),
   };
 }
 
@@ -417,8 +414,7 @@ export type HeKeyCfg = {
    *
    * 제원을 아는 제품은 종류가 행정을 갖고 있으므로 이 값을 안 본다.
    */
-  genTravelUm: number;
-  /* 읽기 전용 — 이 키의 mm 환산 기준 (일반형이면 genTravelUm 이 반영된 값) */
+  /* 읽기 전용 — 이 키의 mm 환산 기준 (스위치 종류가 정한다) */
   strokeCnt: number;
   travelUm: number;
   calibrated: boolean;
@@ -443,7 +439,6 @@ export async function heReadKeyCfg(
     strokeCnt: le16(r, KC_OFF + 14),
     travelUm: le16(r, KC_OFF + 16),
     calibrated: (r[KC_OFF + 18] & 1) !== 0,
-    genTravelUm: le16(r, KC_OFF + 19),
   };
 }
 
@@ -463,15 +458,140 @@ export async function heWriteKeyCfg(
     ...w(c.bottomUm),
     ...w(c.deadUm),
     c.rtFlags,
-    c.switchType,
     /*
      * ★ 새 값은 늘 **끝에** 붙인다.
      *
      *   앞 배치를 건드리면 옛 펌웨어가 엉뚱한 바이트를 읽는다. 펌웨어도 짧게 온
      *   요청은 있는 만큼만 처리하므로, 이 값을 모르는 펌웨어에서도 나머지는 돈다.
+     *
+     *   비트 7 이 서면 커스텀 슬롯이다 (HE_SW_CUSTOM_BIT).
      */
-    ...w(c.genTravelUm ?? 0),
+    c.switchType,
   ]);
+}
+
+
+/*
+ * 커스텀 스위치 슬롯 — HID 0xCB.
+ *
+ * 표에 없는 스위치를 사용자가 정의한다. 담는 것은 "이름 + 행정 + 데이터시트 두 점"
+ * 이고, 곡선은 그 두 점에서 **장치가 부팅 때 만든다** — 33칸 표를 주고받지 않는다.
+ *
+ * ★ 0xC6(스위치 종류표)에 안 끼운다. 거기는 [1] 이 이미 인덱스라 자리가 없고, 이미
+ *   배포된 앱이 그 배치를 그대로 읽는다. 새 명령이면 옛 앱이 계속 돈다.
+ */
+export const HE_CMD_SWCUST = 0xcb;
+
+export const HE_SWCUST_GET = 0x00;
+export const HE_SWCUST_SET = 0x01;
+export const HE_SWCUST_INFO = 0x02;
+
+/*
+ * sw_type 의 비트 7 이 서면 커스텀이고 하위 비트가 슬롯 번호다.
+ *
+ * 내장 번호 뒤에 이어 붙이면 나중에 내장 표가 한 줄 늘 때 사용자가 배정해 둔 번호가
+ * 조용히 한 칸씩 밀린다 — 버전도 안 올라가고 알아챌 방법도 없다.
+ */
+export const HE_SW_CUSTOM_BIT = 0x80;
+export const heSwIsCustom = (t: number) => (t & HE_SW_CUSTOM_BIT) !== 0;
+export const heSwSlotOf = (t: number) => t & ~HE_SW_CUSTOM_BIT;
+export const heSwTypeOf = (slot: number) => HE_SW_CUSTOM_BIT | slot;
+
+/*
+ * 스위치 종류 -> 배지 팔레트 번호 (color-math 의 BADGE_PALETTE).
+ *
+ * 종류에서 바로 뽑으므로 **같은 종류는 언제나 같은 색**이다. 보드에 실제로 쓰인
+ * 것만 모아 순서대로 주면 키 하나를 바꿀 때마다 판 전체 색이 재배치된다.
+ *
+ * 0 은 래피드 트리거가 쓰는 호박색이라 비워 둔다.
+ */
+export const heSwBadgeColor = (t: number) =>
+  heSwIsCustom(t) ? 1 + heSwSlotOf(t) : 5 + t;
+
+const SW_TRAVEL_OFF = 3;
+const SW_REST_OFF = 5;
+const SW_BOTTOM_OFF = 7;
+const SW_KIND_OFF = 9;
+const SW_NAME_OFF = 10;
+const SW_NAME_MAX = 11;      /* 12칸 중 마지막은 NUL */
+
+export type HeSwCustom = {
+  name: string;
+  travelUm: number;
+  fluxRestGs: number;
+  fluxBottomGs: number;
+  kind: number;
+};
+
+const parseSwCustom = (r: number[]): HeSwCustom => {
+  let name = '';
+  for (let i = SW_NAME_OFF; i < r.length && r[i]; i++) {
+    name += String.fromCharCode(r[i]);
+  }
+  return {
+    name,
+    travelUm: le16(r, SW_TRAVEL_OFF),
+    fluxRestGs: le16(r, SW_REST_OFF),
+    fluxBottomGs: le16(r, SW_BOTTOM_OFF),
+    kind: r[SW_KIND_OFF],
+  };
+};
+
+/* 슬롯 수와, 이름이 붙은 칸(= 사용자가 실제로 고친 칸)의 비트맵 */
+export async function heSwCustomInfo(
+  send: HidSender,
+): Promise<{count: number; named: number}> {
+  const r = await send(HE_CMD_SWCUST, [HE_SWCUST_INFO]);
+  return {count: r[2], named: r[3]};
+}
+
+export async function heSwCustomGet(
+  send: HidSender,
+  slot: number,
+): Promise<HeSwCustom> {
+  return parseSwCustom(await send(HE_CMD_SWCUST, [HE_SWCUST_GET, slot]));
+}
+
+/*
+ * 슬롯을 덮어쓴다. 응답은 **장치가 실제로 담은 값**이라 잘렸는지 화면이 안다.
+ *
+ * 장치는 여기서 플래시를 안 쓴다 — 조용해진 뒤에 한 번 굽는다.
+ */
+/* 슬롯을 전부 읽는다 — 목록을 만들려면 어차피 다 필요하다 */
+export async function heSwCustomAll(send: HidSender): Promise<HeSwCustom[]> {
+  const {count} = await heSwCustomInfo(send);
+  const out: HeSwCustom[] = [];
+
+  for (let i = 0; i < count && i < 16; i++) {
+    out.push(await heSwCustomGet(send, i));
+  }
+  return out;
+}
+
+export async function heSwCustomSet(
+  send: HidSender,
+  slot: number,
+  v: HeSwCustom,
+): Promise<HeSwCustom> {
+  const w = (n: number) => [n & 0xff, (n >> 8) & 0xff];
+  const name: number[] = [];
+
+  for (let i = 0; i < SW_NAME_MAX && i < v.name.length; i++) {
+    name.push(v.name.charCodeAt(i) & 0x7f);
+  }
+  name.push(0);
+
+  return parseSwCustom(
+    await send(HE_CMD_SWCUST, [
+      HE_SWCUST_SET,
+      slot,
+      ...w(v.travelUm),
+      ...w(v.fluxRestGs),
+      ...w(v.fluxBottomGs),
+      v.kind ?? 0,
+      ...name,
+    ]),
+  );
 }
 
 
@@ -606,7 +726,7 @@ export const HE_BACKUP_KIND = 'wish60-he/settings';
  *   VIA 의 키맵 저장/불러오기는 그대로 둔다. 그쪽은 **키맵만** 다루는 도구라 뜻이
  *   분명하고, 이미 쓰던 파일이 있다.
  */
-export const HE_BACKUP_VER = 2;
+export const HE_BACKUP_VER = 3;
 
 /* 프로파일 한 벌이 담는 것 */
 export type HeProfBackup = {
@@ -633,6 +753,17 @@ export type HeBackup = {
    */
   qmk?: {holdOkp: number; nkro: number};
   macros?: number[];
+
+  /*
+   * 커스텀 스위치 정의 — 보드 공유값이라 프로파일 밖이다.
+   *
+   * ★ qmk·macros 와 달리 **프로파일 하나만 담을 때도 넣는다.**
+   *
+   *   그 둘은 사용자가 고르지 않은 딴 설정이라 빼는 것이 맞다. 그런데 스위치 정의는
+   *   담긴 키들이 가리키는 대상이다 — 빼면 복원한 키가 없는 정의를 가리키고 그때부터
+   *   mm 가 전부 틀린다.
+   */
+  switches?: HeSwCustom[];
 
   /*
    * 담긴 프로파일과, 각각이 원래 몇 번이었나.
@@ -668,7 +799,7 @@ export function heCheckBackup(o: any, board: string): string | null {
     if (!o.keys || typeof o.keys !== 'object') return 'no keys in the file';
     return null;
   }
-  if (o.version === HE_BACKUP_VER) {
+  if (o.version === 2 || o.version === HE_BACKUP_VER) {
     if (!Array.isArray(o.profiles) || o.profiles.length === 0) {
       return 'no profiles in the file';
     }
@@ -901,6 +1032,7 @@ export async function heReadBackup(
           macros: await heLock(() => km.readMacros(), 'macros'),
         }
       : {}),
+    switches: await heSwCustomAll(send).catch(() => []),
     profiles,
     profileIndexes: want,
   } as HeBackup;
@@ -946,6 +1078,20 @@ export async function heWriteBackup(
     target !== undefined
       ? [target]
       : b.profileIndexes ?? b.profiles.map((_, i) => i);
+
+  /*
+   * 스위치 정의를 **먼저** 붓는다.
+   *
+   * 키의 sw_type 이 이 정의를 가리키므로, 키를 먼저 쓰면 그 순간에는 없는 정의를
+   * 가리키는 구간이 생긴다. 장치가 기본 스위치로 대체해 읽는 동안 mm 가 잠깐
+   * 틀리고, 그 사이에 화면이 읽으면 틀린 값이 화면에 남는다.
+   */
+  if (Array.isArray(b.switches) && b.switches.length > 0) {
+    onStep?.('switches');
+    for (let i = 0; i < b.switches.length; i++) {
+      await heSwCustomSet(send, i, b.switches[i]).catch(() => {});
+    }
+  }
 
   const total = Math.min(idxs.length, b.profiles.length);
   let n = 0;

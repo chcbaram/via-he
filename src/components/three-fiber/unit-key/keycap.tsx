@@ -9,7 +9,12 @@ import {
   ThreeFiberKeycapProps,
 } from 'src/types/keyboard-rendering';
 import {TestKeyState} from 'src/types/types';
-import {getLiveColor, LIVE_COLOR_ON_DARK, BADGE_COLOR} from 'src/utils/color-math';
+import {
+  getLiveColor,
+  LIVE_COLOR_ON_DARK,
+  badgeColor,
+  badgeLen,
+} from 'src/utils/color-math';
 import * as THREE from 'three';
 import {KeycapTooltip} from '../../inputs/tooltip';
 
@@ -425,7 +430,7 @@ const paintKeycap = (
     const cy = (1 - f.tr.y) * canvas.height + inset;
     /* 오른쪽 끝을 고정하고 왼쪽으로 늘린다 — 하나든 둘이든 오른쪽이 같은 자리다 */
     const xr = f.tr.x * canvas.width - inset;
-    const xl = xr - (label.badge - 1) * step;
+    const xl = xr - (badgeLen(label.badge) - 1) * step;
 
     /* 알약 — 양 끝 반원을 직선으로 이은 하나의 길 */
     const pill = () => {
@@ -446,7 +451,7 @@ const paintKeycap = (
     context.stroke();
 
     pill();
-    context.fillStyle = BADGE_COLOR;
+    context.fillStyle = badgeColor(label.badge);
     context.fill();
   }
 
@@ -470,6 +475,7 @@ export const Keycap: React.FC<ThreeFiberKeycapProps> = React.memo((props) => {
     textureWidth,
     textureHeight,
     onPointerOver,
+    onPointerOut,
     onPointerDown,
     idx,
   } = props;
@@ -581,14 +587,28 @@ export const Keycap: React.FC<ThreeFiberKeycapProps> = React.memo((props) => {
               }
               hover(true);
             },
-            () => hover(false),
+            (evt: ThreeEvent<MouseEvent>) => {
+              if (onPointerOut) {
+                onPointerOut(evt, idx);
+              }
+              hover(false);
+            },
             (evt: ThreeEvent<MouseEvent>) => {
               if (onPointerDown) {
                 onPointerDown(evt, idx);
               }
             },
           ];
-    }, [disabled, onClick, onPointerDown, onPointerOver, hover, idx, mode]);
+    }, [
+      disabled,
+      onClick,
+      onPointerDown,
+      onPointerOver,
+      onPointerOut,
+      hover,
+      idx,
+      mode,
+    ]);
 
   const AniMeshMaterial = animated.meshPhongMaterial as any;
 
