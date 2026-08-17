@@ -1,5 +1,6 @@
 import React, {useMemo} from 'react';
 import styled from 'styled-components';
+import {getHeBootloaderSeen} from 'src/store/heSlice';
 import {Link, useLocation} from 'wouter';
 import PANES from '../../utils/pane-config';
 import {useAppSelector} from 'src/store/hooks';
@@ -76,6 +77,7 @@ export const UnconnectedGlobalMenu = () => {
    */
   const selectedDefinition = useAppSelector(getSelectedDefinition);
   const [location] = useLocation();
+  const bootloaderSeen = useAppSelector(getHeBootloaderSeen);
 
   /*
    * ★ 이미 HE 탭에 있으면 장치가 사라져도 탭을 지우지 않는다.
@@ -86,6 +88,13 @@ export const UnconnectedGlobalMenu = () => {
    */
   const showHeTab =
     location === '/he' ||
+    /*
+     * ★ 부트로더만 물려 있어도 띄운다.
+     *
+     *   굽다 만 보드는 VIA 목록에 안 잡혀 selectedDefinition 이 없다. 그런데 되살릴
+     *   기능은 이 탭에만 있다 — 탭을 안 띄우면 앱으로는 손쓸 방법이 없어진다.
+     */
+    bootloaderSeen ||
     (!!selectedDefinition && HE_BOARDS.has(selectedDefinition.vendorProductId));
 
   const Panes = useMemo(() => {

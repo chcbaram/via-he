@@ -1,5 +1,7 @@
 import React, {createRef, useEffect} from 'react';
 import styled from 'styled-components';
+import {iapFind} from 'src/utils/he-iap';
+import {setBootloaderSeen} from 'src/store/heSlice';
 import {getByteForCode} from '../utils/key';
 import {startMonitoring, usbDetect} from '../utils/usb-hid';
 import {
@@ -115,9 +117,22 @@ export const Home: React.FC<HomeProps> = (props) => {
   const {basicKeyToByte} = useAppSelector(getBasicKeyToByte);
   const api = useAppSelector(getSelectedKeyboardAPI);
 
+  /*
+   * 장치를 훑을 때 **부트로더도 같이 본다.**
+   *
+   * VIA 쪽 목록에는 절대 안 나온다 — usage page 가 0xFF53 이라 필터에서 걸러진다.
+   * iapFind() 는 이미 받아 둔 권한 안에서 조용히 훑을 뿐이라 선택 창이 안 뜬다.
+   *
+   * ★ 한 번이라도 구운 적이 있어야 보인다. 굽다 만 보드를 되살리는 것이 이 기능의
+   *   목적이라 그 경우가 대부분이고, 권한이 아예 없으면 "장치 승인" 으로 직접
+   *   고르는 길이 남는다.
+   */
   const updateDevicesRepeat: () => void = timeoutRepeater(
     () => {
       dispatch(reloadConnectedDevices());
+      iapFind()
+        .then((d) => dispatch(setBootloaderSeen(d !== null)))
+        .catch(() => dispatch(setBootloaderSeen(false)));
     },
     500,
     1,

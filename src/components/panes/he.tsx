@@ -88,6 +88,7 @@ import {
 import {
   clearKeys,
   getHeSelectedKeys,
+  getHeBootloaderSeen,
   getHeHoverKey,
   setHoverKey,
   setOverlayKeys,
@@ -655,8 +656,18 @@ export const HePane: React.FC = () => {
   const device = useAppSelector(getSelectedConnectedDevice);
   const api = useAppSelector(getSelectedKeyboardAPI);
 
-  const [rail, setRail] = useState<RailKey>('tune');
-  const [section, setSection] = useState<SectionKey>('actuation');
+  /*
+   * 부트로더만 물려 있으면 **펌웨어 화면에서 시작한다.**
+   *
+   * 그 상태에서 할 수 있는 일이 굽는 것 하나뿐이다. 입력지점 화면을 열어 두면
+   * "값이 왜 안 뜨나" 가 되므로, 시작 자리도 고르는 자리도 거기 하나로 좁힌다.
+   */
+  const bootOnly = useAppSelector(getHeBootloaderSeen) && !api;
+
+  const [rail, setRail] = useState<RailKey>(bootOnly ? 'device' : 'tune');
+  const [section, setSection] = useState<SectionKey>(
+    bootOnly ? 'firmware' : 'actuation',
+  );
   const [layout, setLayout] = useState<HeKeyGeo[]>([]);
   const [info, setInfo] = useState<HeTrackInfo | null>(null);
   const [state, setState] = useState<HeKeyState[]>([]);
@@ -3595,7 +3606,7 @@ export const HePane: React.FC = () => {
    *
    *   굽기가 도는 동안에는 그 화면을 붙잡아 둔다. 끝나면 장치가 다시 잡힌다.
    */
-  if ((!device || !api) && !busy) {
+  if ((!device || !api) && !busy && !bootOnly) {
     return (
       <Content>
         <Note>{t('he.noDevice')}</Note>
@@ -3631,7 +3642,7 @@ export const HePane: React.FC = () => {
       <Grid style={{pointerEvents: 'none'}}>
         <MenuCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
-            {RAILS.map((r) => (
+            {RAILS.filter((r) => !bootOnly || r.key === 'device').map((r) => (
               <Row
                 key={r.key}
                 $selected={rail === r.key}
@@ -3652,7 +3663,9 @@ export const HePane: React.FC = () => {
         </MenuCell>
         <SubmenuOverflowCell style={{pointerEvents: 'all'}}>
           <MenuContainer>
-            {SECTIONS.filter((s) => s.rail === rail).map((s) => (
+            {SECTIONS.filter(
+              (s) => s.rail === rail && (!bootOnly || s.key === 'firmware'),
+            ).map((s) => (
               <SubmenuRow
                 key={s.key}
                 $selected={section === s.key}
@@ -3721,6 +3734,7 @@ export const HePane: React.FC = () => {
               </Detail>
             </ControlRow>
             )}
+            {bootOnly && <Note>{t('he.bootOnly')}</Note>}
             {renderSection()}
           </Content>
         </OverflowCell>

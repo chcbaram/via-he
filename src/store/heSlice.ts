@@ -45,6 +45,7 @@ type HeState = {
    */
   overlayText: Record<number, string> | null;
   hoverKey: number | null;
+  bootloaderSeen: boolean;
 
   /*
    * 키캡 아래 막대 (0~1) — **지금 상태**다. 매트릭스 인덱스로 넣는다.
@@ -127,6 +128,7 @@ const initialState: HeState = {
   overlayKeys: null,
   overlayText: null,
   hoverKey: null,
+  bootloaderSeen: false,
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
@@ -160,6 +162,18 @@ const heSlice = createSlice({
      * 이름을 찍자니 1u 폭에 "Gateron Jade Pro" 가 안 들어간다 — 가리키는 동안
      * 화면이 읽어 주는 쪽이 맞다.
      */
+    /*
+     * 부트로더가 물려 있나.
+     *
+     * ★ 이걸 안 두면 굽다 만 보드를 되살릴 길이 없다.
+     *
+     *   부트로더는 VID/PID 도 usage page 도 달라(534B:4102 / 0xFF53) VIA 필터에
+     *   아예 안 걸린다. 그래서 앱은 "장치 없음" 으로 보고 HE 탭조차 안 띄운다 —
+     *   정작 그 화면에만 굽는 기능이 있는데.
+     */
+    setBootloaderSeen: (state, action: PayloadAction<boolean>) => {
+      state.bootloaderSeen = action.payload;
+    },
     setHoverKey: (state, action: PayloadAction<number | null>) => {
       state.hoverKey = action.payload;
     },
@@ -248,6 +262,7 @@ export const {
   setOverlayBadge,
   setHoverKey,
   clearHoverKey,
+  setBootloaderSeen,
   setOverlayKeys,
   setOverlayText,
   setOverlayBars,
@@ -261,6 +276,8 @@ export const getHeSelectedKeys = (state: RootState) => state.he.selectedKeys;
 export const getHeOverlayKeys = (state: RootState) => state.he.overlayKeys;
 export const getHeOverlayText = (state: RootState) => state.he.overlayText;
 export const getHeHoverKey = (state: RootState) => state.he.hoverKey;
+export const getHeBootloaderSeen = (state: RootState) =>
+  state.he.bootloaderSeen;
 export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;

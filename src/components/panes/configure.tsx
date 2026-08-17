@@ -38,7 +38,11 @@ import {useDispatch} from 'react-redux';
 import {reloadConnectedDevices} from 'src/store/devicesThunks';
 import {getV3MenuComponents} from 'src/store/menusSlice';
 import {getIsMacroFeatureSupported} from 'src/store/macrosSlice';
-import {getConnectedDevices, getSupportedIds} from 'src/store/devicesSlice';
+import {
+  getConnectedDevices,
+  getSupportedIds,
+  setForceAuthorize,
+} from 'src/store/devicesSlice';
 import {isElectron} from 'src/utils/running-context';
 import {useAppDispatch} from 'src/store/hooks';
 import {MenuTooltip} from '../inputs/tooltip';
@@ -172,7 +176,24 @@ const Loader: React.FC<{
     <LoaderPane>
       {<ChippyLoader theme={theme} progress={loadProgress || null} />}
       {(showButton || noConnectedDevices) && !noSupportedIds && !isElectron ? (
-        <AccentButtonLarge onClick={() => dispatch(reloadConnectedDevices())}>
+        <AccentButtonLarge
+          onClick={() => {
+            /*
+             * ★ 승인 플래그를 여기서 켠다.
+             *
+             *   이 줄이 빠져 있어서 버튼이 **이미 승인된 장치를 다시 훑기만** 했다.
+             *   크롬 선택 창은 forceAuthorize 가 서야 열리는데(devicesThunks 의
+             *   reloadConnectedDevices), 켜는 자리가 3D 화면에만 있었다.
+             *
+             * ★ 자동으로 켜던 자리 둘은 **걷어낸 그대로 둔다.** 장치가 사라졌다고
+             *   켜면, 굽는 중에 보드가 부트로더로 넘어가 목록이 비는 그 순간
+             *   선택 창이 튀어나온다 — 게다가 그 창에 우리 보드는 없다.
+             *   사용자의 클릭 안에서만 켜므로 그럴 일이 없다.
+             */
+            dispatch(setForceAuthorize(true));
+            dispatch(reloadConnectedDevices());
+          }}
+        >
           {t('Authorize device')}
           <FontAwesomeIcon style={{marginLeft: '10px'}} icon={faPlus} />
         </AccentButtonLarge>

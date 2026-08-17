@@ -447,5 +447,6 @@
   "he.tip.fluxRest": "Flux at rest, from the datasheet (Gs). 0 means unknown — then the travel is read as a straight line.",
   "he.tip.fluxBottom": "Flux at full bottom-out, from the datasheet (Gs). These two points determine the whole curve.",
   "he.tip.flux": "The datasheet pair this switch was built from.",
-  "Under cursor": "Under cursor"
+  "Under cursor": "Under cursor",
+  "he.bootOnly": "This board is sitting in its bootloader — it is not running keyboard firmware, so only flashing is available. Pick an image below and write it."
 }
