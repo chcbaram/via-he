@@ -2,6 +2,15 @@
   "board": "WISH60-HE",
   "firmwares": [
     {
+      "version": "V260817R2",
+      "board": "WISH60-HE",
+      "date": "2026-08-17",
+      "bin": "V260817R2/wish60-he-V260817R2.bin",
+      "size": 152536,
+      "crc": "0x0835C7A1",
+      "notes": []
+    },
+    {
       "version": "V260817R1",
       "board": "WISH60-HE",
       "date": "2026-08-17",

@@ -430,6 +430,7 @@
   "HE Depth Ripple": "HE · 깊이 파문",
   "Key Handling": "키 처리",
   "Hold On Other Key Press": "다른 키 누를 때 홀드",
+  "Tapping Term (default 200)": "탭 판정 시간 (기본값 200)",
   "NKRO": "NKRO (전체 키 롤오버)",
   "QMK": "QMK",
   "Bottom-out calibration": "바닥값 보정",
@@ -570,5 +571,17 @@
   "he.tip.fwBoard": "부트로더는 자기가 무슨 보드인지 말해 주지 않는다 — 여기서 골라야 한다. 잘못 고르면 다른 보드의 이미지가 올라간다.",
   "he.note.fwPickBoard": "키보드를 고르면 그 보드의 배포본이 나온다.",
   "he.note.fwNoBoards": "이 앱에 딸려 온 배포본이 없다. 아래에서 파일을 골라 구울 수는 있다.",
-  "he.note.fwBoardMismatch": "장치는 \"{{device}}\" 라 하는데 \"{{picked}}\" 를 골랐다. 이대로 구우면 다른 보드의 이미지가 올라간다."
+  "he.note.fwBoardMismatch": "장치는 \"{{device}}\" 라 하는데 \"{{picked}}\" 를 골랐다. 이대로 구우면 다른 보드의 이미지가 올라간다.",
+  "Hold On Other Key Press and Tapping Term are saved per profile. NKRO applies to all profiles.": "다른 키 누를 때 홀드와 탭 판정 시간은 프로파일마다 따로 저장된다. NKRO 는 모든 프로파일에 함께 적용된다.",
+  "Note": "참고",
+  "Hold To Repeat": "눌러 두면 연타",
+  "Pair 1": "묶음 1",
+  "Pair 2": "묶음 2",
+  "Enable": "사용",
+  "Key 1": "키 1",
+  "Key 2": "키 2",
+  "First Delay": "첫 지연",
+  "Repeat Interval": "반복 간격",
+  "Press both of a pair and only the newest one is sent. Saved per profile.": "한 묶음의 두 키를 같이 누르면 나중에 누른 쪽만 나간다. 프로파일마다 따로 저장된다.",
+  "Hold two or more keys and they are re-sent as if tapped. Saved per profile.": "두 키 이상을 누르고 있으면 톡톡 친 것처럼 다시 보낸다. 프로파일마다 따로 저장된다."
 }

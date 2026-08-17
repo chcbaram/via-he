@@ -430,6 +430,7 @@
   "HE Depth Ripple": "HE · 深さ波紋",
   "Key Handling": "キー処理",
   "Hold On Other Key Press": "他キー押下でホールド",
+  "Tapping Term (default 200)": "タッピング時間 (既定 200)",
   "NKRO": "NKRO (Nキーロールオーバー)",
   "Bottom-out calibration": "底値キャリブレーション",
   "Progress": "進捗",
@@ -569,5 +570,17 @@
   "he.tip.fwBoard": "ブートローダはボード名を報告しない。ここで選ぶ。誤ると別ボードのイメージを書き込む。",
   "he.note.fwPickBoard": "キーボードを選ぶとそのボードの配布版が出る。",
   "he.note.fwNoBoards": "このアプリに同梱された配布版がない。下からファイルを選んで書き込むことはできる。",
-  "he.note.fwBoardMismatch": "デバイスは「{{device}}」だが「{{picked}}」を選んでいる。このまま書くと別ボードのイメージになる。"
+  "he.note.fwBoardMismatch": "デバイスは「{{device}}」だが「{{picked}}」を選んでいる。このまま書くと別ボードのイメージになる。",
+  "Hold On Other Key Press and Tapping Term are saved per profile. NKRO applies to all profiles.": "他キー押下でホールドとタッピング時間はプロファイルごとに保存される。NKRO は全プロファイル共通。",
+  "Note": "備考",
+  "Hold To Repeat": "Hold To Repeat",
+  "Pair 1": "Pair 1",
+  "Pair 2": "Pair 2",
+  "Enable": "Enable",
+  "Key 1": "Key 1",
+  "Key 2": "Key 2",
+  "First Delay": "First Delay",
+  "Repeat Interval": "Repeat Interval",
+  "Press both of a pair and only the newest one is sent. Saved per profile.": "Press both of a pair and only the newest one is sent. Saved per profile.",
+  "Hold two or more keys and they are re-sent as if tapped. Saved per profile.": "Hold two or more keys and they are re-sent as if tapped. Saved per profile."
 }

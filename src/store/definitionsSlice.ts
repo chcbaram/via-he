@@ -337,6 +337,16 @@ export const reloadDefinitions =
     const definitions = getDefinitions(state);
     const missingDevicesToFetchDefinitions = authorizedDevices.filter(
       ({vendorProductId, requiredDefinitionVersion}) => {
+        /*
+         * ★ 여기서 캐시를 건너뛰지 않는다.
+         *
+         *   정의를 고쳐도 새 메뉴가 안 보이길래 개발 중에는 늘 다시 받게 해 봤다.
+         *   그런데 이 함수는 장치를 훑을 때마다 불리고, 장치가 없으면 3초마다 훑는다
+         *   (Home.tsx). 매번 정의를 받아 localStorage 에 쓰면서 화면이 죽었다.
+         *
+         *   캐시를 무르는 일은 vite.config.ts 의 정의 해시가 한다 — 정의가 바뀌면
+         *   해시가 달라지고, syncStore 가 캐시를 통째로 버린다. 그쪽이 제자리다.
+         */
         return (
           !definitions ||
           !definitions[vendorProductId] ||

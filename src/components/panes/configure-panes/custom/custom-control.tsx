@@ -1,4 +1,5 @@
 import React from 'react';
+import styled from 'styled-components';
 import {PelpiKeycodeInput} from '../../../inputs/pelpi/keycode-input';
 import {AccentButton} from '../../../inputs/accent-button';
 import {AccentSlider} from '../../../inputs/accent-slider';
@@ -33,12 +34,24 @@ type ControlMeta = [
 
 type AdvancedControlProps = Props & {meta: ControlMeta};
 
+/*
+ * 안내문 줄은 작게. 설정 항목이 아니라 곁들이는 설명이라, 같은 크기로 두면 목록이
+ * 시끄러워지고 무엇이 조작할 것인지가 흐려진다.
+ */
+const NoteLabel = styled(Label)`
+  font-size: 0.8em;
+  opacity: 0.75;
+  line-height: 1.35;
+`;
+
 export const VIACustomItem = React.memo(
   (props: VIACustomControlProps & {_id: string}) => {
     const {t} = useTranslation();
+    const isNote = 'type' in props && (props as any).type === 'label';
+    const RowLabel = isNote ? NoteLabel : Label;
     return (
       <ControlRow id={props._id}>
-        <Label>{t(props.label)}</Label>
+        <RowLabel>{t(props.label)}</RowLabel>
         <Detail>
           {'type' in props ? (
             <VIACustomControl
@@ -66,6 +79,17 @@ type VIACustomControlProps = VIAItem & ControlGetSet;
 
 const boxOrArr = <N extends any>(elem: N | N[]) =>
   Array.isArray(elem) ? elem : [elem];
+
+/*
+ * 슬라이더 값 옆에 붙일 단위.
+ *
+ * ★ 정의 JSON 에 필드를 더하지 않고 여기서 잡는다. 정의는 @the-via/reader 의 스키마
+ *   검사를 통과해야 하는데, 모르는 키 하나 때문에 정의 전체가 거부되면 키보드가 아예
+ *   안 뜬다. 값 ID 로 거는 편이 안전하고, 어차피 우리 보드의 것이다.
+ */
+const RANGE_UNITS: Record<string, string> = {
+  id_qmk_tapping_term: 'ms',
+};
 
 // we can compare value against option[1], that way corrupted values are false
 const valueIsChecked = (option: number | number[], value: number[]) =>
@@ -136,6 +160,7 @@ const VIACustomControl = (props: VIACustomControlProps) => {
         <AccentRange
           min={bounds.min}
           max={bounds.max}
+          unit={RANGE_UNITS[name]}
           value={getRangeValue(props.value, options[1])}
           onChange={(val: number) => props.updateRangeValue(name, val)}
         />

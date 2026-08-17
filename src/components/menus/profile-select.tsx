@@ -34,6 +34,7 @@ import {getHeProfile, setProfile, setSwitching} from 'src/store/heSlice';
 import {heMakeSend, heProfGet, heProfSet} from 'src/utils/he-api';
 import {getSelectedConnectedDevice} from 'src/store/devicesSlice';
 import {loadKeymapFromDevice} from 'src/store/keymapSlice';
+import {updateV3MenuData} from 'src/store/menusSlice';
 
 /*
  * 키보드 이름 배지가 오른끝(right: 15px)이고, 그 왼쪽 자리를 쓴다.
@@ -181,6 +182,19 @@ export const ProfileSelect = () => {
        *   버리지 않고 덮어쓴다. 버리면 그 사이 화면이 그릴 것이 없어 까맣게 죽는다.
        */
       if (device) await dispatch(loadKeymapFromDevice(device, true));
+
+      /*
+       * ★ 커스텀 메뉴 값도 다시 읽는다.
+       *
+       *   VIA 는 이 값들을 **붙을 때 한 번만** 읽어 들고 그 뒤로는 자기가 쓴 것만
+       *   안다. 그런데 장치는 조명·탭홀드 설정을 프로파일마다 따로 갖고 있어서,
+       *   다시 읽지 않으면 프로파일을 옮겨도 화면 값이 그대로다 — 어느 프로파일에
+       *   가도 똑같아 보인다.
+       *
+       *   더 나쁜 것은 그 상태에서 슬라이더를 건드릴 때다. 화면에 남은 옛 값이
+       *   새 프로파일에 그대로 쓰인다.
+       */
+      if (device) await dispatch(updateV3MenuData(device));
     } catch {
       /* 못 바꿨으면 표시도 그대로 둔다 */
     }
