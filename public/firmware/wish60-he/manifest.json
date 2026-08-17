@@ -2,6 +2,19 @@
   "board": "WISH60-HE",
   "firmwares": [
     {
+      "version": "V260817R2",
+      "board": "WISH60-HE",
+      "date": "2026-08-17",
+      "bin": "V260817R2/wish60-he-V260817R2.bin",
+      "size": 150136,
+      "crc": "0xA6607C0C",
+      "notes": [
+        "ADC 클럭 44.4MHz — 스캔 29 -> 25us, 잡음도 11% 감소",
+        "굽다 만 이미지를 부팅 때 CRC 로 잡아 업데이트 모드로 되돌린다",
+        "차가운 버퍼를 AHB SRAM 으로 — DLM 87% -> 77%"
+      ]
+    },
+    {
       "version": "V260817R1",
       "board": "WISH60-HE",
       "date": "2026-08-17",
