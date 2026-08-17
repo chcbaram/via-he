@@ -216,6 +216,42 @@ const ExtendedHID = {
 
     readP = promisify((arg: any) => this.read(arg));
 
+    /*
+     * 짝이 안 맞는 응답을 건너뛰기 위한 **취소할 수 있는 읽기.**
+     *
+     * readP 는 영영 기다린다. 그걸 Promise.race 로 감싸면 진 쪽의 대기가
+     * eventWaitBuffer 에 그대로 남아 **다음 응답을 대신 삼킨다** — 어긋남을 고치려다
+     * 어긋남을 하나 더 만드는 셈이다. 그래서 시간이 다 되면 자기 대기를 직접 걷어내는
+     * 읽기를 따로 둔다.
+     *
+     * 시간이 다 되면 undefined 를 준다.
+     */
+    readWithin(ms: number): Promise<Uint8Array | undefined> {
+      this.fastForwardGlobalBuffer(lastWriteTimestamp);
+      const buffered = globalBuffer[this.path].shift();
+      if (buffered) {
+        return Promise.resolve(buffered.message as Uint8Array);
+      }
+      return new Promise((resolve) => {
+        let settled = false;
+        const waiter = (data: Uint8Array) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(data);
+        };
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          eventWaitBuffer[this.path] = eventWaitBuffer[this.path].filter(
+            (w) => w !== waiter,
+          );
+          resolve(undefined);
+        }, ms);
+        eventWaitBuffer[this.path].push(waiter as any);
+      });
+    }
+
     // The idea is discard any messages that have happened before the time a command was issued
     // since time-travel is not possible yet...
     fastForwardGlobalBuffer(time: number) {

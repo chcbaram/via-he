@@ -16,6 +16,13 @@ export {KeyboardValue} from './keyboard-values';
 // VIA Command IDs
 
 const COMMAND_START = 0x00; // This is really a HID Report ID
+
+/*
+ * 응답 줄이 밀렸을 때 되맞추는 한도 — _hidCommand 참고.
+ * 밀림은 보통 한 칸이다. 넉넉히 잡되 무한정 삼키지는 않는다.
+ */
+const RESYNC_MAX_SKIP = 4;
+const RESYNC_WAIT_MS = 300;
 const PER_KEY_RGB_CHANNEL_COMMAND = [0, 1];
 
 enum APICommand {
@@ -759,10 +766,43 @@ export class KeyboardAPI {
 
     await this.getHID().write(paddedArray);
 
-    const buffer = Array.from(await this.getByteBuffer());
+    /*
+     * ★ 응답은 **짝이 맞을 때까지 건너뛴다.** (상류 대비 수정)
+     *
+     *   VIA 응답은 보낸 명령 바이트를 그대로 되비친다 — 그게 사실상 태그다. 그런데
+     *   상류는 그걸 **검사에만 쓰고 짝 맞추기에는 안 썼다.** 안 맞으면 그대로 실패로
+     *   처리하고 넘어갔는데, 그러면 **그 뒤가 통째로 한 칸씩 밀린다.** 다음 명령이
+     *   앞 명령의 답을 자기 답으로 읽고, 그 다음도, 그 다음도. 한 번 어긋나면 영영
+     *   어긋난 채로 간다 — 재시도를 다 쓰고 장치 목록을 비울 때까지.
+     *
+     *   실제로 그랬다. 펌웨어를 굽고 나면 에러가 수천 개까지 쉬지 않고 올라갔다.
+     *
+     *   되비친 바이트로 짝을 맞추면 **밀린 응답 하나를 버리는 것으로 줄이 다시 선다.**
+     *   일련번호 바이트를 새로 넣는 길도 봤지만 자리가 없다 —
+     *   DYNAMIC_KEYMAP_SET_BUFFER 같은 명령은 32바이트를 이미 꽉 쓴다.
+     *
+     * ★ 첫 판은 예전처럼 하염없이 기다린다. 지우기처럼 느린 명령이 있어서, 여기에
+     *   시간 제한을 걸면 멀쩡한 명령을 실패로 만든다. 건너뛰기는 어긋났을 때만 돈다.
+     *   어긋난 상태에서는 앞 명령의 답이 이미 와 있어 곧바로 돌아오므로 짧아도 된다.
+     */
+    const matches = (buf: number[]) =>
+      eqArr(commandBytes.slice(1), buf.slice(0, commandBytes.length - 1));
+
+    let buffer = Array.from(await this.getByteBuffer());
+    for (let skipped = 0; skipped < RESYNC_MAX_SKIP && !matches(buffer); ) {
+      const next = await this.getHID().readWithin(RESYNC_WAIT_MS);
+      if (next === undefined) break; /* 더 안 온다 — 진짜 실패다 */
+      skipped++;
+      console.warn(
+        `Command for ${this.kbAddr}: 밀린 응답 ${skipped}개 버리고 다시 맞춤`,
+        buffer,
+      );
+      buffer = Array.from(next);
+    }
+
     const bufferCommandBytes = buffer.slice(0, commandBytes.length - 1);
     logCommand(this.kbAddr, commandBytes, buffer);
-    if (!eqArr(commandBytes.slice(1), bufferCommandBytes)) {
+    if (!matches(buffer)) {
       console.error(
         `Command for ${this.kbAddr}:`,
         commandBytes,
