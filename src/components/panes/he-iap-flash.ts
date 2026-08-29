@@ -51,6 +51,8 @@ export function useIapFlash() {
       } finally {
         dispatch(setFlashing(false));
         setBusy(false);
+        /* 굽는 동안 막아 둔 자동 전환을 여기서 한 번 풀어 준다 */
+        dispatch(reloadConnectedDevices());
       }
     },
     [dispatch],

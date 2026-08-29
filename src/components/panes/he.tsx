@@ -3225,6 +3225,17 @@ export const HePane: React.FC = () => {
                     } finally {
                       dispatch(setFlashing(false));
                       setBusy(false);
+                      /*
+                       * ★ **되돌린 보드는 목록에서 사라진다 — 한 번 더 훑는다.**
+                       *
+                       *   순정 펌웨어에는 우리 통로가 없어서 VIA 가 그 보드를 못
+                       *   본다. 그런데 굽는 동안은 flashing 이 서 있어 자동 전환이
+                       *   막혀 있고, 그게 풀릴 때는 이미 다시 훑을 사람이 없다.
+                       *   그래서 **없어진 보드 화면에 남는다.**
+                       *
+                       *   여기서 한 번 부르면 남은 키보드로 옮겨간다.
+                       */
+                      dispatch(reloadConnectedDevices());
                     }
                   }}
                 >
