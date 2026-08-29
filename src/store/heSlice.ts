@@ -66,6 +66,15 @@ type HeState = {
   vendorSeen: boolean;
 
   /*
+   * **펌웨어 화면을 열어 달라는 한 번짜리 요청.**
+   *
+   * 머리말의 연결 버튼이 IAP 보드를 승인했을 때 세운다. /he 로 옮기는 것만으로는
+   * 부족하다 — 화면 안쪽 갈래는 이미 정해져 있어서 안 따라온다. 받은 쪽이 곧바로
+   * 내린다.
+   */
+  firmwareReq: number;
+
+  /*
    * 키캡 아래 막대 (0~1) — **지금 상태**다. 매트릭스 인덱스로 넣는다.
    *
    * 글자와 통로를 따로 둔다. 글자는 설정값이라 가끔 바뀌지만 막대는 누르는 동안
@@ -149,6 +158,7 @@ const initialState: HeState = {
   bootloaderSeen: false,
   flashing: false,
   vendorSeen: false,
+  firmwareReq: 0,
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
@@ -207,6 +217,9 @@ const heSlice = createSlice({
       state.flashing = action.payload;
     },
     /* bootloaderSeen 과 같은 이유로 같은 값 재대입을 거른다 (초당 한 번 들어온다) */
+    askFirmwarePane: (state) => {
+      state.firmwareReq += 1;
+    },
     setVendorSeen: (state, action: PayloadAction<boolean>) => {
       if (state.vendorSeen !== action.payload) {
         state.vendorSeen = action.payload;
@@ -303,6 +316,7 @@ export const {
   setBootloaderSeen,
   setFlashing,
   setVendorSeen,
+  askFirmwarePane,
   setOverlayKeys,
   setOverlayText,
   setOverlayBars,
@@ -320,6 +334,7 @@ export const getHeBootloaderSeen = (state: RootState) =>
   state.he.bootloaderSeen;
 export const getHeFlashing = (state: RootState) => state.he.flashing;
 export const getHeVendorSeen = (state: RootState) => state.he.vendorSeen;
+export const getHeFirmwareReq = (state: RootState) => state.he.firmwareReq;
 export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;
