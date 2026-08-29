@@ -482,5 +482,12 @@
   "he.note.otherBoot": "{{name}} is stuck in update mode. It never appears in the keyboard list, so switch the target above to recover it.",
   "he.note.targetIap": "You are working on {{name}} — nothing here touches {{other}}.",
   "the other board": "the other board",
-  "he.connect": "连接"
+  "he.connect": "连接",
+  "Other board": "Other board",
+  "Close": "Close",
+  "he.note.otherVendor2": "Another board with its original firmware is attached. It never appears in the keyboard list, so it is handled in its own window.",
+  "he.note.otherBoot2": "Another board is stuck in update mode. It never appears in the keyboard list, so it is handled in its own window.",
+  "he.iapDlg.title": "Write firmware to {{name}}",
+  "he.iapDlg.body": "This board does not appear in the keyboard list — the firmware on it has no channel for this tool. Writing firmware below replaces it.\nYour current firmware is backed up first, so if the new one is broken the board restores it the next time you plug it in.",
+  "he.iapDlg.done": "Done. The keyboard appears in the list shortly."
 }

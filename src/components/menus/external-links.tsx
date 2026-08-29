@@ -5,12 +5,14 @@ import styled from 'styled-components';
 import {useTranslation} from 'react-i18next';
 import {useAppDispatch} from 'src/store/hooks';
 import {setForceAuthorize} from 'src/store/devicesSlice';
-import {reloadConnectedDevices} from 'src/store/devicesThunks';
+import {
+  reloadConnectedDevices,
+  selectConnectedDeviceByPath,
+} from 'src/store/devicesThunks';
 import {HID} from 'src/shims/node-hid';
-import {useLocation} from 'wouter';
 import {iapFind, iapFindVendorApp} from 'src/utils/he-iap';
 import {
-  askFirmwarePane,
+  openIapDialog,
   setBootloaderSeen,
   setVendorSeen,
 } from 'src/store/heSlice';
@@ -45,7 +47,6 @@ const ExternalLinkContainer = styled.span`
 const ConnectButton = () => {
   const {t} = useTranslation();
   const dispatch = useAppDispatch();
-  const [, setLocation] = useLocation();
   return (
     <a
       href="#"
@@ -60,34 +61,49 @@ const ConnectButton = () => {
          *
          *   여기서는 창을 먼저 열고, 받은 권한을 재스캔이 줍게 한다.
          */
-        HID.requestDevice()
-          .catch(() => {}) /* 그냥 닫았다 */
-          .then(async () => {
+        HID.requestDeviceEx()
+          .then(async ({picked, via}) => {
             dispatch(setForceAuthorize(false));
             dispatch(reloadConnectedDevices());
 
             /*
-             * ★ **고른 것이 IAP 보드면 그 화면까지 데려간다.**
+             * ★ **고른 장치가 무엇이냐로 갈린다.**
              *
-             *   부트로더 보드와 순정 보드는 VIA 목록에 안 뜨므로, 승인만 하고
-             *   가만히 있으면 **아무 일도 안 일어난 것처럼 보인다** — 바뀌는 것이
-             *   HE 의 펌웨어 화면 안에만 있어서 다른 탭을 보고 있으면 모른다.
-             *   그 보드로 할 수 있는 일이 거기 하나뿐이니 바로 데려간다.
+             *   `picked` 는 무언가를 골랐는가, `via` 는 그것이 VIA 키보드인가다.
+             *   둘을 나눠야 하는 이유는 **크롬이 취소해도 거부하지 않고 빈 배열을
+             *   돌려주기 때문**이다 — 반환 하나만 보면 "취소" 와 "부트로더를
+             *   골랐다" 가 똑같이 보인다. 실제로 취소했는데 창이 떴다.
+             *
+             *   그리고 고른 것을 존중해야 한다. 안 보고 "IAP 보드가 붙어 있나" 만
+             *   훑었더니 **wish60 을 골라도 wish61 창이 떴다.**
              */
+            if (!picked) return; /* 그냥 닫았다 */
+
+            /*
+             * ★ **고른 키보드로 옮겨간다.**
+             *
+             *   권한만 받고 두면 화면이 그대로다 — reloadConnectedDevices 는
+             *   **기존 선택이 사라졌을 때만** 다른 장치를 고른다. wish60 을 쓰다가
+             *   wish61 을 골랐는데 wish60 화면에 남아 있으면, 고른 뜻이 없다.
+             */
+            if (via) {
+              dispatch(selectConnectedDeviceByPath(via.path));
+              return;
+            }
+
             const boot = await iapFind().catch(() => null);
             if (boot) {
               dispatch(setBootloaderSeen(true));
-              setLocation('/he');
-              dispatch(askFirmwarePane());
+              dispatch(openIapDialog());
               return;
             }
             const vendor = await iapFindVendorApp().catch(() => null);
             if (vendor) {
               dispatch(setVendorSeen(true));
-              setLocation('/he');
-              dispatch(askFirmwarePane());
+              dispatch(openIapDialog());
             }
-          });
+          })
+          .catch(() => {});
       }}
     >
       <CategoryIconContainer>

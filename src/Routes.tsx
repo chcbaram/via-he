@@ -1,4 +1,5 @@
 import {UnconnectedGlobalMenu} from './components/menus/global';
+import {HeIapDialog} from './components/panes/he-iap-dialog';
 import {Route} from 'wouter';
 import PANES from './utils/pane-config';
 import {Home} from './components/Home';
@@ -49,6 +50,13 @@ export default () => {
         <TestContext.Provider value={testContextState}>
           <GlobalStyle />
           {hasHIDSupport && <UnconnectedGlobalMenu />}
+          {/*
+            * ★ 순정·부트로더 보드를 다루는 창은 **앱 뿌리에 둔다.**
+            *
+            *   그 보드들은 VIA 목록에 안 뜨므로 어느 탭에 매여 있어도 안 된다.
+            *   여기 있으면 무엇을 보고 있든 열 수 있다.
+            */}
+          {hasHIDSupport && <HeIapDialog />}
           <CanvasRouter />
 
           <Home hasHIDSupport={hasHIDSupport}>

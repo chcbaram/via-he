@@ -96,7 +96,6 @@ import {
   getHeSelectedKeys,
   getHeBootloaderSeen,
   getHeVendorSeen,
-  getHeFirmwareReq,
   getHeHoverKey,
   setHoverKey,
   setOverlayKeys,
@@ -709,7 +708,6 @@ export const HePane: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const bootSeen = useAppSelector(getHeBootloaderSeen);
   const vendorSeen = useAppSelector(getHeVendorSeen);
-  const firmwareReq = useAppSelector(getHeFirmwareReq);
 
   /*
    * 부트로더만 물려 있으면 **펌웨어 화면에서 시작한다.**
@@ -729,27 +727,10 @@ export const HePane: React.FC = () => {
    *   그 보드는 VIA 목록에 안 뜨므로 api 가 없다. 여기서 안 열어 주면 앱으로
    *   손댈 방법이 아예 없다 — 부트로더에 갇힌 보드와 사정이 같다.
    */
-  /*
-   * ★ **다른 키보드가 잡혀 있어도 IAP 보드를 다룰 수 있어야 한다.**
-   *
-   *   순정 보드와 부트로더 보드는 VIA 목록에 안 뜬다. 그래서 화면이 "선택된 VIA
-   *   장치" 만 보면, wish60 을 꽂아 둔 사람은 순정 보드를 개조할 길이 아예 없다 —
-   *   우리 키보드를 쓰는 사람이 순정 보드를 하나 더 사는 순간이 정확히 그 상황이라
-   *   "다른 키보드를 빼세요" 는 답이 못 된다.
-   *
-   *   그래서 사람이 명시적으로 대상을 옮길 수 있게 한다.
-   */
-  const [fwIapTarget, setFwIapTarget] = useState(false);
-  /* 붙어 있는 IAP 보드의 이름 — 화면에 "그 보드" 대신 이걸 쓴다 */
-  const [iapBoardName, setIapBoardName] = useState<string | null>(null);
-
   const bootOnly = (bootSeen || vendorSeen) && !api && !busy;
 
-  /*
-   * IAP 보드를 다루는 중인가 — 장치가 없어 저절로 그런 것이거나(bootOnly),
-   * 다른 키보드가 잡혀 있는데 사람이 대상을 옮긴 것이거나.
-   */
-  const iapMode = bootOnly || fwIapTarget;
+  /* IAP 보드만 다루는 화면인가 (장치가 없을 때 저절로 그렇게 된다) */
+  const iapMode = bootOnly;
 
   const [rail, setRail] = useState<RailKey>(bootOnly ? 'device' : 'tune');
   const [section, setSection] = useState<SectionKey>(
@@ -997,21 +978,12 @@ export const HePane: React.FC = () => {
   useEffect(() => {
     const name = fwInfo?.board;
     if (busy) return; /* 굽는 중 — 아래 주석 */
-    /*
-     * ★ **대상을 옮겼으면 이 길은 쓰지 않는다.**
-     *
-     *   fwInfo 는 **선택된 키보드**가 말한 이름이다. 지금 다루는 것은 다른
-     *   보드이므로 그 이름으로 고르면 엉뚱한 보드가 잡힌다 — 서술자로 고르는
-     *   effect 와 경쟁해서 이쪽이 이겼고, 순정 보드를 다루는 화면에 wish60 이
-     *   골라져 있었다.
-     */
-    if (fwIapTarget) return;
     if (!fwBoards_ || !name || fwAuto.current === name) return;
     const hit = fwBoards_.find((b) => b.id === name);
     if (!hit) return;
     fwAuto.current = name;
     setFwBoard(hit);
-  }, [fwBoards_, fwInfo?.board, fwIapTarget]);
+  }, [fwBoards_, fwInfo?.board]);
 
   /*
    * ★ **장치가 이름을 못 말할 때는 서술자로 고른다.**
@@ -1024,24 +996,13 @@ export const HePane: React.FC = () => {
    *   보드가 둘 이상이면 못 가리므로 그때만 사람에게 넘긴다.
    */
   useEffect(() => {
-    /* IAP 보드가 사라지면 대상을 원래대로 되돌린다 */
-    if (!bootSeen && !vendorSeen) {
-      if (fwIapTarget) setFwIapTarget(false);
-      setIapBoardName(null);
-    }
-  }, [bootSeen, vendorSeen, fwIapTarget]);
-
-  useEffect(() => {
     if (!iapMode || fwBoard || !fwBoards_ || fwBoards_.length === 0) return;
     let alive = true;
     iapPresentSpec()
       .then((spec) => {
         if (!alive || !spec) return;
         const hit = fwBoards_.filter((b) => (b.iap ?? 'wish60') === spec.id);
-        if (hit.length === 1) {
-          setFwBoard(hit[0]);
-          setIapBoardName(hit[0].name);
-        }
+        if (hit.length === 1) setFwBoard(hit[0]);
       })
       .catch(() => {});
     return () => {
@@ -1049,21 +1010,6 @@ export const HePane: React.FC = () => {
     };
   }, [iapMode, fwBoard, fwBoards_]);
 
-  /* 대상 줄에 쓸 이름은 화면이 접혀 있을 때도 필요하다 */
-  useEffect(() => {
-    if (!(bootSeen || vendorSeen) || !fwBoards_ || iapBoardName) return;
-    let alive = true;
-    iapPresentSpec()
-      .then((spec) => {
-        if (!alive || !spec) return;
-        const hit = fwBoards_.filter((b) => (b.iap ?? 'wish60') === spec.id);
-        if (hit.length === 1) setIapBoardName(hit[0].name);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [bootSeen, vendorSeen, fwBoards_, iapBoardName]);
 
   /*
    * 고른 보드의 배포 목록.
@@ -1104,31 +1050,6 @@ export const HePane: React.FC = () => {
     }
   }, [bootOnly]);
 
-  /*
-   * ★ **밖에서 "그 보드를 열어라" 고 하면 거기까지 맞춰 놓는다.**
-   *
-   *   머리말의 연결 버튼이 IAP 보드를 승인했을 때 쓴다. 세 가지가 다 필요하다 —
-   *
-   *     1. /he 로 옮기기          (버튼이 한다)
-   *     2. 펌웨어 갈래로 옮기기    갈래는 이미 정해져 있어 안 따라온다.
-   *                              그냥 두면 입력 지점 화면에 떨어진다
-   *     3. **대상을 그 보드로**    이게 없으면 "다른 키보드의 펌웨어 탭에 들어가
-   *                              대상을 다시 고르는" 어색한 길이 된다.
-   *                              어느 보드인지 이미 아는데 사람에게 또 묻는 셈이다
-   *
-   *   보드 선택은 비워서 서술자가 다시 고르게 한다 (기억도 같이 지운다).
-   *
-   *   0 은 건너뛴다. 첫 렌더에서 요청도 없이 화면을 옮기면 안 된다.
-   */
-  useEffect(() => {
-    if (firmwareReq === 0) return;
-    setRail('device');
-    setSection('firmware');
-    setFwIapTarget(true);
-    setFwBoard(null);
-    fwAuto.current = null;
-    setRestoreArm(false);
-  }, [firmwareReq]);
 
 
   /*
@@ -2834,12 +2755,7 @@ export const HePane: React.FC = () => {
     }
 
     if (section === 'firmware') {
-      /*
-       * ★ 대상을 옮겼으면 **모르는 값이다.** fwInfo 는 선택된 키보드가 말한
-       *   버전이고, 다루는 보드는 그것을 말해 주지 않는다 (부트로더에는 INFO 가
-       *   없고 순정 앱은 우리 명령에 답하지 않는다).
-       */
-      const cur = fwIapTarget ? '—' : (fwInfo?.version ?? '—');
+      const cur = fwInfo?.version ?? '—';
       const rel = fwList_ ?? [];
       const sel: FwEntry | undefined = rel[fwPick];
       const pct = fw && fw.total ? Math.round((fw.sent * 100) / fw.total) : 0;
@@ -2871,25 +2787,10 @@ export const HePane: React.FC = () => {
          *   이 값은 "앱을 부트로더로 넘기는" 단계에만 쓰인다. 이미 부트로더면
          *   iapFlash 가 그 단계를 통째로 건너뛰므로 쓰이지 않는다.
          */
-        /*
-         * ★★ **대상을 옮겼으면 선택된 장치를 쓰면 안 된다.**
-         *
-         *   이 값은 "우리 펌웨어가 도는 대상을 부트로더로 넘기는" 단계에만 쓰인다.
-         *   그런데 지금 다루는 것은 **다른 보드**(순정이거나 부트로더)다. 여기에
-         *   선택된 장치의 vid/pid 를 넣으면 **엉뚱한 키보드에 0x0B 를 보내 그
-         *   키보드를 부트로더로 보낸다.** wish60 을 꽂아 둔 채로 순정 보드를
-         *   개조하려다 wish60 이 갇히는 길이다.
-         *
-         *   0 으로 두면 iapFlash 가 앱 인터페이스를 못 찾고, 이미 부트로더면 그
-         *   단계를 건너뛰고, 순정 앱이면 자기 채널로 진입한다 — 전부 맞는 길이다.
-         */
-        const useSel = !fwIapTarget;
-        const vid = useSel ? (device?.vendorId ?? fwVid.current ?? 0) : 0;
-        const pid = useSel ? (device?.productId ?? fwPid.current ?? 0) : 0;
-        if (useSel) {
-          fwVid.current = vid;
-          fwPid.current = pid;
-        }
+        const vid = device?.vendorId ?? fwVid.current ?? 0;
+        const pid = device?.productId ?? fwPid.current ?? 0;
+        fwVid.current = vid;
+        fwPid.current = pid;
 
         setFwErr(null);
         setBusy(true);
@@ -3028,71 +2929,6 @@ export const HePane: React.FC = () => {
         </ControlRow>
       );
 
-      /*
-       * ★ **다른 보드가 IAP 쪽에 붙어 있으면 알려 주고 길을 낸다.**
-       *
-       *   순정 보드와 부트로더 보드는 VIA 목록에 안 뜬다. 그래서 다른 키보드가
-       *   잡혀 있으면 그 보드를 다룰 길이 아예 없었다 — 우리 키보드를 쓰는 사람이
-       *   순정 보드를 하나 더 사는 순간이 정확히 그 상황이다.
-       *
-       *   대상을 옮기면 그 뒤로는 선택된 장치를 **일절 안 쓴다**(위 flash() 주석).
-       */
-      const iapOther = (bootSeen || vendorSeen) && !!api;
-
-      /*
-       * ★ 화면에는 **이름을 쓴다.** "그 보드 / 이 보드" 는 눈으로 봐서 어느 쪽인지
-       *   모른다. 배포 목록의 이름을 쓰고(사람이 읽는 이름), 없으면 장치가 말한
-       *   문자열로 물러선다.
-       */
-      const selName =
-        boards.find((b) => b.id === fwInfo?.board)?.name ??
-        fwInfo?.board ??
-        t('this keyboard');
-      const iapName = iapBoardName ?? t('the other board');
-      const targetRow = iapOther ? (
-        <ControlRow>
-          <Label>{t('Target')}</Label>
-          <Detail>
-            <FwBtn
-              disabled={busy}
-              onClick={(e: React.MouseEvent) => {
-                (e.currentTarget as HTMLElement).blur();
-                setFwErr(null);
-                setRestoreArm(false);
-                /*
-                 * 둘 다 자동 선택에 다시 맡긴다 — 옮길 때는 서술자가, 돌아올 때는
-                 * 장치 이름이 고른다.
-                 *
-                 * ★ **기억도 같이 지운다.** 자동 선택은 "이 장치 이름에 맞춰 둔
-                 *   적이 있는가" 를 보고 건너뛴다. 그것만 남으면 돌아왔을 때
-                 *   **보드가 빈 채로 멈춘다** — 실제로 그랬다.
-                 */
-                setFwBoard(null);
-                fwAuto.current = null;
-                setFwIapTarget(!fwIapTarget);
-              }}
-            >
-              {fwIapTarget
-                ? t('he.fw.targetBack', {name: selName})
-                : t('he.fw.targetIap', {name: iapName})}
-            </FwBtn>
-          </Detail>
-        </ControlRow>
-      ) : null;
-
-      const targetNote =
-        iapOther && !fwIapTarget ? (
-          <Note>
-            {t(
-              vendorSeen && !bootSeen ? 'he.note.otherVendor' : 'he.note.otherBoot',
-              {name: iapName},
-            )}
-          </Note>
-        ) : fwIapTarget ? (
-          <Note style={{color: '#d66'}}>
-            {t('he.note.targetIap', {name: iapName, other: selName})}
-          </Note>
-        ) : null;
 
       /*
        * 보드를 아직 안 골랐으면 **여기서 멈춘다.** 굽기 말고 할 수 있는 일이 없는
@@ -3101,8 +2937,6 @@ export const HePane: React.FC = () => {
       if (!fwBoard) {
         return (
           <>
-            {targetRow}
-            {targetNote}
             {boardRow}
             <Note>
               {boards.length === 0
@@ -3115,8 +2949,6 @@ export const HePane: React.FC = () => {
 
       return (
         <>
-          {targetRow}
-          {targetNote}
           {boardRow}
 
           <ControlRow>
@@ -3308,8 +3140,7 @@ export const HePane: React.FC = () => {
             </Label>
             <Detail>
               <FwBtn
-                /* 대상을 옮긴 상태에서는 막는다 — 그 보드는 이미 IAP 쪽에 있다 */
-                disabled={busy || fwIapTarget}
+                disabled={busy}
                 onClick={async (e: React.MouseEvent) => {
                   (e.currentTarget as HTMLElement).blur();
                   setFwErr(null);
@@ -3368,14 +3199,10 @@ export const HePane: React.FC = () => {
                       return;
                     }
                     setRestoreArm(false);
-                    /* 위 flash() 와 같은 이유 — 대상을 옮겼으면 선택된 장치를 쓰면 안 된다 */
-                    const useSel = !fwIapTarget;
-                    const vid = useSel ? (device?.vendorId ?? fwVid.current ?? 0) : 0;
-                    const pid = useSel ? (device?.productId ?? fwPid.current ?? 0) : 0;
-                    if (useSel) {
-                      fwVid.current = vid;
-                      fwPid.current = pid;
-                    }
+                    const vid = device?.vendorId ?? fwVid.current ?? 0;
+                    const pid = device?.productId ?? fwPid.current ?? 0;
+                    fwVid.current = vid;
+                    fwPid.current = pid;
                     setBusy(true);
                     dispatch(setFlashing(true));
                     try {

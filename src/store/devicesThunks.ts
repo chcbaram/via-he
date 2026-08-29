@@ -65,9 +65,38 @@ export const selectConnectedDeviceByPath =
 
 // TODO: should we change these other thunks to use the selected device state instead of params?
 // Maybe not? the nice this about this is we don't have to null check the device
+/*
+ * **마지막에 쓰던 보드를 기억한다.** (상류에 없는 것)
+ *
+ * ★ 경로로는 못 기억한다. 우리 shim 이 스캔마다 새 식별자를 만들어 붙이므로
+ *   (getVIAPathIdentifier) 앱을 다시 켜면 값이 달라진다. VID/PID 로 적는다.
+ *
+ * 두 보드를 같이 꽂아 두면 목록 순서는 그때그때 다르다. 그러면 앱을 켤 때마다
+ * 엉뚱한 보드가 잡혀서 매번 손으로 바꿔야 한다.
+ */
+const LAST_KEY = 'he_last_device';
+
+const rememberDevice = (d: ConnectedDevice) => {
+  try {
+    localStorage.setItem(LAST_KEY, String(d.vendorProductId));
+  } catch {
+    /* 사생활 보호 모드 등 — 기억 못 해도 동작에는 지장이 없다 */
+  }
+};
+
+const lastDeviceId = (): number | null => {
+  try {
+    const v = localStorage.getItem(LAST_KEY);
+    return v === null ? null : Number(v);
+  } catch {
+    return null;
+  }
+};
+
 const selectConnectedDevice =
   (connectedDevice: ConnectedDevice): AppThunk =>
   async (dispatch) => {
+    rememberDevice(connectedDevice);
     const deviceInfo = extractDeviceInfo(connectedDevice);
     try {
       await dispatch(loadKeycodesVersion(connectedDevice));
@@ -268,9 +297,19 @@ export const reloadConnectedDevices =
       validDevicesArr.length > 0 &&
       !getHeFlashing(getState())
     ) {
-      const firstConnectedDevice = validDevicesArr[0][1];
+      /*
+       * ★ **마지막에 쓰던 보드를 먼저 본다.** 없으면 첫 번째.
+       *
+       *   두 보드를 같이 꽂아 두면 목록 순서가 그때그때 다르다. 그대로 두면 앱을
+       *   켤 때마다 엉뚱한 보드가 잡혀 매번 손으로 바꿔야 한다.
+       */
+      const want = lastDeviceId();
+      const preferred =
+        (want !== null &&
+          validDevicesArr.find(([, d]) => d.vendorProductId === want)?.[1]) ||
+        validDevicesArr[0][1];
 
-      dispatch(selectConnectedDevice(firstConnectedDevice));
+      dispatch(selectConnectedDevice(preferred));
     } else if (validDevicesArr.length === 0) {
       dispatch(selectDevice(null));
       /*

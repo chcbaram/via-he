@@ -66,13 +66,12 @@ type HeState = {
   vendorSeen: boolean;
 
   /*
-   * **펌웨어 화면을 열어 달라는 한 번짜리 요청.**
+   * **IAP 보드 창이 열려 있나.**
    *
-   * 머리말의 연결 버튼이 IAP 보드를 승인했을 때 세운다. /he 로 옮기는 것만으로는
-   * 부족하다 — 화면 안쪽 갈래는 이미 정해져 있어서 안 따라온다. 받은 쪽이 곧바로
-   * 내린다.
+   * 순정 보드와 부트로더 보드는 VIA 목록에 안 뜬다. 그것들은 펌웨어 탭이 아니라
+   * 전용 창에서 다룬다 — 한 화면이 두 가지를 뜻하면 예외가 줄줄이 붙는다.
    */
-  firmwareReq: number;
+  iapDialog: boolean;
 
   /*
    * 키캡 아래 막대 (0~1) — **지금 상태**다. 매트릭스 인덱스로 넣는다.
@@ -158,7 +157,7 @@ const initialState: HeState = {
   bootloaderSeen: false,
   flashing: false,
   vendorSeen: false,
-  firmwareReq: 0,
+  iapDialog: false,
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
@@ -217,8 +216,11 @@ const heSlice = createSlice({
       state.flashing = action.payload;
     },
     /* bootloaderSeen 과 같은 이유로 같은 값 재대입을 거른다 (초당 한 번 들어온다) */
-    askFirmwarePane: (state) => {
-      state.firmwareReq += 1;
+    openIapDialog: (state) => {
+      state.iapDialog = true;
+    },
+    closeIapDialog: (state) => {
+      state.iapDialog = false;
     },
     setVendorSeen: (state, action: PayloadAction<boolean>) => {
       if (state.vendorSeen !== action.payload) {
@@ -316,7 +318,8 @@ export const {
   setBootloaderSeen,
   setFlashing,
   setVendorSeen,
-  askFirmwarePane,
+  openIapDialog,
+  closeIapDialog,
   setOverlayKeys,
   setOverlayText,
   setOverlayBars,
@@ -334,7 +337,7 @@ export const getHeBootloaderSeen = (state: RootState) =>
   state.he.bootloaderSeen;
 export const getHeFlashing = (state: RootState) => state.he.flashing;
 export const getHeVendorSeen = (state: RootState) => state.he.vendorSeen;
-export const getHeFirmwareReq = (state: RootState) => state.he.firmwareReq;
+export const getHeIapDialog = (state: RootState) => state.he.iapDialog;
 export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;

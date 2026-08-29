@@ -97,6 +97,27 @@ const ExtendedHID = {
     viaDevices.forEach(tagDevice);
     return viaDevices[0];
   },
+  /*
+   * ★ **취소와 "VIA 장치가 아닌 것을 골랐다" 를 갈라야 할 때가 있다.**
+   *
+   *   크롬은 선택 창을 그냥 닫아도 **거부하지 않고 빈 배열을 돌려준다.** 그래서
+   *   위 requestDevice() 의 반환만 보면 둘 다 undefined 라 구분이 안 된다 —
+   *   취소했는데 부트로더 창이 뜨는 일이 실제로 났다.
+   *
+   *   고른 것 자체가 필요하면 이쪽을 쓴다. 태깅은 똑같이 해 둔다.
+   */
+  requestDeviceEx: async () => {
+    const raw = await navigator.hid.requestDevice({
+      filters: [
+        {usagePage: 0xff60, usage: 0x61},
+        QMK_CONSOLE_FILTER,
+        ...IAP_FILTERS,
+      ],
+    });
+    const viaDevices = filterHIDDevices(raw);
+    const tagged = viaDevices.map(tagDevice);
+    return {picked: raw.length > 0, via: tagged[0]};
+  },
   getFilteredDevices: async () => {
     try {
       const hidDevices = filterHIDDevices(await navigator.hid.getDevices());
