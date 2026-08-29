@@ -86,6 +86,7 @@ import {
   iapRequest,
   iapSpecOf,
   iapPresentSpec,
+  iapRestoreVendor,
   type FwBoard,
   type FwEntry,
   type IapProgress,
@@ -769,6 +770,8 @@ export const HePane: React.FC = () => {
   const [fwErr, setFwErr] = useState<string | null>(null);
   const [fwList_, setFwList] = useState<FwEntry[] | null>(null);
   const [fwPick, setFwPick] = useState(0);
+  /* 되돌리기는 두 번 눌러야 실행된다 — 되돌리기 어려운 동작이다 */
+  const [restoreArm, setRestoreArm] = useState(false);
   /*
    * 어느 보드의 배포본을 볼 것인가.
    *
@@ -3150,6 +3153,81 @@ export const HePane: React.FC = () => {
               </FwBtn>
             </Detail>
           </ControlRow>
+
+          {/*
+            * ★ **순정 펌웨어로 되돌리기 — 이 보드는 사본을 갖고 있다.**
+            *
+            *   새로 굽는 게 아니라 원래 있던 것을 되살린다. 우리 펌웨어를 넣을 때
+            *   순정 앱이 스스로 자기를 백업해 뒀고, 부트로더가 App1 이 무효면 그
+            *   사본을 되돌린다. 그래서 이미지가 필요 없다.
+            *
+            *   사본이 없는 보드(wish60)에는 이 줄을 아예 안 그린다.
+            *
+            * ★ 두 번 눌러야 실행된다. 되돌리면 이 앱에서 그 보드가 사라지므로
+            *   (순정 앱에는 우리 채널이 없다) 실수로 누르면 놀란다.
+            */}
+          {iapSpecOf(fwBoard).resetInBootloader && (
+            <ControlRow>
+              <Label>
+                <Hint tip={t('he.tip.restore')}>{t('Original firmware')}</Hint>
+              </Label>
+              <Detail>
+                {/*
+                  * ★ **이미 순정이면 막는다.**
+                  *
+                  *   그 상태에서 누르면 뜻이 없는 정도가 아니라 **거꾸로 간다** —
+                  *   지금 App1 이 순정이고 App2 에 우리 것이 들어 있으므로,
+                  *   App1 을 무효로 만들면 IAP 가 우리 것을 되살린다.
+                  *
+                  *   부트로더에 멈춘 경우는 막지 않는다. 거기서는 App1 이 이미
+                  *   무효라 되돌리기가 제대로 동작한다.
+                  */}
+                <FwBtn
+                  disabled={busy || (vendorSeen && !bootSeen)}
+                  onClick={async (e: React.MouseEvent) => {
+                    (e.currentTarget as HTMLElement).blur();
+                    setFwErr(null);
+                    if (!restoreArm) {
+                      setRestoreArm(true);
+                      return;
+                    }
+                    setRestoreArm(false);
+                    const vid = device?.vendorId ?? fwVid.current ?? 0;
+                    const pid = device?.productId ?? fwPid.current ?? 0;
+                    fwVid.current = vid;
+                    fwPid.current = pid;
+                    setBusy(true);
+                    dispatch(setFlashing(true));
+                    try {
+                      await iapRestoreVendor(
+                        iapSpecOf(fwBoard),
+                        vid,
+                        pid,
+                        setFw,
+                        () =>
+                          new Promise<HIDDevice | null>((res) => {
+                            fwPermit.current = res;
+                          }),
+                      );
+                      for (let i = 0; i < 12; i++) {
+                        await new Promise((r) => setTimeout(r, 1000));
+                        dispatch(reloadConnectedDevices());
+                      }
+                    } catch (x) {
+                      setFwErr(String(x));
+                    } finally {
+                      dispatch(setFlashing(false));
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {restoreArm && !(vendorSeen && !bootSeen)
+                    ? t('he.fw.restoreConfirm')
+                    : t('Restore')}
+                </FwBtn>
+              </Detail>
+            </ControlRow>
+          )}
 
           {/*
             * ★ 벽돌이 되지 않는다는 것을 먼저 말한다.

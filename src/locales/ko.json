@@ -586,5 +586,9 @@
   "- KEY 2": "- 키 2",
   "First Delay Time": "첫 지연 시간",
   "Repeat Time": "반복 시간",
-  "Press both of a bind and only the newest one is sent. Saved per profile.": "한 묶음의 두 키를 같이 누르면 나중에 누른 쪽만 나간다. 프로파일마다 따로 저장된다."
+  "Press both of a bind and only the newest one is sent. Saved per profile.": "한 묶음의 두 키를 같이 누르면 나중에 누른 쪽만 나간다. 프로파일마다 따로 저장된다.",
+  "Original firmware": "순정 펌웨어",
+  "Restore": "되돌리기",
+  "he.fw.restoreConfirm": "정말 되돌린다",
+  "he.tip.restore": "이 보드는 우리 펌웨어를 넣을 때 원래 펌웨어를 스스로 백업해 둡니다. 되돌리면 그 사본이 되살아납니다 — 내려받을 것이 없고, 끝나면 이 앱에서는 그 키보드가 사라집니다(순정 펌웨어에는 이 앱이 쓰는 통로가 없습니다). 다시 바꾸려면 첫 화면에서 그 보드를 연결하면 됩니다."
 }

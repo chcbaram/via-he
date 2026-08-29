@@ -585,5 +585,9 @@
   "- KEY 2": "- KEY 2",
   "First Delay Time": "First Delay Time",
   "Repeat Time": "Repeat Time",
-  "Press both of a bind and only the newest one is sent. Saved per profile.": "Press both of a bind and only the newest one is sent. Saved per profile."
+  "Press both of a bind and only the newest one is sent. Saved per profile.": "Press both of a bind and only the newest one is sent. Saved per profile.",
+  "Original firmware": "純正ファームウェア",
+  "Restore": "復元",
+  "he.fw.restoreConfirm": "本当に復元する",
+  "he.tip.restore": "このボードは書き込み時に元のファームウェアを自動でバックアップします。復元するとそのコピーが戻ります — ダウンロードは不要で、終わるとこのアプリからそのキーボードは見えなくなります。"
 }

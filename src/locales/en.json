@@ -542,5 +542,9 @@
   "- KEY 2": "- KEY 2",
   "First Delay Time": "First Delay Time",
   "Repeat Time": "Repeat Time",
-  "Press both of a bind and only the newest one is sent. Saved per profile.": "Press both of a bind and only the newest one is sent. Saved per profile."
+  "Press both of a bind and only the newest one is sent. Saved per profile.": "Press both of a bind and only the newest one is sent. Saved per profile.",
+  "Original firmware": "Original firmware",
+  "Restore": "Restore",
+  "he.fw.restoreConfirm": "Yes, restore",
+  "he.tip.restore": "This board backs up its original firmware when ours is written. Restoring brings that copy back — nothing to download. Afterwards the keyboard disappears from this app, because the original firmware has no channel for it."
 }

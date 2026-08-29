@@ -422,6 +422,17 @@ export type IapSpec = {
    * 자기 채널로 보내야 한다. wish60 에는 해당 없음.
    */
   enterFromVendor?: (dev: HIDDevice) => Promise<void>;
+
+  /*
+   * 부트로더에서 보드를 재시작한다.
+   *
+   * ★ **모드마다 같은 바이트의 뜻이 다르다.** wish61 은 앱에서 `08 01` 이
+   *   AppToBoot 이고 부트로더에서는 **리셋**이다. 표를 읽을 때 이걸 놓치면
+   *   "앱으로 가라" 를 보낸 줄 알고 리셋을 건다.
+   *
+   * 이게 있으면 순정 펌웨어로 되돌릴 수 있다 — 아래 iapRestoreVendor 참고.
+   */
+  resetInBootloader?: (dev: HIDDevice) => Promise<void>;
 };
 
 function magicCheck(image: Uint8Array, magic: number[], what: string) {
@@ -448,6 +459,11 @@ export const IAP_SPECS: Record<IapId, IapSpec> = {
     enterFromVendor: async (d) => {
       if (!d.opened) await d.open();
       await w61Xfer(d, [0x08, 0x01], undefined, 3000);
+    },
+    /* 부트로더에서는 같은 08 01 이 PPOR 소프트 리셋이다 */
+    resetInBootloader: async (d) => {
+      if (!d.opened) await d.open();
+      await w61Xfer(d, [0x08, 0x01], undefined, 1500);
     },
   },
 };
@@ -681,6 +697,67 @@ async function enterFromVendor(spec: IapSpec, image: Uint8Array,
   onProgress?.({phase: 'boot', sent: 0, total: image.length});
   await spec.enterFromVendor(dev);
   return true;
+}
+
+/*
+ * **순정 펌웨어로 되돌린다.**
+ *
+ * ★ 새로 굽는 게 아니라 **원래 있던 사본을 되살리는 것**이다.
+ *
+ *   이 보드의 IAP 는 App1 이 무효면 App2 의 사본을 App1 로 복원한다. 그리고 우리
+ *   펌웨어를 넣을 때 순정 앱이 스스로 자기를 App2 로 백업해 뒀다. 그러니 되돌리기는
+ *   **App1 을 무효로 만들고 재시작하는 것**이 전부다 — 이미지를 받을 필요가 없다.
+ *
+ *     우리 앱에 0x0B    -> IAP 진입. 그 과정에서 App1 헤더가 지워진다
+ *     IAP 에 08 01      -> 소프트 리셋
+ *                       -> IAP 가 App1 무효를 보고 App2 를 복원해 실행
+ *
+ * ★ **USB 를 다시 꽂을 필요가 없다.** 부트로더에 리셋 명령이 있다. 없었다면
+ *   사람에게 뽑았다 꽂으라고 해야 했다.
+ *
+ * ★ 되돌린 뒤에는 그 보드가 VIA 목록에서 사라진다 — 순정 앱에는 우리 0xFF60
+ *   채널이 없다. 화면은 "순정 펌웨어가 들어 있다" 쪽으로 넘어간다.
+ */
+export async function iapRestoreVendor(
+  spec: IapSpec,
+  vendorId: number,
+  productId: number,
+  onProgress?: (p: IapProgress) => void,
+  askPermission?: () => Promise<HIDDevice | null>,
+) {
+  if (!spec.resetInBootloader) {
+    throw new Error('이 보드는 순정 사본을 갖고 있지 않다');
+  }
+
+  let iap = await iapFindSpec(spec);
+
+  if (!iap) {
+    const app = findByUsage(
+      await navigator.hid.getDevices(),
+      vendorId,
+      productId,
+      APP_USAGE_PAGE,
+    );
+    if (!app) throw new Error('앱 인터페이스를 못 찾았다 — 장치가 연결돼 있는지 본다');
+
+    onProgress?.({phase: 'boot', sent: 0, total: 1});
+    await requestBoot(app);
+
+    onProgress?.({phase: 'wait', sent: 0, total: 1});
+    iap = await waitForIap(spec);
+
+    if (!iap) {
+      onProgress?.({phase: 'permit', sent: 0, total: 1});
+      iap = (await askPermission?.()) ?? null;
+      if (!iap) throw new Error('부트로더 권한이 없다');
+      if (!iap.opened) await iap.open();
+    }
+  } else if (!iap.opened) {
+    await iap.open();
+  }
+
+  await spec.resetInBootloader(iap);
+  onProgress?.({phase: 'done', sent: 1, total: 1});
 }
 
 /*
