@@ -58,6 +58,14 @@ type HeState = {
   flashing: boolean;
 
   /*
+   * **순정 펌웨어가 도는 보드가 붙어 있나.**
+   *
+   * 그 보드는 VIA 키보드 목록에 안 뜬다 — 순정 앱에는 우리 0xFF60 채널이 없다.
+   * 그래서 부트로더에 갇힌 보드와 같은 문(bootOnly)으로 펌웨어 화면을 연다.
+   */
+  vendorSeen: boolean;
+
+  /*
    * 키캡 아래 막대 (0~1) — **지금 상태**다. 매트릭스 인덱스로 넣는다.
    *
    * 글자와 통로를 따로 둔다. 글자는 설정값이라 가끔 바뀌지만 막대는 누르는 동안
@@ -140,6 +148,7 @@ const initialState: HeState = {
   hoverKey: null,
   bootloaderSeen: false,
   flashing: false,
+  vendorSeen: false,
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
@@ -196,6 +205,12 @@ const heSlice = createSlice({
     },
     setFlashing: (state, action: PayloadAction<boolean>) => {
       state.flashing = action.payload;
+    },
+    /* bootloaderSeen 과 같은 이유로 같은 값 재대입을 거른다 (초당 한 번 들어온다) */
+    setVendorSeen: (state, action: PayloadAction<boolean>) => {
+      if (state.vendorSeen !== action.payload) {
+        state.vendorSeen = action.payload;
+      }
     },
     setHoverKey: (state, action: PayloadAction<number | null>) => {
       state.hoverKey = action.payload;
@@ -287,6 +302,7 @@ export const {
   clearHoverKey,
   setBootloaderSeen,
   setFlashing,
+  setVendorSeen,
   setOverlayKeys,
   setOverlayText,
   setOverlayBars,
@@ -303,6 +319,7 @@ export const getHeHoverKey = (state: RootState) => state.he.hoverKey;
 export const getHeBootloaderSeen = (state: RootState) =>
   state.he.bootloaderSeen;
 export const getHeFlashing = (state: RootState) => state.he.flashing;
+export const getHeVendorSeen = (state: RootState) => state.he.vendorSeen;
 export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;

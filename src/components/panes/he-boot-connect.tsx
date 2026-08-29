@@ -1,8 +1,8 @@
 import {useCallback, useState} from 'react';
 import {useLocation} from 'wouter';
 import {useAppDispatch} from 'src/store/hooks';
-import {setBootloaderSeen} from 'src/store/heSlice';
-import {iapRequest} from 'src/utils/he-iap';
+import {setBootloaderSeen, setVendorSeen} from 'src/store/heSlice';
+import {iapFind, iapFindVendorApp, iapRequest} from 'src/utils/he-iap';
 
 /*
  * **부트로더에 붙는 길.**
@@ -38,11 +38,25 @@ export function useBootConnect(opts?: {goHe?: boolean}) {
     try {
       const dev = await iapRequest();
       if (!dev) return false; /* 창을 그냥 닫았다 */
+
       /*
-       * 여기서 곧바로 참으로 세운다. Home 의 주기 확인도 1초 안에 같은 답을
-       * 내지만, 방금 고른 사람에게 1초는 "안 눌렸나" 로 보인다.
+       * ★ **고른 것이 부트로더인지 순정 앱인지 가른다.**
+       *
+       *   wish61 은 둘이 같은 VID/PID/usage page 라 고른 것만으로는 모른다.
+       *   예전에는 무조건 "부트로더" 로 세웠는데, 순정 펌웨어가 도는 보드를
+       *   고르면 안내 문구가 "부트로더에 멈춰 있다" 로 거짓말을 했다.
+       *
+       *   어느 쪽이든 갈 곳은 같다(펌웨어 화면). 표시만 맞추면 된다.
+       *
+       * ★ 여기서 곧바로 세운다. 첫 화면의 주기 확인도 1초 안에 같은 답을 내지만,
+       *   방금 고른 사람에게 1초는 "안 눌렸나" 로 보인다.
        */
-      dispatch(setBootloaderSeen(true));
+      const boot = await iapFind();
+      if (boot) {
+        dispatch(setBootloaderSeen(true));
+      } else {
+        dispatch(setVendorSeen((await iapFindVendorApp()) !== null));
+      }
       if (goHe) setLocation('/he');
       return true;
     } catch (x) {

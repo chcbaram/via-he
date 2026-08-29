@@ -1,7 +1,7 @@
 import React, {createRef, useEffect} from 'react';
 import styled from 'styled-components';
-import {iapFind} from 'src/utils/he-iap';
-import {setBootloaderSeen} from 'src/store/heSlice';
+import {iapFind, iapFindVendorApp} from 'src/utils/he-iap';
+import {setBootloaderSeen, setVendorSeen} from 'src/store/heSlice';
 import {getByteForCode} from '../utils/key';
 import {startMonitoring, usbDetect} from '../utils/usb-hid';
 import {
@@ -131,6 +131,16 @@ export const Home: React.FC<HomeProps> = (props) => {
     iapFind()
       .then((d) => dispatch(setBootloaderSeen(d !== null)))
       .catch(() => dispatch(setBootloaderSeen(false)));
+
+    /*
+     * ★ **순정 펌웨어가 도는 보드도 같이 본다.**
+     *
+     *   그 보드는 VIA 목록에 안 뜬다 — 순정 앱에는 우리 0xFF60 채널이 없다.
+     *   여기서 못 보면 사용자가 앱으로 그 보드에 손댈 방법이 아예 없다.
+     */
+    iapFindVendorApp()
+      .then((spec) => dispatch(setVendorSeen(spec !== null)))
+      .catch(() => dispatch(setVendorSeen(false)));
   };
 
   const updateDevicesRepeat: () => void = timeoutRepeater(

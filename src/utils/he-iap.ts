@@ -168,10 +168,41 @@ async function w61Xfer(
  *   필드 배치 — t[2] type, t[3] subType, t[4..7] boardId(BE),
  *   t[8..11] appVersion, t[12..15] pcbVersion, **t[16] runModeVersion**
  */
+/*
+ * ★ **1초마다 물어보면 안 된다.**
+ *
+ *   첫 화면의 주기 확인이 이 길을 탄다. 장치를 열고 3초짜리 왕복을 거는 일을
+ *   1초 간격으로 걸면 **겹쳐 쌓여 페이지가 멈춘다** — 실제로 그렇게 멈췄다.
+ *   답은 잘 안 바뀌므로 잠깐 기억하고, 도는 중이면 그 약속을 같이 쓴다.
+ */
+const RUN_MODE_TTL = 3000;
+const runModeCache = new WeakMap<
+  HIDDevice,
+  {at: number; value: number | null} | {pending: Promise<number | null>}
+>();
+
 async function w61RunMode(dev: HIDDevice): Promise<number | null> {
-  if (!dev.opened) await dev.open();
-  const r = await w61Xfer(dev, [0x01, 0x02]);
-  return r && r.length > 16 ? r[16] : null;
+  const hit = runModeCache.get(dev);
+  if (hit) {
+    if ('pending' in hit) return hit.pending;
+    if (Date.now() - hit.at < RUN_MODE_TTL) return hit.value;
+  }
+
+  const pending = (async () => {
+    try {
+      if (!dev.opened) await dev.open();
+      /* 주기 확인이 타는 길이라 짧게 끊는다 */
+      const r = await w61Xfer(dev, [0x01, 0x02], undefined, 800);
+      return r && r.length > 16 ? r[16] : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  runModeCache.set(dev, {pending});
+  const value = await pending;
+  runModeCache.set(dev, {at: Date.now(), value});
+  return value;
 }
 
 async function w61Program(
@@ -570,6 +601,33 @@ export async function iapFind(): Promise<HIDDevice | null> {
   return null;
 }
 
+/*
+ * **순정 펌웨어가 도는 보드가 붙어 있나.**
+ *
+ * ★ 이 보드는 VIA 에 안 뜬다. 순정 앱에는 우리 `0xFF60` 채널이 없어서 키보드 목록에
+ *   들어가지 못하고, 그러면 HE 탭도 안 열려 **펌웨어 화면까지 갈 길이 없다.**
+ *   그래서 부트로더에 갇힌 보드를 되살리는 길과 같은 문으로 태운다.
+ *
+ * ★ 부트로더와 신원이 같으므로(wish61 은 벤더 앱도 1CA6:300B / 0xFFB0) 반드시
+ *   `isBootloader` 로 갈라야 한다. 채널이 보인다고 앱이라 단정하면 부트로더에
+ *   갇힌 보드를 "순정 앱" 으로 잘못 부른다.
+ */
+export async function iapFindVendorApp(): Promise<IapSpec | null> {
+  const devices = await navigator.hid.getDevices();
+  for (const spec of Object.values(IAP_SPECS)) {
+    if (!spec.enterFromVendor) continue; /* 개조 경로가 없는 보드 */
+    const f = spec.filter;
+    const dev = findByUsage(devices, f.vendorId, f.productId, f.usagePage);
+    if (!dev) continue;
+    try {
+      if (!(await spec.isBootloader(dev))) return spec;
+    } catch {
+      /* 못 물어봤다 — 단정하지 않는다 */
+    }
+  }
+  return null;
+}
+
 /* 사용자 제스처 안에서 불러야 한다 */
 export async function iapRequest(): Promise<HIDDevice | null> {
   const got = await navigator.hid.requestDevice({filters: IAP_FILTERS});
@@ -587,6 +645,23 @@ async function waitForIap(spec: IapSpec, timeoutMs = 6000) {
     await new Promise((r) => setTimeout(r, 300));
   }
   return null;
+}
+
+/*
+ * **지금 붙어 있는 것이 어느 보드의 서술자인가.**
+ *
+ * 부트로더든 순정 앱이든, 그 채널이 보인다는 것만으로 **어느 보드인지 알 수 있다** —
+ * 서술자가 곧 보드 축이기 때문이다. 장치가 이름을 말해 주지 않는 상황(부트로더는
+ * INFO 가 없고, 순정 앱은 0xCA 에 답하지 않는다)에서 이게 유일한 단서다.
+ *
+ * ★ 이걸 안 쓰면 사람이 손으로 고르게 되고, **잘못 고르면 갇힌다.** 그 실수를
+ *   막으려고 만든 화면에서 그 실수를 열어 둘 이유가 없다.
+ */
+export async function iapPresentSpec(): Promise<IapSpec | null> {
+  for (const spec of Object.values(IAP_SPECS)) {
+    if (await iapFindSpec(spec)) return spec;
+  }
+  return iapFindVendorApp();
 }
 
 /*

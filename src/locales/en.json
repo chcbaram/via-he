@@ -521,6 +521,7 @@
   "he.tip.flux": "The datasheet pair this switch was built from.",
   "Under cursor": "Under cursor",
   "he.bootOnly": "This board is sitting in its bootloader — it is not running keyboard firmware, so only flashing is available. Pick an image below and write it.",
+  "he.vendorOnly": "This board is still running its original firmware, so only the firmware screen is available. Pick your keyboard below and write an image to replace it. Your current firmware is backed up first, so if the new one is broken the board restores it the next time you plug it in.",
   "Connect to bootloader": "Connect to bootloader",
   "he.bootConnect.hint": "If the board is stuck in its bootloader it will not show up as a keyboard. Connect to it here to flash firmware.",
   "Keyboard": "Keyboard",

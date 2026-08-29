@@ -85,6 +85,7 @@ import {
   iapFlash,
   iapRequest,
   iapSpecOf,
+  iapPresentSpec,
   type FwBoard,
   type FwEntry,
   type IapProgress,
@@ -93,6 +94,7 @@ import {
   clearKeys,
   getHeSelectedKeys,
   getHeBootloaderSeen,
+  getHeVendorSeen,
   getHeHoverKey,
   setHoverKey,
   setOverlayKeys,
@@ -704,6 +706,7 @@ export const HePane: React.FC = () => {
    */
   const [busy, setBusy] = useState(false);
   const bootSeen = useAppSelector(getHeBootloaderSeen);
+  const vendorSeen = useAppSelector(getHeVendorSeen);
 
   /*
    * 부트로더만 물려 있으면 **펌웨어 화면에서 시작한다.**
@@ -717,7 +720,13 @@ export const HePane: React.FC = () => {
    *   접으면 굽기가 끝나고도 그 화면에 갇힌다 — 실제로 그랬다. 굽는 중 화면은
    *   이미 busy 로 붙잡고 있으니(아래 "장치 없음" 벽) 여기까지 접을 이유가 없다.
    */
-  const bootOnly = bootSeen && !api && !busy;
+  /*
+   * ★ **순정 펌웨어가 도는 보드도 같은 문으로 태운다.**
+   *
+   *   그 보드는 VIA 목록에 안 뜨므로 api 가 없다. 여기서 안 열어 주면 앱으로
+   *   손댈 방법이 아예 없다 — 부트로더에 갇힌 보드와 사정이 같다.
+   */
+  const bootOnly = (bootSeen || vendorSeen) && !api && !busy;
 
   const [rail, setRail] = useState<RailKey>(bootOnly ? 'device' : 'tune');
   const [section, setSection] = useState<SectionKey>(
@@ -968,6 +977,31 @@ export const HePane: React.FC = () => {
     fwAuto.current = name;
     setFwBoard(hit);
   }, [fwBoards_, fwInfo?.board]);
+
+  /*
+   * ★ **장치가 이름을 못 말할 때는 서술자로 고른다.**
+   *
+   *   부트로더에는 INFO 가 없고 순정 앱은 0xCA 에 답하지 않는다. 그래서 위쪽
+   *   자동 선택(fwInfo.board)이 안 걸린다. 그렇다고 사람이 손으로 고르게 두면
+   *   **잘못 고를 수 있고, 그러면 갇힌다** — 그 실수를 막으려고 만든 화면이다.
+   *
+   *   붙어 있는 채널이 곧 보드 축이므로 그것으로 정한다. 같은 서술자를 쓰는
+   *   보드가 둘 이상이면 못 가리므로 그때만 사람에게 넘긴다.
+   */
+  useEffect(() => {
+    if (!bootOnly || fwBoard || !fwBoards_ || fwBoards_.length === 0) return;
+    let alive = true;
+    iapPresentSpec()
+      .then((spec) => {
+        if (!alive || !spec) return;
+        const hit = fwBoards_.filter((b) => (b.iap ?? 'wish60') === spec.id);
+        if (hit.length === 1) setFwBoard(hit[0]);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [bootOnly, fwBoard, fwBoards_]);
 
   /*
    * 고른 보드의 배포 목록.
@@ -4164,7 +4198,9 @@ export const HePane: React.FC = () => {
               </Detail>
             </ControlRow>
             )}
-            {bootOnly && <Note>{t('he.bootOnly')}</Note>}
+            {bootOnly && (
+              <Note>{t(vendorSeen && !bootSeen ? 'he.vendorOnly' : 'he.bootOnly')}</Note>
+            )}
             {renderSection()}
           </Content>
         </CenteredOverflowCell>
