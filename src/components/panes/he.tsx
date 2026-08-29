@@ -29,6 +29,7 @@ import {getBasicKeyToByte} from 'src/store/definitionsSlice';
 import {getLabelForByte} from 'src/utils/key';
 import {useTranslation} from 'react-i18next';
 import {
+  getConnectedDevices,
   getSelectedConnectedDevice,
   getSelectedKeyboardAPI,
 } from 'src/store/devicesSlice';
@@ -83,6 +84,7 @@ import {
   iapEnterBoot,
   iapFlash,
   iapRequest,
+  iapSpecOf,
   type FwBoard,
   type FwEntry,
   type IapProgress,
@@ -104,7 +106,10 @@ import {
   setKeys,
 } from 'src/store/heSlice';
 import {useAppDispatch} from 'src/store/hooks';
-import {reloadConnectedDevices} from 'src/store/devicesThunks';
+import {
+  reloadConnectedDevices,
+  selectConnectedDeviceByPath,
+} from 'src/store/devicesThunks';
 import {useBootConnect} from './he-boot-connect';
 import {
   heReadSwitches,
@@ -869,6 +874,21 @@ export const HePane: React.FC = () => {
    * 굽기 함수는 누른 순간의 값을 붙잡은 클로저라 그 안의 `api` 는 영영 굽기 전
    * 것이다. ref 로 지금 값을 들여다본다.
    */
+  /*
+   * 굽고 나서 **방금 구운 보드로 돌아오기** 위해 최신 목록을 들고 있는다.
+   * 반복문 안에서 셀렉터를 다시 읽을 수 없으므로 ref 로 받는다.
+   */
+  const connected = useAppSelector(getConnectedDevices);
+  const connectedRef = useRef(connected);
+  useEffect(() => {
+    connectedRef.current = connected;
+  }, [connected]);
+
+  const deviceRef = useRef(device);
+  useEffect(() => {
+    deviceRef.current = device;
+  }, [device]);
+
   const apiRef = useRef(api);
   useEffect(() => {
     apiRef.current = api;
@@ -891,19 +911,56 @@ export const HePane: React.FC = () => {
     };
   }, []);
 
-  /* 장치가 자기 이름을 말했으면 그걸로 고른다 — 앱 모드에서는 물을 이유가 없다 */
-  useEffect(() => {
-    if (fwBoard || !fwBoards_ || !fwInfo?.board) return;
-    const hit = fwBoards_.find((b) => b.id === fwInfo.board);
-    if (hit) setFwBoard(hit);
-  }, [fwBoard, fwBoards_, fwInfo?.board]);
+  const fwAuto = useRef<string | null>(null);
 
-  /* 고른 보드의 배포 목록 */
+  /*
+   * ★ **장치가 바뀌면 옛 정보를 버린다.**
+   *
+   *   두 보드를 같이 꽂아 두고 쓰는 자리다. 고른 키보드를 바꾸면 새 정보를 읽지만
+   *   그게 도착하기 전까지는 **이전 보드의 이름이 그대로 남는다.** 그 값이 자동
+   *   선택과 불일치 잠금을 굴리므로, 그 창 동안에는 "다른 보드를 고른 채 굽기가
+   *   열려 있는" 상태가 만들어진다.
+   *
+   *   비워 두면 그동안 잠기는 쪽으로 기운다 — 굽기는 되돌리기 어려운 일이라
+   *   모르는 동안은 막는 편이 맞다.
+   */
   useEffect(() => {
-    if (!fwBoard) {
-      setFwList(null);
-      return;
-    }
+    setFwInfo(null);
+    fwAuto.current = null;
+  }, [device?.path]);
+
+  /*
+   * 장치가 자기 이름을 말했으면 그걸로 고른다 — 앱 모드에서는 물을 이유가 없다.
+   *
+   * ★ **장치가 바뀌면 다시 맞춘다.** 처음 한 번만 맞추면 안 된다.
+   *
+   *   예전에는 `fwBoard` 가 이미 있으면 그냥 돌아섰다. 그래서 wish60 을 붙였다가
+   *   wish61 로 갈아 끼우면 **옛 선택이 그대로 남아** 빨간 불일치 경고만 뜬 채로
+   *   있었다. 보드가 둘이 되고 나서야 드러난 자리다.
+   *
+   * ★ 그렇다고 매번 덮어쓰지도 않는다. 사람이 일부러 다른 보드를 고르는 길은
+   *   남아 있어야 한다 (부트로더에 멈춘 보드를 되살릴 때 그 길로 간다). 그래서
+   *   **"이 장치 이름에 맞춰 둔 적이 있는가" 를 기억**하고, 이름이 바뀐 순간에만
+   *   따라간다.
+   */
+  useEffect(() => {
+    const name = fwInfo?.board;
+    if (!fwBoards_ || !name || fwAuto.current === name) return;
+    const hit = fwBoards_.find((b) => b.id === name);
+    if (!hit) return;
+    fwAuto.current = name;
+    setFwBoard(hit);
+  }, [fwBoards_, fwInfo?.board]);
+
+  /*
+   * 고른 보드의 배포 목록.
+   *
+   * ★ **바꾸는 즉시 비운다.** 새 목록이 도착할 때까지 옛 보드의 배포본이 화면에
+   *   남아 있으면, 고른 보드와 눈앞의 버전 목록이 어긋난 창이 생긴다.
+   */
+  useEffect(() => {
+    setFwList(null);
+    if (!fwBoard) return;
     let alive = true;
     setFwPick(0);
     fwList(fwBoard.dir)
@@ -2633,7 +2690,14 @@ export const HePane: React.FC = () => {
         setFwErr(null);
         setBusy(true);
         try {
-          await iapFlash(vid, pid, image, setFw, () => {
+          /*
+           * ★ **부트로더 서술자를 고른 보드에서 가져온다.**
+           *
+           *   예전에는 wish60 의 부트로더가 상수로 박혀 있었다. 그 상태로 wish61 을
+           *   꽂고 누르면 진입 명령만 먹고 **부트로더에 갇혔다** — 점프는 통해서
+           *   App1 헤더를 지우는데, 그 뒤로 영영 없는 장치를 기다렸다.
+           */
+          await iapFlash(iapSpecOf(fwBoard), vid, pid, image, setFw, () => {
             /*
              * 부트로더를 못 찾았다. 사용자가 버튼을 누를 때까지 기다린다 —
              * requestDevice() 는 사용자 제스처 안에서만 부를 수 있다.
@@ -2663,9 +2727,35 @@ export const HePane: React.FC = () => {
            *   버전은 물을 필요도 없다. 새 api 가 잡히면 위쪽 effect(`[api, send]`)가
            *   알아서 다시 읽는다.
            */
+          /*
+           * ★ **방금 구운 보드로 돌아온다.**
+           *
+           *   두 보드를 같이 꽂아 두면, 굽는 동안 대상이 사라진 사이에 VIA 가
+           *   **다른 보드로 선택을 옮긴다.** 그대로 두면 wish61 을 굽고 났는데
+           *   화면은 wish60 을 보여준다 — 방금 한 일과 눈앞이 어긋난다.
+           *
+           *   그래서 "아무 장치나 돌아왔다" 가 아니라 **그 vid/pid 가 돌아왔는가**
+           *   를 기다리고, 선택이 딴 데 가 있으면 되돌린다.
+           *
+           *   vid/pid 를 모르는 경우(부트로더에 멈춘 보드를 되살리는 길)에는
+           *   예전처럼 아무 장치나 잡히면 끝낸다 — 되살아난 것이 곧 목적이다.
+           */
           for (let i = 0; i < 12; i++) {
             await new Promise((r) => setTimeout(r, 1000));
-            if (apiRef.current) break; /* 돌아왔다 */
+
+            if (vid && pid) {
+              const hit = Object.values(connectedRef.current).find(
+                (d) => d.vendorId === vid && d.productId === pid,
+              );
+              if (hit) {
+                if (deviceRef.current?.path !== hit.path) {
+                  dispatch(selectConnectedDeviceByPath(hit.path));
+                }
+                break;
+              }
+            } else if (apiRef.current) {
+              break; /* 돌아왔다 */
+            }
             dispatch(reloadConnectedDevices());
           }
         } catch (x) {
@@ -2695,6 +2785,19 @@ export const HePane: React.FC = () => {
        *   버튼도 안 보인다 — 목록만 먼저 보여 주면 그게 어느 보드 것인지 모르는 채
        *   누르게 된다.
        */
+      /*
+       * ★ **어긋나면 말하는 데서 그치지 않고 막는다.**
+       *
+       *   장치는 앱 모드에서 0xCA 로 자기 이름을 말한다. 그 이름과 고른 보드가
+       *   다르면 **다른 보드의 이미지를 굽는 것**이고, 부트로더 계약이 보드마다
+       *   달라서 진입만 하고 못 돌아오는 상태가 된다. 경고만 띄우고 버튼을 열어
+       *   두었더니 그대로 누를 수 있었다 — 눌러서 갇히는 길은 남겨 둘 이유가 없다.
+       *
+       *   부트로더에 멈춘 보드를 되살릴 때는 fwInfo 가 없다(장치가 말을 못 한다).
+       *   그때는 막지 않는다 — 사람이 골라야 하고, 그러라고 있는 화면이다.
+       */
+      const mismatch = !!fwInfo?.board && fwInfo.board !== fwBoard?.id;
+
       const boardRow = (
         <ControlRow>
           <Label>
@@ -2745,15 +2848,17 @@ export const HePane: React.FC = () => {
           </ControlRow>
 
           {/*
-            * ★ 장치가 말한 이름과 고른 보드가 다르면 **말한다.**
+            * ★ 장치가 말한 이름과 고른 보드가 다르면 **말하고 막는다.**
             *
             *   앱 모드에서는 자동으로 맞춰지지만, 사람이 일부러 다른 것을 고를 수
-            *   있다. 그대로 구우면 다른 보드의 이미지가 올라간다.
+            *   있다. 그대로 구우면 다른 보드의 이미지가 올라가고, 부트로더 계약이
+            *   보드마다 달라 **진입만 하고 못 돌아온다.** 그래서 경고에서 그치지
+            *   않고 굽기 버튼을 잠근다 (mismatch).
             */}
-          {fwInfo?.board && fwInfo.board !== fwBoard.id && (
+          {mismatch && (
             <Note style={{color: '#d66'}}>
               {t('he.note.fwBoardMismatch', {
-                device: fwInfo.board,
+                device: fwInfo?.board ?? '',
                 picked: fwBoard.name,
               })}
             </Note>
@@ -2795,7 +2900,7 @@ export const HePane: React.FC = () => {
                 <Label>{t('Update')}</Label>
                 <Detail>
                   <FwBtn
-                    disabled={busy || !sel}
+                    disabled={busy || !sel || mismatch}
                     onClick={async (e: React.MouseEvent) => {
                       (e.currentTarget as HTMLElement).blur();
                       if (!sel) return;
@@ -2830,7 +2935,7 @@ export const HePane: React.FC = () => {
             <Label>{t('From file')}</Label>
             <Detail>
               <FwBtn
-                disabled={busy}
+                disabled={busy || mismatch}
                 onClick={(e: React.MouseEvent) => {
                   (e.currentTarget as HTMLElement).blur();
                   setFwErr(null);
@@ -2950,14 +3055,23 @@ export const HePane: React.FC = () => {
           {/*
             * ★ 벽돌이 되지 않는다는 것을 먼저 말한다.
             *
-            *   굽기는 사용자가 가장 무서워하는 버튼이다. 부트로더는 기록 주소를
-            *   하드코딩하므로 USB 로는 자신을 덮어쓸 수 없다 — 중간에 끊겨도
-            *   업데이트 모드로 남아 다시 시도하면 된다. 그걸 알면 누를 수 있다.
+            *   굽기는 사용자가 가장 무서워하는 버튼이다. 그걸 알면 누를 수 있다.
+            *
+            * ★ **근거가 보드마다 다르다.** 한 문장으로 뭉뚱그리면 한쪽에는 거짓말이다.
+            *
+            *     wish60  부트로더가 기록 주소를 하드코딩해 자기 자신을 못 덮는다.
+            *             끊겨도 업데이트 모드로 남는다
+            *     wish61  굽기 전에 원래 펌웨어를 따로 백업해 두고, 이미지가 깨져
+            *             있으면 다음에 꽂을 때 거기서 되살린다
             */}
           <Note>
-            {t(
-              'The bootloader cannot overwrite itself over USB, so a failed update leaves the board in update mode — just try again.',
-            )}
+            {iapSpecOf(fwBoard).id === 'wish61'
+              ? t(
+                  'Your current firmware is backed up before the update. If the new one is broken, the board restores it the next time you plug it in.',
+                )
+              : t(
+                  'The bootloader cannot overwrite itself over USB, so a failed update leaves the board in update mode — just try again.',
+                )}
           </Note>
         </>
       );

@@ -1,28 +1,39 @@
 /*
  * he-iap.ts — 브라우저에서 펌웨어 굽기 (WebHID)
  *
- * 벤더 IAP 부트로더의 프로토콜을 그대로 쓴다. 새로 만든 것은 없고,
- * `tools/iap_update.py` 가 libhidapi 로 하던 일을 WebHID 로 옮긴 것이다
- * (firmware/wish60-he/docs/09-iap-updater.md).
+ * ★★ **부트로더가 보드마다 다르다.** 신원도 프로토콜도 공유하지 않는다.
  *
- * ★ 벽돌이 되지 않는다.
+ *     wish60-he   534B:4102 / 0xFF53   자체 프로토콜 (START·DATA·FLUSH·END, 4KB 페이지)
+ *     wish61-he   1CA6:300B / 0xFFB0   벤더 IAP     (주소를 실어 보내는 56B 청크)
  *
- *   부트로더는 기록 주소를 0x80020000 으로 하드코딩한다. USB 로는 부트로더 자신을
- *   덮어쓸 수 없으므로, 중간에 실패해도 장치는 업데이트 모드로 남는다. 다시 시도하면
- *   된다. 그래서 진행 중 오류를 조용히 삼키지 않고 그대로 올린다 — 사용자가 다시
- *   누르면 되는 상황이라 감출 이유가 없다.
+ *   그래서 보드마다 서술자(IapSpec)를 두고 굽는 쪽은 그걸 받아 쓴다. 예전에는
+ *   wish60 것을 상수로 박아 두었는데, 그 상태로 wish61 을 꽂고 업데이트를 누르면
+ *   **진입 명령만 먹고 부트로더에 갇혔다** — 0xFF60 으로 보낸 점프는 통해서 App1
+ *   헤더를 지우고 리셋하는데, 그 뒤로 영영 534B:4102 를 기다렸다.
  *
- * ★ 두 채널을 오간다.
+ * ★ 벽돌이 되지 않는다 — 둘 다.
  *
- *   앱   usage page 0xFF60, 32 B — "부트로더로 가라" 만 보낸다
- *   부트 usage page 0xFF53, 64 B — 실제 기록
+ *   wish60 의 부트로더는 기록 주소를 0x80020000 으로 하드코딩해 자기 자신을 덮어쓸
+ *   수 없다. wish61 은 한술 더 떠서, 벤더 IAP 가 굽기 전에 App1 을 App2 로 백업해
+ *   두고 이미지가 깨져 있으면 다음 부팅에 거기서 되살린다. 게다가 devid 를 검사해
+ *   다른 제품의 이미지를 아예 거부한다.
  *
- *   그 사이에 장치가 **다시 열거된다.** VID/PID 는 같지만 인터페이스 구성이 바뀌므로
- *   getDevices() 로 다시 찾아야 한다. 권한은 VID/PID 단위라 유지된다.
+ *   그래서 진행 중 오류를 조용히 삼키지 않고 그대로 올린다 — 사용자가 다시 누르면
+ *   되는 상황이라 감출 이유가 없다.
+ *
+ * ★ 채널을 오간다.
+ *
+ *   앱   usage page 0xFF60, 32 B — "부트로더로 가라" 만 보낸다 (두 보드 공통)
+ *   부트 보드마다 위 표대로                — 실제 기록
+ *
+ *   그 사이에 장치가 **다시 열거된다.** 권한은 VID/PID 단위라 유지되지만 인터페이스
+ *   구성이 바뀌므로 getDevices() 로 다시 찾아야 한다.
+ *
+ * 참조 구현은 각각 `tools/iap_update.py`(wish60)와 `tools/flash.py`(wish61)다.
  */
 
-/* ── 부트로더 (0xFF53) ────────────────────────────────────────────────── */
-const IAP_USAGE_PAGE = 0xff53;
+/* ── wish60-he 부트로더 (534B:4102 / 0xFF53) ──────────────────────────── */
+const W60_USAGE_PAGE = 0xff53;
 
 /*
  * ★ 부트로더는 VID/PID 가 앱과 **완전히 다르다.**
@@ -35,8 +46,8 @@ const IAP_USAGE_PAGE = 0xff53;
  *   안 나왔다. `tools/iap_update.py` 는 vid/pid 를 0(아무거나)으로 두고 usage page
  *   로만 찾아서 이 사실이 드러나지 않았다.
  */
-const IAP_VID = 0x534b;
-const IAP_PID = 0x4102;
+const W60_VID = 0x534b;
+const W60_PID = 0x4102;
 
 /*
  * 선택 창에 부트로더를 올리는 필터.
@@ -47,29 +58,200 @@ const IAP_PID = 0x4102;
  * 키보드 필터(usagePage 0xFF60)에서 걸러져 목록에는 안 들어가고, 남는 것은 권한이다.
  * 그 권한을 다음 `iapFind()` 가 주워서 HE 탭이 돌아온다.
  */
-export const IAP_FILTER = {
-  vendorId: IAP_VID,
-  productId: IAP_PID,
-  usagePage: IAP_USAGE_PAGE,
+const W60_FILTER = {
+  vendorId: W60_VID,
+  productId: W60_PID,
+  usagePage: W60_USAGE_PAGE,
 };
 
-const CMD_DATA = 0x80;
-const CMD_START = 0x81;
-const CMD_FLUSH = 0x82;
-const CMD_END = 0x83;
-const RSP_TAG = 0x85;
+const W60_CMD_DATA = 0x80;
+const W60_CMD_START = 0x81;
+const W60_CMD_FLUSH = 0x82;
+const W60_CMD_END = 0x83;
+const W60_RSP_TAG = 0x85;
 
-const REPORT_LEN = 64;
-const PAYLOAD_OFF = 4; /* [0]=cmd [1]=len [2..3]=미사용 [4..]=데이터 */
-const PAYLOAD_MAX = REPORT_LEN - PAYLOAD_OFF;
-const PAGE_SIZE = 4096; /* IAP 내부 페이지 버퍼 */
+const W60_REPORT_LEN = 64;
+const W60_PAYLOAD_OFF = 4; /* [0]=cmd [1]=len [2..3]=미사용 [4..]=데이터 */
+const W60_PAYLOAD_MAX = W60_REPORT_LEN - W60_PAYLOAD_OFF;
+const W60_PAGE_SIZE = 4096; /* IAP 내부 페이지 버퍼 */
+
+/* ── wish61-he 부트로더 = 벤더 IAP (1CA6:300B / 0xFFB0) ───────────────── */
+
+/*
+ * ★ **벤더 앱과 부트로더가 같은 신원을 쓴다.**
+ *
+ *   wish60 은 부트로더의 VID/PID 가 앱과 아예 달라서, 그 채널이 보이면 곧 부트로더다.
+ *   여기는 그렇지 않다 — 순정 "AE61 Pro" 앱도 1CA6:300B 의 0xFFB0 을 그대로 갖는다.
+ *   그래서 **채널이 보인다는 것만으로 부트로더라고 단정하면 안 되고**, `01 02` 로
+ *   물어봐야 한다.
+ */
+const W61_VID = 0x1ca6;
+const W61_PID = 0x300b;
+const W61_USAGE_PAGE = 0xffb0;
+const W61_REPORT_LEN = 64;
+const W61_FILTER = {
+  vendorId: W61_VID,
+  productId: W61_PID,
+  usagePage: W61_USAGE_PAGE,
+};
+
+/*
+ * 프로토콜 — 리포트 ID 0, IN/OUT 각 64 B
+ *
+ *     08 01                                   AppToBoot
+ *     08 02  addr(LE32) len(LE16) data(<=56)  Flash
+ *     08 03                                   ValiDate   resp[2] === 1 이면 성공
+ *     08 04                                   BootToApp
+ *     01 02                                   장치 정보  t[16] === 255 면 부트 모드
+ *
+ * 제약 (IAP 핸들러 역추적 + 실측 일치)
+ *   - 청크 최대 56 B
+ *   - addr 은 **파일 오프셋 0 부터 순차**여야 한다. IAP 가 다음 기대 주소를 들고
+ *     있고 어긋나면 거부한다. 임의 주소 쓰기는 불가능하다
+ *   - 쓰기 대상은 0x80020000 + addr, 4KB 경계마다 소거된다
+ */
+const W61_CHUNK = 56;
+const W61_FLASH_FAIL = 0x0fff;
+const W61_BOOT_MODE = 255;
+const W61_MAGIC = [0xa5, 0x5a, 0xaf, 0xbe]; /* 0xBEAF5AA5 (LE) */
+
+/*
+ * 한 번 보내고 한 번 받는다.
+ *
+ * ★ 응답을 명령으로 골라 받는다. wish60 쪽 주석과 같은 이유다 — 다른 리포트가
+ *   끼어들 수 있어서 먼저 온 것을 그대로 믿으면 안 된다. 여기는 태그 대신 앞 두
+ *   바이트(명령·부명령)가 그대로 되돌아오므로 그것으로 맞춘다.
+ *
+ * ★ **응답이 없는 것을 예외로 올리지 않는다.** 굽는 도중의 재시도 판단이 "무응답"
+ *   과 "거부" 를 갈라야 하기 때문이다 (아래 w61Program 참고).
+ */
+async function w61Xfer(
+  dev: HIDDevice,
+  payload: number[] | Uint8Array,
+  data?: Uint8Array,
+  timeoutMs = 3000,
+): Promise<Uint8Array | null> {
+  const buf = new Uint8Array(W61_REPORT_LEN);
+  buf.set(payload, 0);
+  if (data) buf.set(data, payload.length);
+
+  const want0 = buf[0];
+  const want1 = buf[1];
+
+  const got = new Promise<Uint8Array | null>((resolve) => {
+    const timer = setTimeout(() => {
+      dev.removeEventListener('inputreport', on);
+      resolve(null);
+    }, timeoutMs);
+
+    const on = (e: HIDInputReportEvent) => {
+      const r = new Uint8Array(e.data.buffer);
+      if (r[0] !== want0 || r[1] !== want1) return;
+      clearTimeout(timer);
+      dev.removeEventListener('inputreport', on);
+      resolve(r);
+    };
+    dev.addEventListener('inputreport', on);
+  });
+
+  await dev.sendReport(0, buf);
+  return got;
+}
+
+/*
+ * 지금 부트로더인가.
+ *
+ * ★ **`resp[2]` 로는 판별할 수 없다.** 앱에서도 1 이 나온다. 그걸로 판정했다가
+ *   앱에 대고 청크를 통째로 쏟아부은 적이 있다 (`tools/flash.py` 주석 참고).
+ *   벤더 웹앱의 JS 도 `runModeVersion !== 255` 로 AppToBoot 여부를 정한다.
+ *
+ *   필드 배치 — t[2] type, t[3] subType, t[4..7] boardId(BE),
+ *   t[8..11] appVersion, t[12..15] pcbVersion, **t[16] runModeVersion**
+ */
+async function w61RunMode(dev: HIDDevice): Promise<number | null> {
+  if (!dev.opened) await dev.open();
+  const r = await w61Xfer(dev, [0x01, 0x02]);
+  return r && r.length > 16 ? r[16] : null;
+}
+
+async function w61Program(
+  dev: HIDDevice,
+  image: Uint8Array,
+  onProgress?: (p: IapProgress) => void,
+) {
+  const total = image.length;
+
+  for (let off = 0; off < total; off += W61_CHUNK) {
+    const blk = image.subarray(off, Math.min(off + W61_CHUNK, total));
+    const head = new Uint8Array(8);
+    const dv = new DataView(head.buffer);
+    head[0] = 0x08;
+    head[1] = 0x02;
+    dv.setUint32(2, off, true);
+    dv.setUint16(6, blk.length, true);
+
+    /*
+     * ★ **응답 하나를 놓쳤다고 굽기를 통째로 버리면 안 된다.**
+     *
+     *   청크가 3천 개다. 인터럽트 전송이 한 번만 미끄러져도 전체가 실패하고, 그때
+     *   App1 은 **반쯤 쓰인 상태**로 남는다. 다음 부팅에서 IAP 가 App2(벤더)로
+     *   복구해 버린다 — "가끔 업데이트가 실패" 하던 것이 이거다.
+     *
+     *   IAP 는 주소가 순차인지 검사한다. 그래서 재시도의 결과가 둘로 갈린다.
+     *
+     *     응답이 옴       -> 이번에 들어갔다. 그대로 진행
+     *     주소 거부가 옴  -> **앞 시도가 이미 들어갔고 응답만 잃은 것**이다.
+     *                        거부를 성공으로 읽고 넘어간다
+     *
+     *   이 구분이 있어야 재시도가 안전하다. 무턱대고 다시 보내면 주소가 어긋난다.
+     */
+    let r = await w61Xfer(dev, head, blk);
+    if (r === null) {
+      r = await w61Xfer(dev, head, blk, 8000); /* 한 번 더, 넉넉히 */
+      if (r !== null && le16(r, 2) === W61_FLASH_FAIL) {
+        /* 거부 = 앞 것이 들어갔다 — 넘어간다 */
+      } else if (r === null) {
+        throw new Error(
+          `0x${off.toString(16)} 두 번 다 무응답 — App1 이 반쯤 쓰였다. ` +
+            `그대로 두면 다음 부팅에 IAP 가 벤더 펌웨어로 복구한다. 다시 구울 것.`,
+        );
+      }
+    } else if (le16(r, 2) === W61_FLASH_FAIL) {
+      throw new Error(`0x${off.toString(16)} 에서 거부됐다 (주소 불일치)`);
+    }
+
+    if (onProgress && (off % 4096 === 0 || off + W61_CHUNK >= total)) {
+      onProgress({phase: 'write', sent: Math.min(off + blk.length, total), total});
+    }
+  }
+
+  /*
+   * ★ **ValiDate 를 통과해야만 BootToApp 을 보낸다.**
+   *
+   *   IAP 는 devid(0x0030000B)와 CRC 를 검사한다. 실패했는데 그냥 뛰면 깨진 앱으로
+   *   넘어간다. 여기서 멈추면 장치는 부트로더에 남고, USB 를 다시 꽂으면 IAP 가
+   *   App2(벤더)로 되살린다 — 어느 쪽이든 복구된다.
+   */
+  const val = await w61Xfer(dev, [0x08, 0x03], undefined, 8000);
+  if (!val || val[2] !== 1) {
+    throw new Error(
+      '검증 실패 — 앱으로 넘기지 않는다. ' +
+        '이 보드의 이미지가 맞는지 보고 다시 굽는다 (USB 를 다시 꽂으면 원래 펌웨어로 되살아난다)',
+    );
+  }
+  await w61Xfer(dev, [0x08, 0x04], undefined, 3000);
+}
+
+function le16(a: Uint8Array, off: number) {
+  return a[off] | (a[off + 1] << 8);
+}
 
 /* ── 앱 (0xFF60) ──────────────────────────────────────────────────────── */
 const APP_USAGE_PAGE = 0xff60;
 const APP_CMD_BOOT = 0x0b; /* VIA 의 id_bootloader_jump 와 같은 자리 */
 const APP_REPORT_LEN = 32;
 
-export const IAP_MAGIC = [0x48, 0x50, 0x4d, 0x0a]; /* "HPM\n" */
+const W60_MAGIC = [0x48, 0x50, 0x4d, 0x0a]; /* "HPM\n" */
 
 /*
  * 배포 목록 — public/firmware/ 아래 두 층이다.
@@ -112,6 +294,14 @@ export type FwBoard = {
   id: string; /* 장치가 0xCA 로 말하는 이름과 같아야 한다 (앱 모드 자동 선택용) */
   name: string; /* 사람에게 보일 이름 */
   dir: string; /* public/firmware/<dir>/ */
+
+  /*
+   * 어느 부트로더를 쓰는가. 목록(public/firmware/manifest.json)이 정한다.
+   *
+   * ★ **없으면 wish60 으로 읽는다.** 이 축이 생기기 전에 쓰인 목록이 그대로
+   *   돌아가야 한다 — 그때는 wish60 하나뿐이었다.
+   */
+  iap?: IapId;
 };
 
 export async function fwBoards(): Promise<FwBoard[]> {
@@ -166,17 +356,89 @@ function findByUsage(devices: HIDDevice[], vid: number, pid: number, page: numbe
  * ★ 응답을 골라 받아야 한다. 라이브 트래킹 같은 것이 같은 채널로 밀려올 수 있어서
  *   먼저 온 리포트를 그대로 믿으면 엉뚱한 것을 읽는다. 태그(0x85)가 맞는 것만 쓴다.
  */
-async function xfer(
+/*
+ * ── 보드별 부트로더 서술자 ────────────────────────────────────────────────
+ *
+ * 굽는 쪽(iapFlash)은 이 표만 보고 움직인다. 새 보드가 생기면 여기 한 줄이다.
+ */
+export type IapId = 'wish60' | 'wish61';
+
+export type IapSpec = {
+  id: IapId;
+  filter: {vendorId: number; productId: number; usagePage: number};
+
+  /* 이미지가 이 보드 것인지 — 굽기 전에 막는다 */
+  checkImage: (image: Uint8Array) => void;
+
+  /*
+   * 이 채널이 보이면 곧 부트로더인가.
+   *
+   * wish60 은 그렇다 (부트로더만 그 VID/PID 를 쓴다). wish61 은 벤더 앱이 같은
+   * 신원을 쓰므로 물어봐야 한다.
+   */
+  isBootloader: (dev: HIDDevice) => Promise<boolean>;
+
+  program: (
+    dev: HIDDevice,
+    image: Uint8Array,
+    onProgress?: (p: IapProgress) => void,
+  ) => Promise<void>;
+
+  /*
+   * 우리 펌웨어가 아니라 **벤더 앱이 돌고 있을 때** 부트로더로 넘기는 길.
+   *
+   * 순정 보드를 우리 것으로 바꾸는 경로다. 벤더 앱에는 우리 0xFF60 채널이 없으므로
+   * 자기 채널로 보내야 한다. wish60 에는 해당 없음.
+   */
+  enterFromVendor?: (dev: HIDDevice) => Promise<void>;
+};
+
+function magicCheck(image: Uint8Array, magic: number[], what: string) {
+  if (image.length < magic.length || magic.some((b, i) => image[i] !== b)) {
+    throw new Error(`이 파일은 이 보드의 펌웨어가 아니다 (${what})`);
+  }
+}
+
+export const IAP_SPECS: Record<IapId, IapSpec> = {
+  wish60: {
+    id: 'wish60',
+    filter: W60_FILTER,
+    checkImage: (img) => magicCheck(img, W60_MAGIC, '앞 4바이트가 "HPM\\n" 이 아님'),
+    isBootloader: async () => true,
+    program: (d, img, p) => w60Program(d, img, p),
+  },
+  wish61: {
+    id: 'wish61',
+    filter: W61_FILTER,
+    checkImage: (img) =>
+      magicCheck(img, W61_MAGIC, '헤더 매직이 0xBEAF5AA5 가 아님 — mkimage.py 로 만든 것이어야 한다'),
+    isBootloader: async (d) => (await w61RunMode(d)) === W61_BOOT_MODE,
+    program: (d, img, p) => w61Program(d, img, p),
+    enterFromVendor: async (d) => {
+      if (!d.opened) await d.open();
+      await w61Xfer(d, [0x08, 0x01], undefined, 3000);
+    },
+  },
+};
+
+export function iapSpecOf(board?: {iap?: IapId} | null): IapSpec {
+  return IAP_SPECS[board?.iap ?? 'wish60'];
+}
+
+/* "장치 승인" 과 부트로더 선택 창이 같이 쓴다 — 어느 보드든 목록에 떠야 한다 */
+export const IAP_FILTERS = Object.values(IAP_SPECS).map((v) => v.filter);
+
+async function w60Xfer(
   dev: HIDDevice,
   cmd: number,
   payload: Uint8Array = new Uint8Array(0),
   opt: {check?: boolean; length?: number} = {},
 ): Promise<Uint8Array> {
   const {check = true, length} = opt;
-  const buf = new Uint8Array(REPORT_LEN);
+  const buf = new Uint8Array(W60_REPORT_LEN);
   buf[0] = cmd;
   buf[1] = length ?? payload.length;
-  buf.set(payload, PAYLOAD_OFF);
+  buf.set(payload, W60_PAYLOAD_OFF);
 
   const got = new Promise<Uint8Array>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -186,7 +448,7 @@ async function xfer(
 
     const on = (e: HIDInputReportEvent) => {
       const r = new Uint8Array(e.data.buffer);
-      if (r[0] !== RSP_TAG) return; /* 우리 응답이 아니다 */
+      if (r[0] !== W60_RSP_TAG) return; /* 우리 응답이 아니다 */
       clearTimeout(timer);
       dev.removeEventListener('inputreport', on);
       resolve(r);
@@ -212,7 +474,7 @@ async function xfer(
  *   페이지를 채우는 마지막 조각을 0x82 에 실으면 덜 찬 페이지가 0xFF 로 패딩돼
  *   기록되고 그 뒤 데이터가 통째로 밀린다.
  */
-async function program(
+async function w60Program(
   dev: HIDDevice,
   image: Uint8Array,
   onProgress?: (p: IapProgress) => void,
@@ -220,25 +482,25 @@ async function program(
   const total = image.length;
   const len = new Uint8Array(4);
   new DataView(len.buffer).setUint32(0, total, true);
-  await xfer(dev, CMD_START, len, {length: 4});
+  await w60Xfer(dev, W60_CMD_START, len, {length: 4});
 
   let sent = 0;
   let inPage = 0;
   while (sent < total) {
-    const n = Math.min(PAYLOAD_MAX, total - sent, PAGE_SIZE - inPage);
-    await xfer(dev, CMD_DATA, image.subarray(sent, sent + n));
+    const n = Math.min(W60_PAYLOAD_MAX, total - sent, W60_PAGE_SIZE - inPage);
+    await w60Xfer(dev, W60_CMD_DATA, image.subarray(sent, sent + n));
     sent += n;
     inPage += n;
 
-    if (inPage === PAGE_SIZE) {
-      await xfer(dev, CMD_FLUSH); /* 페이로드 없이 — 정확히 찼을 때만 */
+    if (inPage === W60_PAGE_SIZE) {
+      await w60Xfer(dev, W60_CMD_FLUSH); /* 페이로드 없이 — 정확히 찼을 때만 */
       inPage = 0;
     }
     if (onProgress && (sent % 4096 === 0 || sent === total)) {
       onProgress({phase: 'write', sent, total});
     }
   }
-  if (inPage) await xfer(dev, CMD_FLUSH); /* 마지막 자투리 */
+  if (inPage) await w60Xfer(dev, W60_CMD_FLUSH); /* 마지막 자투리 */
 
   /*
    * 종료 — 앱으로 점프한다.
@@ -246,7 +508,7 @@ async function program(
    * IAP 의 0x83 분기는 status 를 1 로 세우지 않는다 (코드상 nop 뿐이다).
    * status 0 이 정상이므로 검사하지 않는다.
    */
-  await xfer(dev, CMD_END, new Uint8Array(0), {check: false}).catch(() => {});
+  await w60Xfer(dev, W60_CMD_END, new Uint8Array(0), {check: false}).catch(() => {});
 }
 
 /* 앱이 돌고 있으면 부트로더로 넘어가라고 알린다 */
@@ -271,7 +533,7 @@ export async function iapEnterBoot(vid: number, pid: number) {
 }
 
 /*
- * 부트로더가 다시 열거될 때까지 기다린다.
+ * 부트로더를 찾는다.
  *
  * ★ 여기서 못 찾을 수 있다 — 그게 정상이다.
  *
@@ -281,21 +543,43 @@ export async function iapEnterBoot(vid: number, pid: number) {
  *
  *   그래서 부트로더가 뜬 뒤에 한 번 허용을 받아야 한다. 그 허용은 다음부터
  *   기억되므로 처음 한 번만 겪는다.
+ *
+ * ★ **채널이 보이는 것과 부트로더인 것은 다르다.** wish61 은 벤더 앱이 같은
+ *   VID/PID/usage page 를 쓰므로 `isBootloader` 로 한 번 더 물어본다. 그 물음은
+ *   읽기 한 번이라 앱에 대고 해도 해가 없다.
  */
+export async function iapFindSpec(
+  spec: IapSpec,
+): Promise<HIDDevice | null> {
+  const f = spec.filter;
+  const dev = findByUsage(await navigator.hid.getDevices(), f.vendorId, f.productId, f.usagePage);
+  if (!dev) return null;
+  try {
+    return (await spec.isBootloader(dev)) ? dev : null;
+  } catch {
+    return null;
+  }
+}
+
+/* 어느 보드든 — 첫 화면의 "부트로더가 붙어 있나" 확인용 */
 export async function iapFind(): Promise<HIDDevice | null> {
-  return findByUsage(await navigator.hid.getDevices(), IAP_VID, IAP_PID, IAP_USAGE_PAGE);
+  for (const spec of Object.values(IAP_SPECS)) {
+    const dev = await iapFindSpec(spec);
+    if (dev) return dev;
+  }
+  return null;
 }
 
 /* 사용자 제스처 안에서 불러야 한다 */
 export async function iapRequest(): Promise<HIDDevice | null> {
-  const got = await navigator.hid.requestDevice({filters: [IAP_FILTER]});
+  const got = await navigator.hid.requestDevice({filters: IAP_FILTERS});
   return got[0] ?? null;
 }
 
-async function waitForIap(timeoutMs = 6000) {
+async function waitForIap(spec: IapSpec, timeoutMs = 6000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
-    const dev = await iapFind();
+    const dev = await iapFindSpec(spec);
     if (dev) {
       if (!dev.opened) await dev.open();
       return dev;
@@ -303,6 +587,25 @@ async function waitForIap(timeoutMs = 6000) {
     await new Promise((r) => setTimeout(r, 300));
   }
   return null;
+}
+
+/*
+ * 벤더 앱이 돌고 있으면 부트로더로 넘긴다 — **순정 보드를 개조하는 길.**
+ *
+ * ★ 안전하다. 벤더 앱은 넘어가기 전에 **App1 → App2 백업을 스스로 돌린다.** 즉
+ *   개조하는 순간 순정 사본이 App2 에 남고, 우리 이미지가 깨지면 IAP 가 거기서
+ *   자동 복구한다. IAP 가 devid 를 검사하므로 다른 제품에 잘못 굽는 일도 막힌다.
+ */
+async function enterFromVendor(spec: IapSpec, image: Uint8Array,
+                               onProgress?: (p: IapProgress) => void) {
+  if (!spec.enterFromVendor) return false;
+  const f = spec.filter;
+  const dev = findByUsage(await navigator.hid.getDevices(), f.vendorId, f.productId, f.usagePage);
+  if (!dev) return false;
+
+  onProgress?.({phase: 'boot', sent: 0, total: image.length});
+  await spec.enterFromVendor(dev);
+  return true;
 }
 
 /*
@@ -317,8 +620,17 @@ async function waitForIap(timeoutMs = 6000) {
  *   여기서 requestDevice() 를 부르지 않는다 — 굽는 도중에 기기 선택 창이 뜨면
  *   다른 키보드를 고를 수 있고, 마침 재열거로 장치가 사라진 구간이라 사용자가
  *   무슨 일인지 알 수 없다.
+ *
+ * ★ **부트로더로 넘기는 길이 둘이다.**
+ *
+ *     우리 펌웨어  0xFF60 에 0x0B      (두 보드 공통. resetToBoot 이 받는다)
+ *     벤더 앱      자기 채널에 08 01   (wish61 의 개조 경로)
+ *
+ *   우리 것을 먼저 본다. 우리 펌웨어가 돌고 있는데 벤더 경로를 타면 채널이 없어
+ *   실패할 뿐이지만, 순서가 반대면 순정 보드에서 "앱을 못 찾았다" 로 끝난다.
  */
 export async function iapFlash(
+  spec: IapSpec,
   vendorId: number,
   productId: number,
   image: Uint8Array,
@@ -326,15 +638,9 @@ export async function iapFlash(
   /* 부트로더를 못 찾았을 때 — 사용자에게 허용을 받아 오는 콜백 */
   askPermission?: () => Promise<HIDDevice | null>,
 ) {
-  if (
-    image.length < 4 ||
-    IAP_MAGIC.some((b, i) => image[i] !== b)
-  ) {
-    throw new Error('이 파일은 이 보드의 펌웨어가 아니다 (앞 4바이트가 "HPM\\n" 이 아님)');
-  }
+  spec.checkImage(image);
 
-  const devices = await navigator.hid.getDevices();
-  let iap = findByUsage(devices, IAP_VID, IAP_PID, IAP_USAGE_PAGE);
+  let iap = await iapFindSpec(spec);
 
   if (!iap) {
     /*
@@ -347,14 +653,22 @@ export async function iapFlash(
      *   구간이라 사용자가 무슨 일인지 알 수 없다. 권한은 굽기 전에 이미 있어야 한다
      *   (VIA 가 장치를 잡고 있다는 것이 곧 권한이 있다는 뜻이다).
      */
-    const app = findByUsage(devices, vendorId, productId, APP_USAGE_PAGE);
-    if (!app) throw new Error('앱 인터페이스를 못 찾았다 — 장치가 연결돼 있는지 본다');
+    const app = findByUsage(
+      await navigator.hid.getDevices(),
+      vendorId,
+      productId,
+      APP_USAGE_PAGE,
+    );
 
-    onProgress?.({phase: 'boot', sent: 0, total: image.length});
-    await requestBoot(app);
+    if (app) {
+      onProgress?.({phase: 'boot', sent: 0, total: image.length});
+      await requestBoot(app);
+    } else if (!(await enterFromVendor(spec, image, onProgress))) {
+      throw new Error('앱 인터페이스를 못 찾았다 — 장치가 연결돼 있는지 본다');
+    }
 
     onProgress?.({phase: 'wait', sent: 0, total: image.length});
-    iap = await waitForIap();
+    iap = await waitForIap(spec);
 
     if (!iap) {
       onProgress?.({phase: 'permit', sent: 0, total: image.length});
@@ -366,6 +680,6 @@ export async function iapFlash(
     await iap.open();
   }
 
-  await program(iap, image, onProgress);
+  await spec.program(iap, image, onProgress);
   onProgress?.({phase: 'done', sent: image.length, total: image.length});
 }

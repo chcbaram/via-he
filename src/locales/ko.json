@@ -447,6 +447,7 @@
   "Entering bootloader": "부트로더 진입",
   "Waiting for bootloader": "부트로더 기다리는 중",
   "The bootloader cannot overwrite itself over USB, so a failed update leaves the board in update mode — just try again.": "부트로더는 USB 로 자기 자신을 덮어쓸 수 없습니다. 중간에 실패해도 보드는 업데이트 모드로 남으니 다시 시도하면 됩니다.",
+  "Your current firmware is backed up before the update. If the new one is broken, the board restores it the next time you plug it in.": "업데이트 전에 지금 펌웨어를 따로 백업해 둡니다. 새 펌웨어가 잘못돼도 다음에 꽂을 때 원래대로 되살아납니다.",
   "he.tip.fw": "빌드 산출물 build/wish60-he.bin 을 고르면 됩니다. 앱이 돌고 있으면 알아서 부트로더로 넘어갑니다.",
   "Device": "장치",
   "Current version": "현재 버전",

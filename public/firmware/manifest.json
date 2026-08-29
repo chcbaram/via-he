@@ -1,10 +1,17 @@
 {
-  "_comment": "보드 목록. 각 보드의 배포 목록은 <dir>/manifest.json 이고, 그것은 펌웨어 저장소의 release/manifest.json 을 그대로 옮겨 온 것이다.",
+  "_comment": "보드 목록. 각 보드의 배포 목록은 <dir>/manifest.json 이고, 그것은 펌웨어 저장소의 release/manifest.json 을 그대로 옮겨 온 것이다. iap 는 그 보드의 부트로더 — 생략하면 wish60 으로 읽는다(이 축이 생기기 전 목록 호환).",
   "boards": [
     {
       "id": "WISH60-HE",
       "name": "WISH60 HE 7U",
-      "dir": "wish60-he"
+      "dir": "wish60-he",
+      "iap": "wish60"
+    },
+    {
+      "id": "WISH61-HE",
+      "name": "WISH61 HE",
+      "dir": "wish61-he",
+      "iap": "wish61"
     }
   ]
 }

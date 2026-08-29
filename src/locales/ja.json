@@ -446,6 +446,7 @@
   "Entering bootloader": "ブートローダーへ移行",
   "Waiting for bootloader": "ブートローダー待機中",
   "The bootloader cannot overwrite itself over USB, so a failed update leaves the board in update mode — just try again.": "ブートローダーは USB で自分自身を上書きできません。失敗してもボードはアップデートモードに残るので、再試行してください。",
+  "Your current firmware is backed up before the update. If the new one is broken, the board restores it the next time you plug it in.": "アップデート前に現在のファームウェアをバックアップします。新しいものが壊れていても、次に接続したときに元に戻ります。",
   "he.tip.fw": "ビルド成果物 build/wish60-he.bin を選びます。アプリ動作中なら自動でブートローダーへ移行します。",
   "Device": "デバイス",
   "Current version": "現在のバージョン",
