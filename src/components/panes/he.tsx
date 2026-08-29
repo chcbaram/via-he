@@ -101,6 +101,7 @@ import {
   setOverlayBars,
   setOverlayPressed,
   setOverlayLive,
+  setFlashing,
   setProfile,
   getHeProfile,
   setKeys,
@@ -884,6 +885,15 @@ export const HePane: React.FC = () => {
     connectedRef.current = connected;
   }, [connected]);
 
+  /*
+   * busy 를 ref 로도 든다. 위 effect 의 의존성에 busy 를 넣으면 **굽기가 끝나는
+   * 순간에도 한 번 더 돌아** 방금 되돌린 선택을 다시 지운다. 읽기만 필요하다.
+   */
+  const busyRef = useRef(busy);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
   const deviceRef = useRef(device);
   useEffect(() => {
     deviceRef.current = device;
@@ -923,8 +933,14 @@ export const HePane: React.FC = () => {
    *
    *   비워 두면 그동안 잠기는 쪽으로 기운다 — 굽기는 되돌리기 어려운 일이라
    *   모르는 동안은 막는 편이 맞다.
+   *
+   * ★ **굽는 중에는 그대로 둔다.** 그때는 대상이 부트로더로 사라져서 VIA 가 남은
+   *   다른 보드를 고르는데, 그걸 따라가면 **wish61 을 굽는 중에 화면이 wish60 을
+   *   가리킨다.** 굽고 나면 아래 반복문이 원래 보드로 되돌리므로, 그 사이에는
+   *   손대지 않는 편이 맞다.
    */
   useEffect(() => {
+    if (busyRef.current) return; /* 굽는 중 — 아래 주석 */
     setFwInfo(null);
     fwAuto.current = null;
   }, [device?.path]);
@@ -945,6 +961,7 @@ export const HePane: React.FC = () => {
    */
   useEffect(() => {
     const name = fwInfo?.board;
+    if (busy) return; /* 굽는 중 — 아래 주석 */
     if (!fwBoards_ || !name || fwAuto.current === name) return;
     const hit = fwBoards_.find((b) => b.id === name);
     if (!hit) return;
@@ -2689,6 +2706,8 @@ export const HePane: React.FC = () => {
 
         setFwErr(null);
         setBusy(true);
+        /* 전역 장치 선택이 이 사이에 다른 보드로 갈아타지 않게 한다 */
+        dispatch(setFlashing(true));
         try {
           /*
            * ★ **부트로더 서술자를 고른 보드에서 가져온다.**
@@ -2761,6 +2780,7 @@ export const HePane: React.FC = () => {
         } catch (x) {
           setFwErr(String(x));
         } finally {
+          dispatch(setFlashing(false));
           setBusy(false);
         }
       };

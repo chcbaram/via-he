@@ -15,6 +15,7 @@ import {
   getDefinitions,
   loadStoredCustomDefinitions,
 } from './definitionsSlice';
+import {getHeFlashing} from './heSlice';
 import {loadKeymapFromDevice} from './keymapSlice';
 import {updateLightingData} from './lightingSlice';
 import {loadMacros} from './macrosSlice';
@@ -251,9 +252,21 @@ export const reloadConnectedDevices =
 
     // John you drongo, don't trust the compiler, dispatches are totes awaitable for async thunks
     // If we haven't chosen a selected device yet and there is a valid device, try that
+    /*
+     * ★ **굽는 중에는 다른 보드로 갈아타지 않는다.** (상류 대비 수정)
+     *
+     *   대상이 부트로더로 넘어가면 목록에서 사라진다. 보드를 하나만 꽂았으면
+     *   아래 가지로 가서 선택이 비고, 굽기 화면이 그대로 남는다. 그런데 **두 개를
+     *   꽂아 두면** 여기서 "남은 첫 장치" 를 골라 버려서, wish61 을 굽는 내내
+     *   위쪽 키보드 그림과 선택 목록이 wish60 을 가리킨다 — 되돌리기 어려운 일을
+     *   하는 중에 눈앞이 딴 보드를 말하는 것이라 그냥 두면 안 된다.
+     *
+     *   굽기가 끝나면 he 화면이 원래 보드를 다시 고른다. 그 사이만 비켜 있으면 된다.
+     */
     if (
       (!selectedDevicePath || !connectedDevices[selectedDevicePath]) &&
-      validDevicesArr.length > 0
+      validDevicesArr.length > 0 &&
+      !getHeFlashing(getState())
     ) {
       const firstConnectedDevice = validDevicesArr[0][1];
 

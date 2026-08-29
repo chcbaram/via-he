@@ -48,6 +48,16 @@ type HeState = {
   bootloaderSeen: boolean;
 
   /*
+   * 지금 펌웨어를 굽는 중인가.
+   *
+   * ★ **전역 장치 선택이 이걸 본다.** 굽는 동안 대상이 부트로더로 사라지면
+   *   reloadConnectedDevices 가 "남은 첫 장치" 를 자동으로 고르는데, 두 보드를
+   *   같이 꽂아 두면 그게 **다른 보드**다. 그러면 wish61 을 굽는 내내 위쪽
+   *   키보드 그림과 선택 목록이 wish60 을 가리킨다.
+   */
+  flashing: boolean;
+
+  /*
    * 키캡 아래 막대 (0~1) — **지금 상태**다. 매트릭스 인덱스로 넣는다.
    *
    * 글자와 통로를 따로 둔다. 글자는 설정값이라 가끔 바뀌지만 막대는 누르는 동안
@@ -129,6 +139,7 @@ const initialState: HeState = {
   overlayText: null,
   hoverKey: null,
   bootloaderSeen: false,
+  flashing: false,
   overlayBars: null,
   overlayPressed: null,
   overlayLive: null,
@@ -182,6 +193,9 @@ const heSlice = createSlice({
       if (state.bootloaderSeen !== action.payload) {
         state.bootloaderSeen = action.payload;
       }
+    },
+    setFlashing: (state, action: PayloadAction<boolean>) => {
+      state.flashing = action.payload;
     },
     setHoverKey: (state, action: PayloadAction<number | null>) => {
       state.hoverKey = action.payload;
@@ -272,6 +286,7 @@ export const {
   setHoverKey,
   clearHoverKey,
   setBootloaderSeen,
+  setFlashing,
   setOverlayKeys,
   setOverlayText,
   setOverlayBars,
@@ -287,6 +302,7 @@ export const getHeOverlayText = (state: RootState) => state.he.overlayText;
 export const getHeHoverKey = (state: RootState) => state.he.hoverKey;
 export const getHeBootloaderSeen = (state: RootState) =>
   state.he.bootloaderSeen;
+export const getHeFlashing = (state: RootState) => state.he.flashing;
 export const getHeOverlayBars = (state: RootState) => state.he.overlayBars;
 export const getHeOverlayPressed = (state: RootState) =>
   state.he.overlayPressed;
