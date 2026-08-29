@@ -1046,6 +1046,27 @@ export const HePane: React.FC = () => {
   const [keyCfgs, setKeyCfgs] = useState<Record<number, HeKeyCfg>>({});
 
   /*
+   * ★ **장치가 바뀌면 키별 캐시를 버린다.**
+   *
+   *   아래 읽기 effect 는 "캐시에 없는 키만" 읽는다. 그게 클릭마다 왕복이 없게
+   *   해 주지만, 보드를 갈아 끼웠을 때는 **한 번도 안 읽는 결과**가 된다 —
+   *   화면에는 이전 보드의 입력지점이 남고, 만져도 앞뒤가 안 맞는다. 창을
+   *   새로고침해야 낫던 것이 이것이다.
+   *
+   *   layout·hw·switches 처럼 매번 통째로 덮어쓰는 것들은 스스로 낫는다.
+   *   여기서 버릴 것은 **부분 갱신하는 것**뿐이다.
+   *
+   *   고른 키도 같이 버린다 — 키 번호는 보드마다 뜻이 다르다.
+   *
+   *   굽는 중이라고 예외를 두지 않는다. 캐시는 굽고 나면 어차피 다시 읽어야 한다.
+   */
+  useEffect(() => {
+    setKeyCfgs({});
+    setCalAll(null);
+    dispatch(clearKeys());
+  }, [device?.path, dispatch]);
+
+  /*
    * 고른 키의 값은 반드시 갖고 있게 한다.
    *
    * ★ **덮어쓰지 않고 더한다.**
@@ -1697,6 +1718,30 @@ export const HePane: React.FC = () => {
    */
   const autoTried = useRef(false);
   const trackWas = useRef(false);
+
+  /*
+   * ★ **장치가 바뀌면 스트림을 놓는다.**
+   *
+   *   트래킹 채널은 **그 장치의 HID 엔드포인트**에 붙어 있다. 키보드를 갈아 끼워도
+   *   `tracking` 이 참인 채로 남으면, 아래 자동 시작이 `if (tracking) return` 에서
+   *   돌아서서 **새 장치에는 영영 스트림을 안 연다.** 화면에 깊이 표시가 통째로
+   *   안 뜨던 것이 이것이다 — 창을 새로고침하면 나았던 이유이기도 하다.
+   *
+   *   autoTried 도 같이 내린다. 그것 하나만 남아도 자동 시작이 다시 안 걸린다.
+   *
+   *   옛 장치에 "꺼라" 를 보내지 않는다. 이미 사라졌거나 다른 장치이고, 채널을
+   *   닫는 것만으로 우리 쪽은 정리된다.
+   */
+  useEffect(() => {
+    chan.current?.close();
+    chan.current = null;
+    setTracking(false);
+    setState([]);
+    setInfo(null);
+    setFps(0);
+    autoTried.current = false;
+    trackWas.current = false;
+  }, [device?.path]);
 
   useEffect(() => {
     if (!api || !device || busy) return;
@@ -3262,10 +3307,20 @@ export const HePane: React.FC = () => {
             </Detail>
           </ControlRow>
 
+          {/*
+            * ★ **"끝까지" 만 말하면 안 된다.**
+            *
+            *   보정할 때의 손힘이 곧 그 키의 mm 눈금을 정한다. 평소보다 세게 누르면
+            *   눈금이 늘어나고, 그러면 정작 평소 타건이 전 행정에 못 미치는 것으로
+            *   읽힌다. 실제로 그렇게 안내했다가 61키 스트로크가 10% 부풀었다.
+            *
+            *   그리고 칸이 찼다고 그 키가 끝난 것도 아니다 — 채워지는 문턱이 실측
+            *   스트로크의 60% 안팎이다. "done" 이라고 부르면 대충 치고 넘어가게 된다.
+            */}
           <Note>
             {active
               ? t(
-                  'Press every key all the way down once. Keys that are done light up on the board above.',
+                  'Press every key once, with your normal typing force. Do not press harder than usual — that depth becomes the millimetre scale. Keys that light up on the board above have been measured.',
                 )
               : t(
                   'Optional. Without it the nominal switch travel is used; with it each key is measured, so the mm values are accurate. Calibrated keys show their measured stroke in mm; the rest are painted on the board above.',

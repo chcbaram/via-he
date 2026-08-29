@@ -437,6 +437,7 @@
   "Start": "開始",
   "Saved": "保存済み",
   "Press every key all the way down once. Keys that are done light up on the board above.": "すべてのキーを一度ずつ最後まで押してください。完了したキーは上の図に表示されます。",
+  "Press every key once, with your normal typing force. Do not press harder than usual — that depth becomes the millimetre scale. Keys that light up on the board above have been measured.": "すべてのキーを普段の力で一度ずつ押してください。わざと強く押さないでください — その深さがそのまま mm の目盛りになります。上の図で光ったキーは測定済みです。",
   "he.tip.cal": "押していない状態の基準値はファームウェアが常に自動追従します。ここで集めるのは底値 — 最後まで押さないと分からない値です。",
   "BOTTOM-OUT": "底値",
   "keys updated": "キー更新",

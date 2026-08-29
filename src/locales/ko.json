@@ -438,6 +438,7 @@
   "Start": "시작",
   "Saved": "저장됨",
   "Press every key all the way down once. Keys that are done light up on the board above.": "모든 키를 한 번씩 끝까지 눌러 주세요. 끝난 키는 위 그림에 표시됩니다.",
+  "Press every key once, with your normal typing force. Do not press harder than usual — that depth becomes the millimetre scale. Keys that light up on the board above have been measured.": "모든 키를 평소 치는 힘으로 한 번씩 눌러주세요. 일부러 더 세게 누르지 마세요 — 그 깊이가 그대로 mm 눈금이 됩니다. 위 그림에서 불이 들어온 키는 값을 잡은 키입니다.",
   "he.tip.cal": "안 누른 상태의 기준값은 펌웨어가 늘 자동으로 따라갑니다. 여기서 모으는 것은 바닥값 — 끝까지 눌러야만 알 수 있는 값입니다.",
   "BOTTOM-OUT": "바닥값",
   "keys updated": "키 갱신",
