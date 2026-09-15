@@ -3,6 +3,18 @@
   "board": "WISH61-HE",
   "firmwares": [
     {
+      "version": "V260915R1",
+      "board": "WISH61-HE",
+      "date": "2026-09-15",
+      "bin": "V260915R1/wish61-he-V260915R1.bin",
+      "size": 173544,
+      "crc": "0xC471A89D",
+      "notes": [
+        "Esc 키(Esc/` 겸용)를 Cmd(Win)와 함께 누르면 ` 대신 Esc 가 나갑니다.",
+        "macOS 에서 윈도우 전환을 Cmd+Esc 로 두고 쓸 수 있습니다. Shift 와 함께 누르면 ~ 가 나가는 것은 그대로입니다."
+      ]
+    },
+    {
       "version": "V260829R1",
       "board": "WISH61-HE",
       "date": "2026-08-29",
