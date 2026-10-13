@@ -35,6 +35,7 @@ import {heMakeSend, heProfGet, heProfSet} from 'src/utils/he-api';
 import {getSelectedConnectedDevice} from 'src/store/devicesSlice';
 import {loadKeymapFromDevice} from 'src/store/keymapSlice';
 import {updateV3MenuData} from 'src/store/menusSlice';
+import {HE_BOARDS} from 'src/utils/he-boards';
 
 /*
  * 키보드 이름 배지가 오른끝(right: 15px)이고, 그 왼쪽 자리를 쓴다.
@@ -146,11 +147,15 @@ export const ProfileSelect = () => {
   /*
    * 장치가 바뀌면 다시 읽는다.
    *
-   * 실패하면 조용히 지운다 — HE 명령을 모르는 보드일 수 있고, 그때 오류를 쌓으면
-   * 진짜 오류를 못 본다.
+   * ★ HE 보드가 아니면 묻지도 않는다.
+   *
+   *   실패를 조용히 삼켜도 소용없었다. 모르는 보드는 0xFF 로 답하고, 그 짝 맞지
+   *   않는 응답을 VIA 의 hidCommand 가 **던지기 전에** 오류 창에 쌓는다. 그래서
+   *   일반 VIA 보드를 붙이기만 해도 오류 두 줄이 남았다. HE 탭과 같은 목록으로 거른다.
    */
+  const isHe = !!device && HE_BOARDS.has(device.vendorProductId);
   useEffect(() => {
-    if (!api) {
+    if (!api || !isHe) {
       dispatch(setProfile(null));
       return;
     }
@@ -161,9 +166,9 @@ export const ProfileSelect = () => {
     return () => {
       alive = false;
     };
-  }, [api, dispatch]);
+  }, [api, isHe, dispatch]);
 
-  if (!api || !prof || prof.count === 0) return null;
+  if (!api || !isHe || !prof || prof.count === 0) return null;
 
   const pick = async (i: number) => {
     setShowList(false);
