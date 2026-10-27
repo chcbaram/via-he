@@ -2,6 +2,17 @@
   "board": "WISH40-HE",
   "firmwares": [
     {
+      "version": "V261028R1",
+      "board": "WISH40-HE",
+      "date": "2026-10-28",
+      "bin": "V261028R1/wish40-he-V261028R1.bin",
+      "size": 170120,
+      "crc": "0x630982BD",
+      "notes": [
+        "키를 누를 때 옆 키 값이 조금 같이 내려가던 현상(약 0.03mm)을 잡음 수준 아래로 줄였습니다"
+      ]
+    },
+    {
       "version": "V261027R1",
       "board": "WISH40-HE",
       "date": "2026-10-27",
