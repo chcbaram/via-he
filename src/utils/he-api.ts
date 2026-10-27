@@ -1225,6 +1225,7 @@ export const HE_CMD_HWINFO = 0xca;
 const HE_HW_OFF = 4;
 const HE_HW_PAGE_MCU = 2;
 const HE_HW_PAGE_AUTHOR = 3;
+const HE_HW_PAGE_UUID = 4;
 
 export type HeHwInfo = {
   clockHz: number;
@@ -1242,6 +1243,22 @@ export type HeHwInfo = {
   mcu: string;
   author: string;
 };
+
+/*
+ * 칩 고유 ID (OTP UUID 16바이트, 16진 32자리). 모르면 null.
+ *
+ * ★ 같은 모델을 두 대 꽂으면 목록에 같은 이름이 두 줄 뜬다. 브라우저(WebHID)는 USB
+ *   시리얼을 넘겨주지 않아서 장치에 직접 묻는다. 값은 그 보드의 USB 시리얼(wish40-he)과
+ *   같은 글자다 — 맥 시스템 정보와 맞춰 볼 수 있다.
+ *
+ *   옛 펌웨어는 이 페이지에 0 을 준다 (숫자 페이지 범위를 넘어 아무것도 안 채운다).
+ */
+export async function heReadUuid(send: HidSender): Promise<string | null> {
+  const r = await send(HE_CMD_HWINFO, [0, HE_HW_PAGE_UUID]);
+  const b = Array.from(r.slice(HE_HW_OFF, HE_HW_OFF + 16)) as number[];
+  if (b.length < 16 || b.every((x) => x === 0)) return null;
+  return b.map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
 
 export async function heReadHwInfo(send: HidSender): Promise<HeHwInfo> {
   const v: number[] = [];

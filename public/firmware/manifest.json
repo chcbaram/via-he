@@ -12,6 +12,12 @@
       "name": "WISH61 HE",
       "dir": "wish61-he",
       "iap": "wish61"
+    },
+    {
+      "id": "WISH40-HE",
+      "name": "WISH40 HE",
+      "dir": "wish40-he",
+      "iap": "wish40"
     }
   ]
 }

@@ -1,4 +1,7 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {KeyboardAPI} from 'src/utils/keyboard-api';
+import {HE_BOARDS} from 'src/utils/he-boards';
+import {heMakeSend, heReadUuid} from 'src/utils/he-api';
 import styled from 'styled-components';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import {faAngleDown, faPlus} from '@fortawesome/free-solid-svg-icons';
@@ -169,6 +172,31 @@ export const Badge = () => {
   const selectedPath = useAppSelector(getSelectedDevicePath);
   const [showList, setShowList] = useState(false);
 
+  /*
+   * ★ (상류 대비 수정) 같은 이름의 보드를 가르는 짧은 ID — 칩 UUID 의 끝 4자리.
+   *
+   *   같은 모델을 두 대 꽂으면 목록에 같은 이름이 두 줄 떠서 어느 쪽이 어느 실물인지
+   *   모른다. HE 보드에게만 한 번씩 묻고 경로별로 기억한다. 명령은 he-api 의 줄과
+   *   KeyboardAPI 의 장치별 큐를 둘 다 지나므로 다른 화면의 왕복과 섞이지 않는다.
+   */
+  const [shortIds, setShortIds] = useState<Record<string, string>>({});
+  const asked = useRef(new Set<string>());   /* 답을 기다리는 중에 또 묻지 않게 */
+  useEffect(() => {
+    /*
+     * 회차별 alive 로 답을 버리지 않는다. 목록이 바뀌어 effect 가 다시 돌면 기다리던
+     * 답이 버려지는데, 그 경로는 이미 물어 본 것으로 남아 다시 안 묻는다 — ID 가 영영
+     * 안 붙는다.
+     */
+    Object.entries(connectedDevices).forEach(([path, device]) => {
+      const d = device as ConnectedDevice;
+      if (asked.current.has(path) || !HE_BOARDS.has(d.vendorProductId)) return;
+      asked.current.add(path);
+      heReadUuid(heMakeSend(new KeyboardAPI(path)))
+        .then((u) => setShortIds((m) => ({...m, [path]: u ? u.slice(-4) : ''})))
+        .catch(() => setShortIds((m) => ({...m, [path]: ''})));
+    });
+  }, [connectedDevices]);
+
   const connectedKeyboardDefinitions: ConnectedKeyboardDefinition[] = useMemo(
     () =>
       Object.entries(connectedDevices)
@@ -183,9 +211,25 @@ export const Badge = () => {
             getConnectedDefinitionName(connectedDevice),
           ];
         })
-        .filter((i) => i[1]),
-    [connectedDevices, definitions, getConnectedDefinitionName],
+        .filter((i) => i[1])
+        /* 이름이 겹칠 때만 ID 를 붙인다 — 한 대일 때는 상류와 똑같이 보인다 */
+        .map<ConnectedKeyboardDefinition>((kb, _, all) => {
+          const dup = all.filter((o) => o[2] === kb[2]).length > 1;
+          const id = shortIds[kb[0]];
+          return dup && id ? [kb[0], kb[1], `${kb[2]} · ${id}`] : kb;
+        }),
+    [connectedDevices, definitions, getConnectedDefinitionName, shortIds],
   );
+
+  /* 고른 보드도 이름이 겹칠 때만 ID 를 붙인다 */
+  const selectedDup =
+    connectedKeyboardDefinitions.filter(([, , name]) =>
+      name.startsWith(`${selectedDefinitionName} · `),
+    ).length > 1;
+  const selectedTitle =
+    selectedDup && shortIds[selectedPath ?? '']
+      ? `${selectedDefinitionName} · ${shortIds[selectedPath ?? '']}`
+      : selectedDefinitionName;
 
   if (!selectedDefinition || !selectedPath) {
     return null;
@@ -195,7 +239,7 @@ export const Badge = () => {
     <>
       <Container>
         <KeyboardTitle onClick={() => setShowList(!showList)}>
-          {selectedDefinitionName}
+          {selectedTitle}
           <FontAwesomeIcon
             icon={faAngleDown}
             style={{

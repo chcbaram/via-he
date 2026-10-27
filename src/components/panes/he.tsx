@@ -159,8 +159,14 @@ import {
   HE_RT_CONT,
 } from 'src/utils/he-api';
 
-/* 매트릭스 열 수. 펌웨어의 키 인덱스가 row * COLS + col 이다. */
-const MATRIX_COLS = 8;
+/*
+ * 매트릭스 크기를 모를 때의 값. 펌웨어의 키 인덱스가 row * 열 수 + col 이다.
+ *
+ * ★ (상류 대비 수정) 예전에는 8 로 박혀 있었다. 6열 보드(wish40-he)를 붙이면 키별
+ *   설정을 **엉뚱한 키에** 읽고 썼다 — 같은 실수를 시험 도구에서 먼저 겪었다. 지금은
+ *   장치가 0xCA 로 알려 주는 행·열을 쓰고, 이 값은 그걸 못 읽는 옛 펌웨어용이다.
+ */
+const MATRIX_DEFAULT = {rows: 8, cols: 8};
 
 /* 1 키유닛을 픽셀로. geo 는 1/4 유닛이라 4로 나눈다. */
 const U = 62;
@@ -737,6 +743,14 @@ export const HePane: React.FC = () => {
     bootOnly ? 'firmware' : 'actuation',
   );
   const [layout, setLayout] = useState<HeKeyGeo[]>([]);
+
+  /*
+   * 매트릭스 크기 — 레이아웃보다 **먼저** 정해진다 (레이아웃을 읽는 effect 참고).
+   * 레이아웃을 쓰는 곳은 전부 이 값으로 키 인덱스를 만드니, 순서가 뒤집히면 잠깐이라도
+   * 8열로 계산된 인덱스로 설정을 읽는다.
+   */
+  const [mtx, setMtx] = useState(MATRIX_DEFAULT);
+  const MATRIX_COLS = mtx.cols;
   const [info, setInfo] = useState<HeTrackInfo | null>(null);
   const [state, setState] = useState<HeKeyState[]>([]);
   const [tracking, setTracking] = useState(false);
@@ -1349,7 +1363,7 @@ export const HePane: React.FC = () => {
   /* 배치에 있는 키의 매트릭스 인덱스 — "모두 선택"과 "반전"의 모집단 */
   const allKeyIndexes = useMemo(
     () => layout.map((g) => g.row * MATRIX_COLS + g.col),
-    [layout],
+    [layout, MATRIX_COLS],
   );
 
   /*
@@ -1506,7 +1520,14 @@ export const HePane: React.FC = () => {
   useEffect(() => {
     if (!api) return;
     let alive = true;
-    heReadLayout(send)
+    heReadHwInfo(send)
+      .then((h) => {
+        if (!alive) return;
+        setHw(h);
+        setMtx({rows: h.rows || MATRIX_DEFAULT.rows, cols: h.cols || MATRIX_DEFAULT.cols});
+      })
+      .catch(() => alive && setMtx(MATRIX_DEFAULT))
+      .then(() => heReadLayout(send))
       .then((l) => alive && setLayout(l))
       .catch((e) => alive && setErr(String(e)));
     heSwCustomAll(send)
@@ -1625,7 +1646,7 @@ export const HePane: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, [api, send, rail, section, cal?.active, layout, dispatch]);
+  }, [api, send, rail, section, cal?.active, layout, dispatch, MATRIX_COLS]);
 
   /*
    * 설정 갈래 — 지금 화면이 **다루는 값**을 키캡에 얹는다.
@@ -1678,7 +1699,7 @@ export const HePane: React.FC = () => {
      * 하나뿐이라, 다른 셋이 바꾸면 서명이 낡아 필요한 갱신을 삼켰다.
      */
     dispatch(setOverlayText(text));
-  }, [rail, section, keyCfgs, layout, dispatch]);
+  }, [rail, section, keyCfgs, layout, dispatch, MATRIX_COLS]);
 
   /*
    * 래피드 트리거가 켜진 키를 키캡 우측 위에 표시한다.
@@ -1733,7 +1754,7 @@ export const HePane: React.FC = () => {
 
     /* 중복 제거는 리듀서가 한다 — 위와 같은 이유다 */
     dispatch(setOverlayBadge(badge));
-  }, [rail, section, keyCfgs, layout, dispatch]);
+  }, [rail, section, keyCfgs, layout, dispatch, MATRIX_COLS]);
 
   /*
    * 설정 갈래에서는 라이브 깊이를 **알아서 켠다.**
@@ -1913,7 +1934,7 @@ export const HePane: React.FC = () => {
     dispatch(setOverlayBars(bars));
     dispatch(setOverlayPressed(pressed));
     dispatch(setOverlayLive(live));
-  }, [state, tracking, rail, layout, info?.travel, showRaw, dispatch]);
+  }, [state, tracking, rail, layout, info?.travel, showRaw, dispatch, MATRIX_COLS]);
 
   /*
    * 프로파일이 바뀌면 읽어 둔 것을 전부 버린다.
@@ -1969,7 +1990,7 @@ export const HePane: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, [api, send, rail, layout, keyCfgs]);
+  }, [api, send, rail, layout, keyCfgs, MATRIX_COLS]);
 
   /*
    * 진단 화면이 열려 있는 동안만 통계를 읽는다.
@@ -2103,7 +2124,7 @@ export const HePane: React.FC = () => {
       alive = false;
       clearTimeout(timer);
     };
-  }, [api, send, cal?.active, layout, dispatch]);
+  }, [api, send, cal?.active, layout, dispatch, MATRIX_COLS]);
 
   /*
    * Esc 로 선택을 푼다.
@@ -2545,7 +2566,7 @@ export const HePane: React.FC = () => {
       const keymapIo = async () => {
         const kb = api as KeyboardAPI;
         const layers = await heLock(() => kb.getLayerCount(), 'layer count');
-        const m = {rows: MATRIX_COLS, cols: MATRIX_COLS};   /* 8 x 8 */
+        const m = mtx;     /* VIA 키맵 버퍼를 행 x 열로 자른다 — 장치 값이어야 한다 */
         return {
           layers,
           read: (l: number) => kb.readRawMatrix(m, l) as Promise<number[]>,

@@ -75,6 +75,21 @@ const W60_PAYLOAD_OFF = 4; /* [0]=cmd [1]=len [2..3]=미사용 [4..]=데이터 *
 const W60_PAYLOAD_MAX = W60_REPORT_LEN - W60_PAYLOAD_OFF;
 const W60_PAGE_SIZE = 4096; /* IAP 내부 페이지 버퍼 */
 
+/* ── wish40-he 부트로더 (0483:5308 / 0xFF53) ──────────────────────────── */
+
+/*
+ * ★ 우리가 만든 부트로더다. **프로토콜은 wish60 것과 같고 신원만 다르다.**
+ *
+ *   wish60 의 534B:4102 를 빌려 쓰지 않은 이유 — 앱이 깨져 부트로더에 머문 보드를
+ *   여기서 wish60 인지 wish40 인지 가를 수 있어야 한다. 같은 ID 면 엉뚱한 보드의
+ *   펌웨어를 권하게 된다. 앱은 0483:5307 이다.
+ */
+const W40_FILTER = {
+  vendorId: 0x0483,
+  productId: 0x5308,
+  usagePage: W60_USAGE_PAGE,
+};
+
 /* ── wish61-he 부트로더 = 벤더 IAP (1CA6:300B / 0xFFB0) ───────────────── */
 
 /*
@@ -392,7 +407,7 @@ function findByUsage(devices: HIDDevice[], vid: number, pid: number, page: numbe
  *
  * 굽는 쪽(iapFlash)은 이 표만 보고 움직인다. 새 보드가 생기면 여기 한 줄이다.
  */
-export type IapId = 'wish60' | 'wish61';
+export type IapId = 'wish60' | 'wish61' | 'wish40';
 
 export type IapSpec = {
   id: IapId;
@@ -445,6 +460,14 @@ export const IAP_SPECS: Record<IapId, IapSpec> = {
   wish60: {
     id: 'wish60',
     filter: W60_FILTER,
+    checkImage: (img) => magicCheck(img, W60_MAGIC, '앞 4바이트가 "HPM\\n" 이 아님'),
+    isBootloader: async () => true,
+    program: (d, img, p) => w60Program(d, img, p),
+  },
+  /* 프로토콜·이미지 형식이 wish60 과 같다 — 필터만 다르다 */
+  wish40: {
+    id: 'wish40',
+    filter: W40_FILTER,
     checkImage: (img) => magicCheck(img, W60_MAGIC, '앞 4바이트가 "HPM\\n" 이 아님'),
     isBootloader: async () => true,
     program: (d, img, p) => w60Program(d, img, p),
