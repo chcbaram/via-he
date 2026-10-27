@@ -3,6 +3,18 @@
   "board": "WISH61-HE",
   "firmwares": [
     {
+      "version": "V261027R1",
+      "board": "WISH61-HE",
+      "date": "2026-10-27",
+      "bin": "V261027R1/wish61-he-V261027R1.bin",
+      "size": 174416,
+      "crc": "0xF9F28BF3",
+      "notes": [
+        "같은 키보드를 두 대 이상 연결하면 VIA HE 의 키보드 목록에 칩 고유 ID 끝 네 자리를 함께 표시해 구분할 수 있습니다",
+        "CLI 의 keys bar mm 로 눌린 깊이를 mm 로 볼 수 있습니다"
+      ]
+    },
+    {
       "version": "V260918R1",
       "board": "WISH61-HE",
       "date": "2026-09-18",
